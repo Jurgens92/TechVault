@@ -4,6 +4,19 @@ import {
   PasswordEntry, Configuration, PaginatedResponse
 } from '../types/core';
 
+// Dashboard APIs
+export const dashboardAPI = {
+  getStats: () =>
+    api.get<{
+      organizations: number;
+      locations: number;
+      contacts: number;
+      documentations: number;
+      passwords: number;
+      configurations: number;
+    }>('/api/dashboard/stats/'),
+};
+
 // Organization APIs
 export const organizationAPI = {
   getAll: (params?: Record<string, any>) =>

@@ -9,6 +9,7 @@ from core.views import (
     OrganizationViewSet, LocationViewSet, ContactViewSet,
     DocumentationViewSet, PasswordEntryViewSet, ConfigurationViewSet
 )
+from .views import dashboard_stats
 
 app_name = 'api'
 
@@ -23,6 +24,9 @@ router.register(r'configurations', ConfigurationViewSet, basename='configuration
 urlpatterns = [
     # Router URLs
     path('', include(router.urls)),
+
+    # Dashboard endpoints
+    path('dashboard/stats/', dashboard_stats, name='dashboard-stats'),
 
     # User endpoints
     path('user/profile/', UserProfileView.as_view(), name='user-profile'),

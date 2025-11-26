@@ -1,18 +1,52 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Shield, Building2, MapPin, Users, FileText, Lock, Wrench, TrendingUp } from 'lucide-react';
+import { dashboardAPI } from '@/services/core';
+
+interface DashboardStats {
+  organizations: number;
+  locations: number;
+  contacts: number;
+  documentations: number;
+  passwords: number;
+  configurations: number;
+}
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
+  const [stats, setStats] = useState<DashboardStats>({
+    organizations: 0,
+    locations: 0,
+    contacts: 0,
+    documentations: 0,
+    passwords: 0,
+    configurations: 0,
+  });
+  const [loading, setLoading] = useState(true);
 
-  const stats = [
-    { label: 'Organizations', value: '0', icon: Building2, color: 'text-blue-500' },
-    { label: 'Locations', value: '0', icon: MapPin, color: 'text-green-500' },
-    { label: 'Contacts', value: '0', icon: Users, color: 'text-purple-500' },
-    { label: 'Documents', value: '0', icon: FileText, color: 'text-orange-500' },
-    { label: 'Passwords', value: '0', icon: Lock, color: 'text-red-500' },
-    { label: 'Configurations', value: '0', icon: Wrench, color: 'text-yellow-500' },
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const response = await dashboardAPI.getStats();
+        setStats(response.data);
+      } catch (error) {
+        console.error('Error fetching dashboard stats:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, []);
+
+  const statsArray = [
+    { label: 'Organizations', value: stats.organizations, icon: Building2, color: 'text-blue-500' },
+    { label: 'Locations', value: stats.locations, icon: MapPin, color: 'text-green-500' },
+    { label: 'Contacts', value: stats.contacts, icon: Users, color: 'text-purple-500' },
+    { label: 'Documents', value: stats.documentations, icon: FileText, color: 'text-orange-500' },
+    { label: 'Passwords', value: stats.passwords, icon: Lock, color: 'text-red-500' },
+    { label: 'Configurations', value: stats.configurations, icon: Wrench, color: 'text-yellow-500' },
   ];
 
   return (
@@ -63,7 +97,7 @@ const Dashboard: React.FC = () => {
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {stats.map((stat) => {
+          {statsArray.map((stat) => {
             const Icon = stat.icon;
             return (
               <Card key={stat.label} className="hover:border-primary/40 transition-colors">
@@ -74,9 +108,9 @@ const Dashboard: React.FC = () => {
                   <Icon className={`h-5 w-5 ${stat.color}`} />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold">{stat.value}</div>
+                  <div className="text-3xl font-bold">{loading ? '...' : stat.value}</div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    No items yet
+                    {stat.value === 0 ? 'No items yet' : `${stat.value} item${stat.value !== 1 ? 's' : ''}`}
                   </p>
                 </CardContent>
               </Card>
