@@ -147,8 +147,13 @@
   }
 
   /* Make primary elements visible */
-  .bg-primary,
-  .bg-primary\\/10 {
+  .bg-primary {
+    background: #e3f2fd !important;
+    color: #1976d2 !important;
+  }
+
+  /* Handle Tailwind opacity classes - using attribute selector to avoid escaping issues */
+  [class*="bg-primary/"] {
     background: #e3f2fd !important;
     color: #1976d2 !important;
   }
