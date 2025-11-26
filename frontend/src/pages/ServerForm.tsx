@@ -100,7 +100,7 @@ export function ServerForm() {
         await serverAPI.create(data);
       }
 
-      navigate('/endpoints');
+      navigate('/endpoints?tab=servers');
     } catch (error) {
       console.error('Failed to save server:', error);
     } finally {

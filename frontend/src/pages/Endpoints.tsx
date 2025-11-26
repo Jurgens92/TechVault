@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { networkDeviceAPI, endpointUserAPI, serverAPI, peripheralAPI } from '@/services/core';
 import type { NetworkDevice, EndpointUser, Server, Peripheral } from '@/types/core';
@@ -9,7 +9,15 @@ import { DeleteConfirmationModal } from '@/components/DeleteConfirmationModal';
 export function Endpoints() {
   const { selectedOrg } = useOrganization();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'network' | 'users' | 'servers' | 'peripherals'>('network');
+  const [searchParams] = useSearchParams();
+
+  // Read the tab from the URL query parameter, default to 'network' if not present
+  const tabFromUrl = searchParams.get('tab') as 'network' | 'users' | 'servers' | 'peripherals' | null;
+  const initialTab = tabFromUrl && ['network', 'users', 'servers', 'peripherals'].includes(tabFromUrl)
+    ? tabFromUrl
+    : 'network';
+
+  const [activeTab, setActiveTab] = useState<'network' | 'users' | 'servers' | 'peripherals'>(initialTab);
   const [networkDevices, setNetworkDevices] = useState<NetworkDevice[]>([]);
   const [endpointUsers, setEndpointUsers] = useState<EndpointUser[]>([]);
   const [servers, setServers] = useState<Server[]>([]);
