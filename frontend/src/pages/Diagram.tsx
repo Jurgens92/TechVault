@@ -53,7 +53,15 @@ export function Diagram() {
 
   return (
     <div className="p-6 space-y-8">
-      <div className="flex justify-between items-start">
+      {/* Organization name - only visible in print */}
+      <div className="hidden print:block">
+        <p className="text-sm text-muted-foreground mb-1">Organization:</p>
+        <h1 className="text-3xl font-bold mb-2">{selectedOrg.name}</h1>
+        <h2 className="text-xl font-semibold">IT Infrastructure Diagram</h2>
+      </div>
+
+      {/* Screen header */}
+      <div className="flex justify-between items-start print:hidden">
         <div>
           <h1 className="text-3xl font-bold">Network Diagram</h1>
           <p className="text-muted-foreground mt-1">
@@ -62,7 +70,7 @@ export function Diagram() {
         </div>
         <button
           onClick={handlePrint}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors print:hidden"
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
         >
           <FileDown className="h-4 w-4" />
           Print / Export PDF

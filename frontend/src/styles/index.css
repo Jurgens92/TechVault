@@ -59,119 +59,278 @@
   @apply transition-colors duration-200;
 }
 
-/* Print Styles */
+/* Print Styles for Professional PDF Output */
 @media print {
-  /* Hide navigation and UI elements */
+  /* Page setup */
+  @page {
+    size: A4 landscape;
+    margin: 1.5cm 1cm;
+  }
+
+  /* Reset everything to print-friendly state */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    box-shadow: none !important;
+  }
+
+  /* Hide UI elements */
   nav,
   aside,
-  .sidebar,
+  header,
   button,
   .print\\:hidden {
     display: none !important;
   }
 
-  /* Reset colors for print - use light backgrounds and dark text */
+  /* Show print-only elements */
+  .print\\:block {
+    display: block !important;
+  }
+
+  .hidden {
+    display: none !important;
+  }
+
+  /* Body and base styles */
   body {
     background: white !important;
-    color: black !important;
+    color: #000 !important;
+    font-size: 9pt !important;
+    line-height: 1.4 !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
-  /* Make all cards and containers print-friendly */
-  .bg-card,
-  .bg-accent,
-  .bg-background {
-    background: white !important;
-    border: 1px solid #e0e0e0 !important;
+  /* Main container */
+  .p-6 {
+    padding: 0 !important;
+    margin: 0 !important;
   }
 
-  /* Ensure text is readable */
-  * {
-    color: black !important;
+  /* Headings */
+  h1 {
+    font-size: 16pt !important;
+    color: #000 !important;
+    font-weight: bold !important;
+    margin-bottom: 0.3cm !important;
+    border-bottom: 2px solid #333 !important;
+    padding-bottom: 0.2cm !important;
   }
 
-  /* Keep icons visible */
-  svg {
-    color: #666 !important;
+  h2 {
+    font-size: 12pt !important;
+    color: #000 !important;
+    font-weight: bold !important;
+    margin-top: 0.4cm !important;
+    margin-bottom: 0.3cm !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.3cm !important;
   }
 
-  /* Optimize page breaks */
+  h3 {
+    font-size: 10pt !important;
+    color: #000 !important;
+    font-weight: 600 !important;
+    margin-bottom: 0.2cm !important;
+  }
+
+  /* Section spacing */
+  .space-y-8 {
+    display: block !important;
+  }
+
   .space-y-8 > * {
-    page-break-inside: avoid;
-    break-inside: avoid;
+    margin-bottom: 0.6cm !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 
-  /* Ensure borders are visible */
-  .border,
-  .border-border {
-    border-color: #e0e0e0 !important;
+  /* Cards and containers */
+  .bg-card,
+  .border {
+    background: white !important;
+    border: 1.5pt solid #ddd !important;
+    border-radius: 4pt !important;
   }
 
-  /* Make sure grid layouts print properly */
+  .rounded-lg {
+    border-radius: 4pt !important;
+  }
+
+  /* Network diagram specific styles */
+  .bg-accent {
+    background: #f5f5f5 !important;
+    border: 1.5pt solid #ddd !important;
+  }
+
+  [class*="bg-primary/"] {
+    background: #e8f4f8 !important;
+    border: 2pt solid #2196f3 !important;
+  }
+
+  /* Connection lines */
+  .bg-border {
+    background: #999 !important;
+  }
+
+  /* Grid layouts */
   .grid {
     display: grid !important;
   }
 
-  /* Ensure all content fits properly */
-  .p-6 {
-    padding: 1rem !important;
+  .grid-cols-1 {
+    grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
   }
 
-  /* Make headings stand out */
-  h1, h2, h3 {
-    color: black !important;
-    font-weight: bold !important;
+  .md\\:grid-cols-2,
+  .lg\\:grid-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 
-  /* Ensure proper spacing */
-  .space-y-8 {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
+  .md\\:grid-cols-3,
+  .lg\\:grid-cols-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   }
 
-  /* Print in landscape for better diagram visibility */
-  @page {
-    size: landscape;
-    margin: 1cm;
+  /* Flex layouts */
+  .flex {
+    display: flex !important;
   }
 
-  /* Remove shadows and hover effects */
-  * {
-    box-shadow: none !important;
+  .flex-col {
+    flex-direction: column !important;
+  }
+
+  .items-center {
+    align-items: center !important;
+  }
+
+  .justify-center {
+    justify-content: center !important;
+  }
+
+  /* Text colors */
+  .text-foreground,
+  .font-medium,
+  .font-semibold {
+    color: #000 !important;
+  }
+
+  .text-muted-foreground {
+    color: #555 !important;
+  }
+
+  .text-primary {
+    color: #1976d2 !important;
+  }
+
+  /* Icons */
+  svg {
+    color: #333 !important;
+    opacity: 0.8 !important;
+  }
+
+  /* Badges and tags */
+  [class*="bg-primary/10"] {
+    background: #e3f2fd !important;
+    color: #1565c0 !important;
+    border: 1pt solid #90caf9 !important;
+  }
+
+  /* Spacing utilities */
+  .gap-2 {
+    gap: 0.15cm !important;
+  }
+
+  .gap-3 {
+    gap: 0.2cm !important;
+  }
+
+  .gap-4 {
+    gap: 0.25cm !important;
+  }
+
+  .gap-6 {
+    gap: 0.35cm !important;
+  }
+
+  .gap-12 {
+    gap: 0.6cm !important;
+  }
+
+  .space-y-1 > * + * {
+    margin-top: 0.1cm !important;
+  }
+
+  .space-y-3 > * + * {
+    margin-top: 0.2cm !important;
+  }
+
+  .space-y-6 > * + * {
+    margin-top: 0.35cm !important;
+  }
+
+  /* Padding utilities */
+  .p-3 {
+    padding: 0.2cm !important;
+  }
+
+  .p-4 {
+    padding: 0.25cm !important;
+  }
+
+  .mb-2 {
+    margin-bottom: 0.15cm !important;
+  }
+
+  .mb-3 {
+    margin-bottom: 0.2cm !important;
+  }
+
+  .mb-4 {
+    margin-bottom: 0.25cm !important;
+  }
+
+  .mt-1 {
+    margin-top: 0.1cm !important;
+  }
+
+  .mt-2 {
+    margin-top: 0.15cm !important;
+  }
+
+  /* Font utilities */
+  .font-mono {
+    font-family: 'Courier New', monospace !important;
+    font-size: 8pt !important;
+  }
+
+  .text-xs {
+    font-size: 8pt !important;
+  }
+
+  .text-sm {
+    font-size: 9pt !important;
+  }
+
+  /* Remove hover effects */
+  .hover\\:border-primary,
+  .transition-colors {
     transition: none !important;
   }
 
-  /* Ensure muted text is still readable */
-  .text-muted-foreground {
-    color: #666 !important;
+  /* Make sure everything is visible */
+  .truncate {
+    overflow: visible !important;
+    text-overflow: clip !important;
+    white-space: normal !important;
   }
 
-  /* Make primary elements visible */
-  .bg-primary {
-    background: #e3f2fd !important;
-    color: #1976d2 !important;
-  }
-
-  /* Handle Tailwind opacity classes - using attribute selector to avoid escaping issues */
-  [class*="bg-primary/"] {
-    background: #e3f2fd !important;
-    color: #1976d2 !important;
-  }
-
-  /* Font adjustments for print */
-  body {
-    font-size: 10pt;
-  }
-
-  h1 {
-    font-size: 18pt;
-  }
-
-  h2 {
-    font-size: 14pt;
-  }
-
-  h3 {
-    font-size: 12pt;
+  /* Better word wrapping */
+  p, span, div {
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
   }
 }
