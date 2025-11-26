@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from dj_rest_auth.registration.serializers import RegisterSerializer as BaseRegisterSerializer
 from dj_rest_auth.serializers import LoginSerializer as BaseLoginSerializer
+from dj_rest_auth.serializers import JWTSerializer as BaseJWTSerializer
 from django.contrib.auth import get_user_model
 from django.contrib.auth import authenticate
 
@@ -23,15 +24,16 @@ class LoginSerializer(BaseLoginSerializer):
     """
     Custom login serializer that uses email instead of username.
     """
-    username = serializers.CharField(
+    username = None  # Remove the default username field
+    email = serializers.EmailField(
         label="Email",
         write_only=True,
+        required=True,
         help_text="User email address"
     )
-    email = None  # Remove the default email field
 
     def validate(self, attrs):
-        email = attrs.get('username')  # 'username' field actually contains email
+        email = attrs.get('email')
         password = attrs.get('password')
 
         if email and password:
@@ -79,3 +81,21 @@ class RegisterSerializer(BaseRegisterSerializer):
             last_name=cleaned_data.get('last_name', ''),
         )
         return user
+
+
+class JWTSerializer(BaseJWTSerializer):
+    """
+    Custom JWT serializer to return tokens with expected field names.
+    Frontend expects 'access_token' and 'refresh_token' instead of 'access' and 'refresh'.
+    """
+    access_token = serializers.CharField(source='access')
+    refresh_token = serializers.CharField(source='refresh')
+
+    class Meta:
+        fields = ['access_token', 'refresh_token', 'user']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Remove the original fields
+        self.fields.pop('access', None)
+        self.fields.pop('refresh', None)

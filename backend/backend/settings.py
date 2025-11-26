@@ -1,6 +1,7 @@
 """
 Django settings for TechVault project.
 """
+import os
 from pathlib import Path
 from datetime import timedelta
 from decouple import config, Csv
@@ -214,6 +215,7 @@ REST_AUTH = {
     'USER_DETAILS_SERIALIZER': 'users.serializers.UserSerializer',
     'LOGIN_SERIALIZER': 'users.serializers.LoginSerializer',
     'REGISTER_SERIALIZER': 'users.serializers.RegisterSerializer',
+    'JWT_SERIALIZER': 'users.serializers.JWTSerializer',
 }
 
 # Social Account Providers
