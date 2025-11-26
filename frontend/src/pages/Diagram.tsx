@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { diagramAPI } from '@/services/core';
 import type { DiagramData } from '@/types/core';
-import { Loader2, Network, Monitor, HardDrive, Printer, Globe, Shield, Wifi, Cpu, MemoryStick, Database } from 'lucide-react';
+import { Loader2, Network, Monitor, HardDrive, Printer, Globe, Shield, Wifi, Cpu, MemoryStick, Database, FileDown } from 'lucide-react';
 
 export function Diagram() {
   const { selectedOrg } = useOrganization();
@@ -47,13 +47,26 @@ export function Diagram() {
     );
   }
 
+  const handlePrint = () => {
+    window.print();
+  };
+
   return (
     <div className="p-6 space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold">Network Diagram</h1>
-        <p className="text-muted-foreground mt-1">
-          Visual representation of your IT infrastructure
-        </p>
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-bold">Network Diagram</h1>
+          <p className="text-muted-foreground mt-1">
+            Visual representation of your IT infrastructure
+          </p>
+        </div>
+        <button
+          onClick={handlePrint}
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors print:hidden"
+        >
+          <FileDown className="h-4 w-4" />
+          Print / Export PDF
+        </button>
       </div>
 
       {data && (
@@ -336,12 +349,7 @@ function UserEndpointsDiagram({ endpoints }: { endpoints: DiagramData['endpoint_
         <div>
           <h3 className="text-sm font-semibold mb-3">Desktops ({desktops.length})</h3>
           <div className="space-y-3">
-            {desktops.slice(0, 5).map(renderEndpoint)}
-            {desktops.length > 5 && (
-              <p className="text-xs text-muted-foreground text-center pt-2">
-                +{desktops.length - 5} more
-              </p>
-            )}
+            {desktops.map(renderEndpoint)}
           </div>
         </div>
       )}
@@ -350,12 +358,7 @@ function UserEndpointsDiagram({ endpoints }: { endpoints: DiagramData['endpoint_
         <div>
           <h3 className="text-sm font-semibold mb-3">Laptops ({laptops.length})</h3>
           <div className="space-y-3">
-            {laptops.slice(0, 5).map(renderEndpoint)}
-            {laptops.length > 5 && (
-              <p className="text-xs text-muted-foreground text-center pt-2">
-                +{laptops.length - 5} more
-              </p>
-            )}
+            {laptops.map(renderEndpoint)}
           </div>
         </div>
       )}
@@ -364,12 +367,7 @@ function UserEndpointsDiagram({ endpoints }: { endpoints: DiagramData['endpoint_
         <div>
           <h3 className="text-sm font-semibold mb-3">Workstations ({workstations.length})</h3>
           <div className="space-y-3">
-            {workstations.slice(0, 5).map(renderEndpoint)}
-            {workstations.length > 5 && (
-              <p className="text-xs text-muted-foreground text-center pt-2">
-                +{workstations.length - 5} more
-              </p>
-            )}
+            {workstations.map(renderEndpoint)}
           </div>
         </div>
       )}

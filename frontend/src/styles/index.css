@@ -58,3 +58,115 @@
 * {
   @apply transition-colors duration-200;
 }
+
+/* Print Styles */
+@media print {
+  /* Hide navigation and UI elements */
+  nav,
+  aside,
+  .sidebar,
+  button,
+  .print\\:hidden {
+    display: none !important;
+  }
+
+  /* Reset colors for print - use light backgrounds and dark text */
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Make all cards and containers print-friendly */
+  .bg-card,
+  .bg-accent,
+  .bg-background {
+    background: white !important;
+    border: 1px solid #e0e0e0 !important;
+  }
+
+  /* Ensure text is readable */
+  * {
+    color: black !important;
+  }
+
+  /* Keep icons visible */
+  svg {
+    color: #666 !important;
+  }
+
+  /* Optimize page breaks */
+  .space-y-8 > * {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Ensure borders are visible */
+  .border,
+  .border-border {
+    border-color: #e0e0e0 !important;
+  }
+
+  /* Make sure grid layouts print properly */
+  .grid {
+    display: grid !important;
+  }
+
+  /* Ensure all content fits properly */
+  .p-6 {
+    padding: 1rem !important;
+  }
+
+  /* Make headings stand out */
+  h1, h2, h3 {
+    color: black !important;
+    font-weight: bold !important;
+  }
+
+  /* Ensure proper spacing */
+  .space-y-8 {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  /* Print in landscape for better diagram visibility */
+  @page {
+    size: landscape;
+    margin: 1cm;
+  }
+
+  /* Remove shadows and hover effects */
+  * {
+    box-shadow: none !important;
+    transition: none !important;
+  }
+
+  /* Ensure muted text is still readable */
+  .text-muted-foreground {
+    color: #666 !important;
+  }
+
+  /* Make primary elements visible */
+  .bg-primary,
+  .bg-primary\\/10 {
+    background: #e3f2fd !important;
+    color: #1976d2 !important;
+  }
+
+  /* Font adjustments for print */
+  body {
+    font-size: 10pt;
+  }
+
+  h1 {
+    font-size: 18pt;
+  }
+
+  h2 {
+    font-size: 14pt;
+  }
+
+  h3 {
+    font-size: 12pt;
+  }
+}
