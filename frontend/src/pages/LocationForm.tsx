@@ -3,19 +3,20 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { locationAPI, organizationAPI } from '../services/core';
-import { Location, Organization } from '../types/core';
+import { locationAPI } from '../services/core';
+import { Location } from '../types/core';
 import { ArrowLeft } from 'lucide-react';
+import { useOrganization } from '../contexts/OrganizationContext';
 
 export const LocationForm: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id?: string }>();
+  const { selectedOrg } = useOrganization();
   const isEditMode = !!id && id !== 'new';
 
   const [loading, setLoading] = useState(isEditMode);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [formData, setFormData] = useState<Partial<Location>>({
     name: '',
     description: '',
@@ -29,18 +30,15 @@ export const LocationForm: React.FC = () => {
   });
 
   useEffect(() => {
-    fetchOrganizations();
-    if (isEditMode && id) fetchLocation();
-  }, [id, isEditMode]);
-
-  const fetchOrganizations = async () => {
-    try {
-      const response = await organizationAPI.getAll();
-      setOrganizations(response.data.results);
-    } catch (err) {
-      console.error('Failed to load organizations', err);
+    if (isEditMode && id) {
+      fetchLocation();
+    } else {
+      // Set organization from context when creating new entry
+      if (selectedOrg) {
+        setFormData(prev => ({ ...prev, organization: selectedOrg.id }));
+      }
     }
-  };
+  }, [id, isEditMode, selectedOrg]);
 
   const fetchLocation = async () => {
     try {
@@ -95,22 +93,6 @@ export const LocationForm: React.FC = () => {
         {error && <div className="mb-6 p-4 bg-red-900/20 border border-red-700 rounded-lg text-red-200">{error}</div>}
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Organization *</label>
-            <select
-              name="organization"
-              value={formData.organization || ''}
-              onChange={handleChange}
-              required
-              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none"
-            >
-              <option value="">Select organization</option>
-              {organizations.map(org => (
-                <option key={org.id} value={org.id}>{org.name}</option>
-              ))}
-            </select>
-          </div>
-
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">Location Name *</label>
             <Input

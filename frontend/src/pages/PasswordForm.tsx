@@ -3,18 +3,19 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { passwordAPI, organizationAPI } from '../services/core';
-import { PasswordEntry, Organization } from '../types/core';
+import { passwordAPI } from '../services/core';
+import { PasswordEntry } from '../types/core';
 import { ArrowLeft } from 'lucide-react';
+import { useOrganization } from '../contexts/OrganizationContext';
 
 export const PasswordForm: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id?: string }>();
+  const { selectedOrg } = useOrganization();
   const isEditMode = !!id && id !== 'new';
   const [loading, setLoading] = useState(isEditMode);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [formData, setFormData] = useState<Partial<PasswordEntry>>({
     name: '',
     username: '',
@@ -25,13 +26,16 @@ export const PasswordForm: React.FC = () => {
   });
 
   useEffect(() => {
-    organizationAPI.getAll().then(r => setOrganizations(r.data.results)).catch(() => {});
     if (isEditMode && id) {
       passwordAPI.getById(id).then(r => setFormData(r.data)).finally(() => setLoading(false)).catch(() => {});
     } else {
+      // Set organization from context when creating new entry
+      if (selectedOrg) {
+        setFormData(prev => ({ ...prev, organization: selectedOrg.id }));
+      }
       setLoading(false);
     }
-  }, [id, isEditMode]);
+  }, [id, isEditMode, selectedOrg]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -69,14 +73,6 @@ export const PasswordForm: React.FC = () => {
         {error && <div className="mb-6 p-4 bg-red-900/20 border border-red-700 rounded-lg text-red-200">{error}</div>}
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Organization *</label>
-            <select name="organization" value={formData.organization || ''} onChange={handleChange} required className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white">
-              <option value="">Select organization</option>
-              {organizations.map(org => <option key={org.id} value={org.id}>{org.name}</option>)}
-            </select>
-          </div>
-
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">Name *</label>
             <Input type="text" name="name" value={formData.name || ''} onChange={handleChange} placeholder="e.g., Company Mail Server" required className="bg-gray-700 border-gray-600 text-white" />
