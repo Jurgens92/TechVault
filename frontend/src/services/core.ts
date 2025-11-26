@@ -7,103 +7,103 @@ import {
 // Organization APIs
 export const organizationAPI = {
   getAll: (params?: Record<string, any>) =>
-    api.get<PaginatedResponse<Organization>>('/organizations/', { params }),
+    api.get<PaginatedResponse<Organization>>('/api/organizations/', { params }),
   getById: (id: string) =>
-    api.get<Organization>(`/organizations/${id}/`),
+    api.get<Organization>(`/api/organizations/${id}/`),
   create: (data: Partial<Organization>) =>
-    api.post<Organization>('/organizations/', data),
+    api.post<Organization>('/api/organizations/', data),
   update: (id: string, data: Partial<Organization>) =>
-    api.patch<Organization>(`/organizations/${id}/`, data),
+    api.patch<Organization>(`/api/organizations/${id}/`, data),
   delete: (id: string) =>
-    api.delete(`/organizations/${id}/`),
+    api.delete(`/api/organizations/${id}/`),
   search: (q: string) =>
-    api.get<Organization[]>('/organizations/search/', { params: { q } }),
+    api.get<Organization[]>('/api/organizations/search/', { params: { q } }),
   getStats: (id: string) =>
-    api.get(`/organizations/${id}/stats/`),
+    api.get(`/api/organizations/${id}/stats/`),
 };
 
 // Location APIs
 export const locationAPI = {
   getAll: (params?: Record<string, any>) =>
-    api.get<PaginatedResponse<Location>>('/locations/', { params }),
+    api.get<PaginatedResponse<Location>>('/api/locations/', { params }),
   getById: (id: string) =>
-    api.get<Location>(`/locations/${id}/`),
+    api.get<Location>(`/api/locations/${id}/`),
   create: (data: Partial<Location>) =>
-    api.post<Location>('/locations/', data),
+    api.post<Location>('/api/locations/', data),
   update: (id: string, data: Partial<Location>) =>
-    api.patch<Location>(`/locations/${id}/`, data),
+    api.patch<Location>(`/api/locations/${id}/`, data),
   delete: (id: string) =>
-    api.delete(`/locations/${id}/`),
+    api.delete(`/api/locations/${id}/`),
   byOrganization: (organizationId: string) =>
-    api.get<Location[]>('/locations/by_organization/', { params: { organization_id: organizationId } }),
+    api.get<Location[]>('/api/locations/by_organization/', { params: { organization_id: organizationId } }),
 };
 
 // Contact APIs
 export const contactAPI = {
   getAll: (params?: Record<string, any>) =>
-    api.get<PaginatedResponse<Contact>>('/contacts/', { params }),
+    api.get<PaginatedResponse<Contact>>('/api/contacts/', { params }),
   getById: (id: string) =>
-    api.get<Contact>(`/contacts/${id}/`),
+    api.get<Contact>(`/api/contacts/${id}/`),
   create: (data: Partial<Contact>) =>
-    api.post<Contact>('/contacts/', data),
+    api.post<Contact>('/api/contacts/', data),
   update: (id: string, data: Partial<Contact>) =>
-    api.patch<Contact>(`/contacts/${id}/`, data),
+    api.patch<Contact>(`/api/contacts/${id}/`, data),
   delete: (id: string) =>
-    api.delete(`/contacts/${id}/`),
+    api.delete(`/api/contacts/${id}/`),
   byOrganization: (organizationId: string) =>
-    api.get<Contact[]>('/contacts/by_organization/', { params: { organization_id: organizationId } }),
+    api.get<Contact[]>('/api/contacts/by_organization/', { params: { organization_id: organizationId } }),
   byLocation: (locationId: string) =>
-    api.get<Contact[]>('/contacts/by_location/', { params: { location_id: locationId } }),
+    api.get<Contact[]>('/api/contacts/by_location/', { params: { location_id: locationId } }),
 };
 
 // Documentation APIs
 export const documentationAPI = {
   getAll: (params?: Record<string, any>) =>
-    api.get<PaginatedResponse<Documentation>>('/documentations/', { params }),
+    api.get<PaginatedResponse<Documentation>>('/api/documentations/', { params }),
   getById: (id: string) =>
-    api.get<Documentation>(`/documentations/${id}/`),
+    api.get<Documentation>(`/api/documentations/${id}/`),
   create: (data: Partial<Documentation>) =>
-    api.post<Documentation>('/documentations/', data),
+    api.post<Documentation>('/api/documentations/', data),
   update: (id: string, data: Partial<Documentation>) =>
-    api.patch<Documentation>(`/documentations/${id}/`, data),
+    api.patch<Documentation>(`/api/documentations/${id}/`, data),
   delete: (id: string) =>
-    api.delete(`/documentations/${id}/`),
+    api.delete(`/api/documentations/${id}/`),
   byOrganization: (organizationId: string) =>
-    api.get<Documentation[]>('/documentations/by_organization/', { params: { organization_id: organizationId } }),
+    api.get<Documentation[]>('/api/documentations/by_organization/', { params: { organization_id: organizationId } }),
   publish: (id: string) =>
-    api.post(`/documentations/${id}/publish/`, {}),
+    api.post(`/api/documentations/${id}/publish/`, {}),
   unpublish: (id: string) =>
-    api.post(`/documentations/${id}/unpublish/`, {}),
+    api.post(`/api/documentations/${id}/unpublish/`, {}),
 };
 
 // Password Entry APIs
 export const passwordAPI = {
   getAll: (params?: Record<string, any>) =>
-    api.get<PaginatedResponse<PasswordEntry>>('/passwords/', { params }),
+    api.get<PaginatedResponse<PasswordEntry>>('/api/passwords/', { params }),
   getById: (id: string) =>
-    api.get<PasswordEntry>(`/passwords/${id}/`),
+    api.get<PasswordEntry>(`/api/passwords/${id}/`),
   create: (data: Partial<PasswordEntry>) =>
-    api.post<PasswordEntry>('/passwords/', data),
+    api.post<PasswordEntry>('/api/passwords/', data),
   update: (id: string, data: Partial<PasswordEntry>) =>
-    api.patch<PasswordEntry>(`/passwords/${id}/`, data),
+    api.patch<PasswordEntry>(`/api/passwords/${id}/`, data),
   delete: (id: string) =>
-    api.delete(`/passwords/${id}/`),
+    api.delete(`/api/passwords/${id}/`),
   byOrganization: (organizationId: string) =>
-    api.get<PasswordEntry[]>('/passwords/by_organization/', { params: { organization_id: organizationId } }),
+    api.get<PasswordEntry[]>('/api/passwords/by_organization/', { params: { organization_id: organizationId } }),
 };
 
 // Configuration APIs
 export const configurationAPI = {
   getAll: (params?: Record<string, any>) =>
-    api.get<PaginatedResponse<Configuration>>('/configurations/', { params }),
+    api.get<PaginatedResponse<Configuration>>('/api/configurations/', { params }),
   getById: (id: string) =>
-    api.get<Configuration>(`/configurations/${id}/`),
+    api.get<Configuration>(`/api/configurations/${id}/`),
   create: (data: Partial<Configuration>) =>
-    api.post<Configuration>('/configurations/', data),
+    api.post<Configuration>('/api/configurations/', data),
   update: (id: string, data: Partial<Configuration>) =>
-    api.patch<Configuration>(`/configurations/${id}/`, data),
+    api.patch<Configuration>(`/api/configurations/${id}/`, data),
   delete: (id: string) =>
-    api.delete(`/configurations/${id}/`),
+    api.delete(`/api/configurations/${id}/`),
   byOrganization: (organizationId: string) =>
-    api.get<Configuration[]>('/configurations/by_organization/', { params: { organization_id: organizationId } }),
+    api.get<Configuration[]>('/api/configurations/by_organization/', { params: { organization_id: organizationId } }),
 };
