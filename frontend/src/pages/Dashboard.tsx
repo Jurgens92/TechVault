@@ -155,7 +155,7 @@ const Dashboard: React.FC = () => {
         <div className="mt-8 p-4 bg-muted/50 rounded-lg border border-border">
           <p className="text-sm text-muted-foreground text-center">
             <Shield className="inline h-4 w-4 mr-1" />
-            Your data is secured with enterprise-grade encryption and access controls
+            TechVault
           </p>
         </div>
       </div>
