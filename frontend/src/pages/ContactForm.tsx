@@ -3,19 +3,20 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { contactAPI, organizationAPI } from '../services/core';
-import { Contact, Organization } from '../types/core';
+import { contactAPI } from '../services/core';
+import { Contact } from '../types/core';
 import { ArrowLeft } from 'lucide-react';
+import { useOrganization } from '../contexts/OrganizationContext';
 
 export const ContactForm: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id?: string }>();
+  const { selectedOrg } = useOrganization();
   const isEditMode = !!id && id !== 'new';
 
   const [loading, setLoading] = useState(isEditMode);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [formData, setFormData] = useState<Partial<Contact>>({
     first_name: '',
     last_name: '',
@@ -28,13 +29,16 @@ export const ContactForm: React.FC = () => {
   });
 
   useEffect(() => {
-    organizationAPI.getAll().then(r => setOrganizations(r.data.results)).catch(() => {});
     if (isEditMode && id) {
       contactAPI.getById(id).then(r => setFormData(r.data)).finally(() => setLoading(false)).catch(() => {});
     } else {
+      // Set organization from context when creating new entry
+      if (selectedOrg) {
+        setFormData(prev => ({ ...prev, organization: selectedOrg.id }));
+      }
       setLoading(false);
     }
-  }, [id, isEditMode]);
+  }, [id, isEditMode, selectedOrg]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -75,20 +79,6 @@ export const ContactForm: React.FC = () => {
         {error && <div className="mb-6 p-4 bg-red-900/20 border border-red-700 rounded-lg text-red-200">{error}</div>}
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Organization *</label>
-            <select
-              name="organization"
-              value={formData.organization || ''}
-              onChange={handleChange}
-              required
-              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white"
-            >
-              <option value="">Select organization</option>
-              {organizations.map(org => <option key={org.id} value={org.id}>{org.name}</option>)}
-            </select>
-          </div>
-
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">First Name *</label>
