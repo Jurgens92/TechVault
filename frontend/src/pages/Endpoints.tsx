@@ -3,7 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { networkDeviceAPI, endpointUserAPI, serverAPI, peripheralAPI } from '@/services/core';
 import type { NetworkDevice, EndpointUser, Server, Peripheral } from '@/types/core';
-import { Plus, Network, Monitor, HardDrive, Printer, Loader2 } from 'lucide-react';
+import { Plus, Network, Monitor, HardDrive, Printer, Loader2, Edit, Trash2 } from 'lucide-react';
+import { DeleteConfirmationModal } from '@/components/DeleteConfirmationModal';
 
 export function Endpoints() {
   const { selectedOrg } = useOrganization();
@@ -14,6 +15,12 @@ export function Endpoints() {
   const [servers, setServers] = useState<Server[]>([]);
   const [peripherals, setPeripherals] = useState<Peripheral[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleteModal, setDeleteModal] = useState<{
+    isOpen: boolean;
+    itemId: string;
+    itemName: string;
+    itemType: 'network' | 'user' | 'server' | 'peripheral';
+  } | null>(null);
 
   useEffect(() => {
     loadEndpoints();
@@ -39,6 +46,59 @@ export function Endpoints() {
       console.error('Failed to load endpoints:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleEdit = (id: string, type: 'network' | 'user' | 'server' | 'peripheral') => {
+    const routes = {
+      network: `/network-devices/${id}/edit`,
+      user: `/endpoint-users/${id}/edit`,
+      server: `/servers/${id}/edit`,
+      peripheral: `/peripherals/${id}/edit`,
+    };
+    navigate(routes[type]);
+  };
+
+  const handleDeleteClick = (id: string, name: string, type: 'network' | 'user' | 'server' | 'peripheral') => {
+    setDeleteModal({
+      isOpen: true,
+      itemId: id,
+      itemName: name,
+      itemType: type,
+    });
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteModal) return;
+
+    try {
+      const apiMap = {
+        network: networkDeviceAPI,
+        user: endpointUserAPI,
+        server: serverAPI,
+        peripheral: peripheralAPI,
+      };
+
+      await apiMap[deleteModal.itemType].delete(deleteModal.itemId);
+
+      // Update local state to remove deleted item
+      switch (deleteModal.itemType) {
+        case 'network':
+          setNetworkDevices((prev) => prev.filter((d) => d.id !== deleteModal.itemId));
+          break;
+        case 'user':
+          setEndpointUsers((prev) => prev.filter((u) => u.id !== deleteModal.itemId));
+          break;
+        case 'server':
+          setServers((prev) => prev.filter((s) => s.id !== deleteModal.itemId));
+          break;
+        case 'peripheral':
+          setPeripherals((prev) => prev.filter((p) => p.id !== deleteModal.itemId));
+          break;
+      }
+    } catch (error) {
+      console.error('Failed to delete item:', error);
+      throw error; // Re-throw so the modal can handle the error state
     }
   };
 
@@ -118,17 +178,65 @@ export function Endpoints() {
         </div>
       ) : (
         <>
-          {activeTab === 'network' && <NetworkDevicesList devices={networkDevices} />}
-          {activeTab === 'users' && <EndpointUsersList users={endpointUsers} />}
-          {activeTab === 'servers' && <ServersList servers={servers} />}
-          {activeTab === 'peripherals' && <PeripheralsList peripherals={peripherals} />}
+          {activeTab === 'network' && (
+            <NetworkDevicesList
+              devices={networkDevices}
+              onEdit={(id) => handleEdit(id, 'network')}
+              onDelete={(id, name) => handleDeleteClick(id, name, 'network')}
+            />
+          )}
+          {activeTab === 'users' && (
+            <EndpointUsersList
+              users={endpointUsers}
+              onEdit={(id) => handleEdit(id, 'user')}
+              onDelete={(id, name) => handleDeleteClick(id, name, 'user')}
+            />
+          )}
+          {activeTab === 'servers' && (
+            <ServersList
+              servers={servers}
+              onEdit={(id) => handleEdit(id, 'server')}
+              onDelete={(id, name) => handleDeleteClick(id, name, 'server')}
+            />
+          )}
+          {activeTab === 'peripherals' && (
+            <PeripheralsList
+              peripherals={peripherals}
+              onEdit={(id) => handleEdit(id, 'peripheral')}
+              onDelete={(id, name) => handleDeleteClick(id, name, 'peripheral')}
+            />
+          )}
         </>
       )}
+
+      <DeleteConfirmationModal
+        isOpen={deleteModal?.isOpen ?? false}
+        onClose={() => setDeleteModal(null)}
+        onConfirm={handleDeleteConfirm}
+        itemName={deleteModal?.itemName ?? ''}
+        itemType={
+          deleteModal?.itemType === 'network'
+            ? 'Network Device'
+            : deleteModal?.itemType === 'user'
+            ? 'Endpoint User'
+            : deleteModal?.itemType === 'server'
+            ? 'Server'
+            : 'Peripheral'
+        }
+      />
     </div>
   );
 }
 
-function NetworkDevicesList({ devices }: { devices: NetworkDevice[] }) {
+function NetworkDevicesList({
+  devices,
+  onEdit,
+  onDelete,
+}: {
+  devices: NetworkDevice[];
+  onEdit: (id: string) => void;
+  onDelete: (id: string, name: string) => void;
+}) {
   return (
     <div className="space-y-4">
       {devices.length === 0 ? (
@@ -148,9 +256,25 @@ function NetworkDevicesList({ devices }: { devices: NetworkDevice[] }) {
             >
               <div className="flex items-start justify-between mb-2">
                 <h3 className="font-semibold">{device.name}</h3>
-                <span className="text-xs px-2 py-1 rounded bg-accent">
-                  {device.device_type}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs px-2 py-1 rounded bg-accent">
+                    {device.device_type}
+                  </span>
+                  <button
+                    onClick={() => onEdit(device.id)}
+                    className="text-muted-foreground hover:text-primary transition-colors"
+                    title="Edit"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => onDelete(device.id, device.name)}
+                    className="text-muted-foreground hover:text-destructive transition-colors"
+                    title="Delete"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
               {device.manufacturer && (
                 <p className="text-sm text-muted-foreground">
@@ -173,7 +297,15 @@ function NetworkDevicesList({ devices }: { devices: NetworkDevice[] }) {
   );
 }
 
-function EndpointUsersList({ users }: { users: EndpointUser[] }) {
+function EndpointUsersList({
+  users,
+  onEdit,
+  onDelete,
+}: {
+  users: EndpointUser[];
+  onEdit: (id: string) => void;
+  onDelete: (id: string, name: string) => void;
+}) {
   return (
     <div className="space-y-4">
       {users.length === 0 ? (
@@ -193,9 +325,25 @@ function EndpointUsersList({ users }: { users: EndpointUser[] }) {
             >
               <div className="flex items-start justify-between mb-2">
                 <h3 className="font-semibold">{user.name}</h3>
-                <span className="text-xs px-2 py-1 rounded bg-accent">
-                  {user.device_type}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs px-2 py-1 rounded bg-accent">
+                    {user.device_type}
+                  </span>
+                  <button
+                    onClick={() => onEdit(user.id)}
+                    className="text-muted-foreground hover:text-primary transition-colors"
+                    title="Edit"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => onDelete(user.id, user.name)}
+                    className="text-muted-foreground hover:text-destructive transition-colors"
+                    title="Delete"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
               {user.assigned_to_name && (
                 <p className="text-sm text-muted-foreground">User: {user.assigned_to_name}</p>
@@ -216,7 +364,15 @@ function EndpointUsersList({ users }: { users: EndpointUser[] }) {
   );
 }
 
-function ServersList({ servers }: { servers: Server[] }) {
+function ServersList({
+  servers,
+  onEdit,
+  onDelete,
+}: {
+  servers: Server[];
+  onEdit: (id: string) => void;
+  onDelete: (id: string, name: string) => void;
+}) {
   return (
     <div className="space-y-4">
       {servers.length === 0 ? (
@@ -236,9 +392,25 @@ function ServersList({ servers }: { servers: Server[] }) {
             >
               <div className="flex items-start justify-between mb-2">
                 <h3 className="font-semibold">{server.name}</h3>
-                <span className="text-xs px-2 py-1 rounded bg-accent">
-                  {server.server_type}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs px-2 py-1 rounded bg-accent">
+                    {server.server_type}
+                  </span>
+                  <button
+                    onClick={() => onEdit(server.id)}
+                    className="text-muted-foreground hover:text-primary transition-colors"
+                    title="Edit"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => onDelete(server.id, server.name)}
+                    className="text-muted-foreground hover:text-destructive transition-colors"
+                    title="Delete"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
               {server.role && (
                 <p className="text-sm text-muted-foreground">Role: {server.role}</p>
@@ -262,7 +434,15 @@ function ServersList({ servers }: { servers: Server[] }) {
   );
 }
 
-function PeripheralsList({ peripherals }: { peripherals: Peripheral[] }) {
+function PeripheralsList({
+  peripherals,
+  onEdit,
+  onDelete,
+}: {
+  peripherals: Peripheral[];
+  onEdit: (id: string) => void;
+  onDelete: (id: string, name: string) => void;
+}) {
   return (
     <div className="space-y-4">
       {peripherals.length === 0 ? (
@@ -282,9 +462,25 @@ function PeripheralsList({ peripherals }: { peripherals: Peripheral[] }) {
             >
               <div className="flex items-start justify-between mb-2">
                 <h3 className="font-semibold">{peripheral.name}</h3>
-                <span className="text-xs px-2 py-1 rounded bg-accent">
-                  {peripheral.device_type}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs px-2 py-1 rounded bg-accent">
+                    {peripheral.device_type}
+                  </span>
+                  <button
+                    onClick={() => onEdit(peripheral.id)}
+                    className="text-muted-foreground hover:text-primary transition-colors"
+                    title="Edit"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => onDelete(peripheral.id, peripheral.name)}
+                    className="text-muted-foreground hover:text-destructive transition-colors"
+                    title="Delete"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
               {peripheral.manufacturer && (
                 <p className="text-sm text-muted-foreground">
