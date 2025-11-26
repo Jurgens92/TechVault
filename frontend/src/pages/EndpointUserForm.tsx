@@ -114,7 +114,7 @@ export function EndpointUserForm() {
         await endpointUserAPI.create(data);
       }
 
-      navigate('/endpoints');
+      navigate('/endpoints?tab=users');
     } catch (error) {
       console.error('Failed to save endpoint:', error);
     } finally {

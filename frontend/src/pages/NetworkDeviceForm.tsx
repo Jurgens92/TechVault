@@ -92,7 +92,7 @@ export function NetworkDeviceForm() {
         await networkDeviceAPI.create(data);
       }
 
-      navigate('/endpoints');
+      navigate('/endpoints?tab=network');
     } catch (error) {
       console.error('Failed to save device:', error);
     } finally {

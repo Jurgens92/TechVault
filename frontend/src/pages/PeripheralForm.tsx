@@ -86,7 +86,7 @@ export function PeripheralForm() {
         await peripheralAPI.create(data);
       }
 
-      navigate('/endpoints');
+      navigate('/endpoints?tab=peripherals');
     } catch (error) {
       console.error('Failed to save peripheral:', error);
     } finally {
