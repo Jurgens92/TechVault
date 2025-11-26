@@ -37,7 +37,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
     { id: 'organizations', label: 'Organizations', icon: Building2, path: '/organizations' },
     { id: 'locations', label: 'Locations', icon: MapPin, path: '/locations' },
     { id: 'contacts', label: 'Contacts', icon: Users, path: '/contacts' },
-    { id: 'documentation', label: 'Documentation', icon: FileText, path: '/documentation' },
+    { id: 'documentation', label: 'Documentation', icon: FileText, path: '/documentations' },
     { id: 'passwords', label: 'Passwords', icon: Lock, path: '/passwords' },
     { id: 'configurations', label: 'Configurations', icon: Wrench, path: '/configurations' },
     { id: 'settings', label: 'Settings', icon: SettingsIcon, path: '/settings' },

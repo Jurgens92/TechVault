@@ -1,6 +1,5 @@
 import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import DashboardLayout from '@/components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Shield, Building2, MapPin, Users, FileText, Lock, Wrench, TrendingUp } from 'lucide-react';
 
@@ -17,8 +16,7 @@ const Dashboard: React.FC = () => {
   ];
 
   return (
-    <DashboardLayout>
-      <div className="p-8">
+    <div className="p-8">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-2">
@@ -94,7 +92,7 @@ const Dashboard: React.FC = () => {
               { label: 'Add Organization', path: '/organizations', icon: Building2 },
               { label: 'Add Location', path: '/locations', icon: MapPin },
               { label: 'Add Contact', path: '/contacts', icon: Users },
-              { label: 'Create Document', path: '/documentation', icon: FileText },
+              { label: 'Create Document', path: '/documentations', icon: FileText },
             ].map((action) => {
               const Icon = action.icon;
               return (
@@ -120,7 +118,6 @@ const Dashboard: React.FC = () => {
           </p>
         </div>
       </div>
-    </DashboardLayout>
   );
 };
 

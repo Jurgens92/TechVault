@@ -24,6 +24,7 @@ import { PasswordForm } from '@/pages/PasswordForm';
 import { Configurations } from '@/pages/Configurations';
 import { ConfigurationDetail } from '@/pages/ConfigurationDetail';
 import { ConfigurationForm } from '@/pages/ConfigurationForm';
+import Settings from '@/pages/Settings';
 
 function App() {
   return (
@@ -65,6 +66,7 @@ function App() {
             <Route path="configurations/:id" element={<ConfigurationDetail />} />
             <Route path="configurations/:id/edit" element={<ConfigurationForm />} />
             <Route path="configurations/new" element={<ConfigurationForm />} />
+            <Route path="settings" element={<Settings />} />
           </Route>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
