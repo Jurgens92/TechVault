@@ -187,14 +187,14 @@ export async function exportAsPDF(
   yPosition += 30;
 
   // Helper function to draw section header
-  const drawSectionHeader = (title: string, icon: string): void => {
+  const drawSectionHeader = (title: string): void => {
     checkPageBreak(20);
     pdf.setFillColor(...primaryColor);
     pdf.roundedRect(margin, yPosition, contentWidth, 10, 2, 2, 'F');
     pdf.setTextColor(255, 255, 255);
     pdf.setFontSize(12);
     pdf.setFont('helvetica', 'bold');
-    pdf.text(`${icon}  ${title}`, margin + 5, yPosition + 7);
+    pdf.text(title, margin + 5, yPosition + 7);
     yPosition += 15;
   };
 
@@ -212,30 +212,44 @@ export async function exportAsPDF(
     pdf.setDrawColor(200, 200, 200);
     pdf.roundedRect(x, y, width, height, 2, 2, 'FD');
 
-    // Title
+    // Title with proper text wrapping
     pdf.setTextColor(...darkColor);
     pdf.setFontSize(10);
     pdf.setFont('helvetica', 'bold');
-    pdf.text(title, x + 3, y + 6, { maxWidth: width - 6 });
+
+    // Split title into lines if too long
+    const titleLines = pdf.splitTextToSize(title, width - 6);
+    const titleHeight = titleLines.length * 4;
+    let currentY = y + 6;
+
+    // Only show first 2 lines of title to prevent overflow
+    titleLines.slice(0, 2).forEach((line: string) => {
+      pdf.text(line, x + 3, currentY);
+      currentY += 4;
+    });
 
     // Details
     pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(8);
     pdf.setTextColor(...grayColor);
 
-    let detailY = y + 12;
+    let detailY = y + Math.min(titleHeight + 6, 14);
     details.forEach((detail) => {
       if (detail.value && detailY < y + height - 3) {
         const text = `${detail.label}: ${detail.value}`;
-        pdf.text(text, x + 3, detailY, { maxWidth: width - 6 });
-        detailY += 4;
+        // Truncate text if too long
+        const lines = pdf.splitTextToSize(text, width - 6);
+        if (lines[0]) {
+          pdf.text(lines[0], x + 3, detailY);
+          detailY += 4;
+        }
       }
     });
   };
 
   // ==================== NETWORK DEVICES ====================
   if (data.network_devices.length > 0) {
-    drawSectionHeader(`Network Infrastructure (${data.network_devices.length})`, '🌐');
+    drawSectionHeader(`Network Infrastructure (${data.network_devices.length})`);
 
     const cardWidth = (contentWidth - 10) / 4;
     const cardHeight = 28;
@@ -266,7 +280,7 @@ export async function exportAsPDF(
 
   // ==================== SERVERS ====================
   if (data.servers.length > 0) {
-    drawSectionHeader(`Servers (${data.servers.length})`, '🖥️');
+    drawSectionHeader(`Servers (${data.servers.length})`);
 
     const cardWidth = (contentWidth - 10) / 3;
     const cardHeight = 35;
@@ -299,7 +313,7 @@ export async function exportAsPDF(
 
   // ==================== ENDPOINTS ====================
   if (data.endpoint_users.length > 0) {
-    drawSectionHeader(`User Endpoints (${data.endpoint_users.length})`, '💻');
+    drawSectionHeader(`User Endpoints (${data.endpoint_users.length})`);
 
     const cardWidth = (contentWidth - 10) / 4;
     const cardHeight = 32;
@@ -332,7 +346,7 @@ export async function exportAsPDF(
 
   // ==================== PERIPHERALS ====================
   if (data.peripherals.length > 0) {
-    drawSectionHeader(`Peripherals (${data.peripherals.length})`, '🖨️');
+    drawSectionHeader(`Peripherals (${data.peripherals.length})`);
 
     const cardWidth = (contentWidth - 10) / 4;
     const cardHeight = 24;
