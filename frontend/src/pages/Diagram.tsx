@@ -1,17 +1,36 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { diagramAPI } from '@/services/core';
 import type { DiagramData } from '@/types/core';
-import { Loader2, Network, Monitor, HardDrive, Printer, Globe, Shield, Wifi, Cpu, MemoryStick, Database, FileDown } from 'lucide-react';
+import { Loader2, Network, Monitor, HardDrive, Printer, Globe, Shield, Wifi, Cpu, MemoryStick, Database, FileDown, ChevronDown } from 'lucide-react';
+import { exportAsPNG, exportAsJSON, exportAsSVG, printDiagram } from '@/utils/diagramExport';
 
 export function Diagram() {
   const { selectedOrg } = useOrganization();
   const [data, setData] = useState<DiagramData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const diagramRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadDiagramData();
   }, [selectedOrg]);
+
+  useEffect(() => {
+    // Close export menu when clicking outside
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (exportMenuOpen && !target.closest('.relative')) {
+        setExportMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [exportMenuOpen]);
 
   const loadDiagramData = async () => {
     if (!selectedOrg) return;
@@ -47,8 +66,37 @@ export function Diagram() {
     );
   }
 
-  const handlePrint = () => {
-    window.print();
+  const handleExport = async (format: 'png' | 'json' | 'svg' | 'print') => {
+    if (!data || !selectedOrg) return;
+
+    setExporting(true);
+    setExportMenuOpen(false);
+
+    try {
+      const filename = `${selectedOrg.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_diagram`;
+
+      switch (format) {
+        case 'png':
+          if (diagramRef.current) {
+            await exportAsPNG('diagram-content', filename);
+          }
+          break;
+        case 'json':
+          exportAsJSON(data, selectedOrg.name);
+          break;
+        case 'svg':
+          exportAsSVG(data, selectedOrg.name);
+          break;
+        case 'print':
+          printDiagram();
+          break;
+      }
+    } catch (error) {
+      console.error('Export failed:', error);
+      alert('Failed to export diagram. Please try again.');
+    } finally {
+      setExporting(false);
+    }
   };
 
   return (
@@ -68,17 +116,85 @@ export function Diagram() {
             Visual representation of your IT infrastructure
           </p>
         </div>
-        <button
-          onClick={handlePrint}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-        >
-          <FileDown className="h-4 w-4" />
-          Print / Export PDF
-        </button>
+
+        {/* Export Menu */}
+        <div className="relative">
+          <button
+            onClick={() => setExportMenuOpen(!exportMenuOpen)}
+            disabled={exporting}
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {exporting ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Exporting...
+              </>
+            ) : (
+              <>
+                <FileDown className="h-4 w-4" />
+                Export
+                <ChevronDown className="h-4 w-4" />
+              </>
+            )}
+          </button>
+
+          {/* Dropdown Menu */}
+          {exportMenuOpen && !exporting && (
+            <div className="absolute right-0 mt-2 w-56 bg-card border border-border rounded-lg shadow-lg z-10">
+              <div className="py-1">
+                <button
+                  onClick={() => handleExport('png')}
+                  className="w-full text-left px-4 py-2 hover:bg-accent transition-colors flex items-center gap-3"
+                >
+                  <FileDown className="h-4 w-4" />
+                  <div>
+                    <div className="font-medium">Export as PNG</div>
+                    <div className="text-xs text-muted-foreground">High-quality image</div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => handleExport('svg')}
+                  className="w-full text-left px-4 py-2 hover:bg-accent transition-colors flex items-center gap-3"
+                >
+                  <FileDown className="h-4 w-4" />
+                  <div>
+                    <div className="font-medium">Export as SVG</div>
+                    <div className="text-xs text-muted-foreground">Vector graphic</div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => handleExport('json')}
+                  className="w-full text-left px-4 py-2 hover:bg-accent transition-colors flex items-center gap-3"
+                >
+                  <FileDown className="h-4 w-4" />
+                  <div>
+                    <div className="font-medium">Export as JSON</div>
+                    <div className="text-xs text-muted-foreground">Raw data export</div>
+                  </div>
+                </button>
+
+                <div className="border-t border-border my-1"></div>
+
+                <button
+                  onClick={() => handleExport('print')}
+                  className="w-full text-left px-4 py-2 hover:bg-accent transition-colors flex items-center gap-3"
+                >
+                  <Printer className="h-4 w-4" />
+                  <div>
+                    <div className="font-medium">Print / Save as PDF</div>
+                    <div className="text-xs text-muted-foreground">Browser print dialog</div>
+                  </div>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {data && (
-        <div className="space-y-8">
+        <div id="diagram-content" ref={diagramRef} className="space-y-8">
           {/* Network Infrastructure Diagram */}
           <div className="border border-border rounded-lg p-6 bg-card">
             <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
