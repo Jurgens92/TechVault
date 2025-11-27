@@ -404,7 +404,7 @@ class Software(BaseModel):
     software_type = models.CharField(
         max_length=50,
         choices=[
-            ('office', 'Office/Productivity'),
+            ('microsoft365', 'Microsoft 365'),
             ('endpoint_protection', 'Endpoint Protection'),
             ('design', 'Design/CAD'),
             ('development', 'Development'),

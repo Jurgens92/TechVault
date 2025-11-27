@@ -238,7 +238,7 @@ export interface Software {
   organization: string;
   organization_name: string;
   name: string;
-  software_type: 'office' | 'endpoint_protection' | 'design' | 'development' | 'subscription' | 'other';
+  software_type: 'microsoft365' | 'endpoint_protection' | 'design' | 'development' | 'subscription' | 'other';
   assigned_to: string | null;
   assigned_to_name: string | null;
   license_key: string;

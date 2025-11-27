@@ -13,7 +13,7 @@ export function SoftwareForm() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [formData, setFormData] = useState({
     name: '',
-    software_type: 'other' as Software['software_type'],
+    software_type: 'microsoft365' as Software['software_type'],
     assigned_to: '',
     license_key: '',
     version: '',
@@ -155,7 +155,7 @@ export function SoftwareForm() {
               className="w-full px-3 py-2 border border-input rounded-md bg-background"
               required
             >
-              <option value="office">Office/Productivity</option>
+              <option value="microsoft365">Microsoft 365</option>
               <option value="endpoint_protection">Endpoint Protection</option>
               <option value="design">Design/CAD</option>
               <option value="development">Development</option>
@@ -265,19 +265,6 @@ export function SoftwareForm() {
                 min="1"
               />
             </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2">Cost</label>
-            <input
-              type="number"
-              value={formData.cost}
-              onChange={(e) => setFormData({ ...formData, cost: e.target.value })}
-              className="w-full px-3 py-2 border border-input rounded-md bg-background"
-              placeholder="License cost"
-              step="0.01"
-              min="0"
-            />
           </div>
         </div>
 
