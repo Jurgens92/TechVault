@@ -670,11 +670,7 @@ function BackupsDiagram({ backups }: { backups: DiagramData['backups'] }) {
                     <span className="font-medium">Targets:</span> {backup.target_systems}
                   </p>
                 )}
-                {backup.cost && (
-                  <p className="text-xs text-muted-foreground">
-                    <span className="font-medium">Cost:</span> ${backup.cost.toFixed(2)}/{backup.cost_period || 'month'}
-                  </p>
-                )}
+     
               </div>
             </div>
           </div>
