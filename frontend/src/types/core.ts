@@ -247,7 +247,6 @@ export interface Software {
   purchase_date: string | null;
   expiry_date: string | null;
   vendor: string;
-  cost: number | null;
   quantity: number;
   notes: string;
   is_active: boolean;
@@ -274,8 +273,6 @@ export interface Backup {
   last_backup_date: string | null;
   next_backup_date: string | null;
   backup_status: 'active' | 'inactive' | 'failed' | 'warning';
-  cost: number | null;
-  cost_period: 'monthly' | 'annual' | 'one_time' | '';
   location: string | null;
   location_name: string | null;
   notes: string;

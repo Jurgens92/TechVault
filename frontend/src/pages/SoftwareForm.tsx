@@ -21,7 +21,6 @@ export function SoftwareForm() {
     purchase_date: '',
     expiry_date: '',
     vendor: '',
-    cost: '',
     quantity: 1,
     notes: '',
     is_active: true,
@@ -62,7 +61,6 @@ export function SoftwareForm() {
         purchase_date: software.purchase_date || '',
         expiry_date: software.expiry_date || '',
         vendor: software.vendor,
-        cost: software.cost ? software.cost.toString() : '',
         quantity: software.quantity,
         notes: software.notes,
         is_active: software.is_active,
@@ -86,7 +84,6 @@ export function SoftwareForm() {
         assigned_to: formData.assigned_to || null,
         purchase_date: formData.purchase_date || null,
         expiry_date: formData.expiry_date || null,
-        cost: formData.cost ? parseFloat(formData.cost) : null,
       };
 
       if (id) {

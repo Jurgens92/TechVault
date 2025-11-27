@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { ListHeader } from '../components/ListHeader';
-import { RestoreIcon, Trash2, RefreshCw } from 'lucide-react';
+import { RotateCcw, Trash2, RefreshCw } from 'lucide-react';
 import {
   organizationAPI, locationAPI, contactAPI, documentationAPI,
   passwordAPI, configurationAPI, networkDeviceAPI, endpointUserAPI,
@@ -133,12 +133,10 @@ const DeletedItems: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <ListHeader
-        title="Deleted Items"
-        subtitle="Restore or permanently delete items"
-        hideAddButton
-        hideSearch
-      />
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold">Deleted Items</h1>
+        <p className="text-muted-foreground mt-1">Restore or permanently delete items</p>
+      </div>
 
       {error && (
         <div className="p-4 bg-red-900/20 border border-red-700 rounded-lg text-red-200 flex justify-between items-center">

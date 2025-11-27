@@ -23,8 +23,6 @@ export function BackupForm() {
     last_backup_date: '',
     next_backup_date: '',
     backup_status: 'active' as Backup['backup_status'],
-    cost: '',
-    cost_period: 'monthly' as Backup['cost_period'],
     location: '',
     notes: '',
     is_active: true,
@@ -76,8 +74,6 @@ export function BackupForm() {
         last_backup_date: formatDateTimeLocal(backup.last_backup_date),
         next_backup_date: formatDateTimeLocal(backup.next_backup_date),
         backup_status: backup.backup_status,
-        cost: backup.cost ? backup.cost.toString() : '',
-        cost_period: backup.cost_period || 'monthly',
         location: backup.location || '',
         notes: backup.notes,
         is_active: backup.is_active,
@@ -101,7 +97,6 @@ export function BackupForm() {
         location: formData.location || null,
         last_backup_date: formData.last_backup_date || null,
         next_backup_date: formData.next_backup_date || null,
-        cost: formData.cost ? parseFloat(formData.cost) : null,
       };
 
       if (id) {

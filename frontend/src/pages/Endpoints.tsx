@@ -656,14 +656,6 @@ function BackupsList({
                     <span className="font-medium text-xs">{formatDate(backup.last_backup_date)}</span>
                   </div>
                 )}
-                {backup.cost && (
-                  <div className="flex items-start">
-                    <span className="text-muted-foreground min-w-[100px]">Cost:</span>
-                    <span className="font-medium">
-                      ${backup.cost.toFixed(2)}/{backup.cost_period || 'month'}
-                    </span>
-                  </div>
-                )}
               </div>
             </div>
           ))}
