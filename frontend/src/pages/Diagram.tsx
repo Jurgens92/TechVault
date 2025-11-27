@@ -250,7 +250,7 @@ function NetworkDiagram({ devices }: { devices: DiagramData['network_devices'] }
             {firewalls.map((device) => (
               <div
                 key={device.id}
-                className="flex flex-col items-center p-4 rounded-lg border border-border hover:border-primary transition-colors bg-card min-w-[160px]"
+                className="flex flex-col items-center p-4 rounded-lg border border-border hover:border-primary transition-colors bg-card min-w-[180px]"
               >
                 <div className="w-12 h-12 rounded-lg bg-red-500/10 flex items-center justify-center">
                   <Shield className="h-6 w-6 text-red-500" />
@@ -258,6 +258,16 @@ function NetworkDiagram({ devices }: { devices: DiagramData['network_devices'] }
                 <span className="mt-2 text-sm font-medium text-center">{device.name}</span>
                 {device.manufacturer && (
                   <span className="text-xs text-muted-foreground">{device.manufacturer}</span>
+                )}
+                {device.internet_speed && (
+                  <span className="text-xs font-medium text-blue-600 dark:text-blue-400 mt-1">
+                    {device.internet_speed}
+                  </span>
+                )}
+                {device.internet_provider && (
+                  <span className="text-xs text-muted-foreground">
+                    {device.internet_provider}
+                  </span>
                 )}
                 {device.ip_address && (
                   <span className="text-xs font-mono text-muted-foreground mt-1">{device.ip_address}</span>
