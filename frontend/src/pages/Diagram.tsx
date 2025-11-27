@@ -588,6 +588,17 @@ function PeripheralsDiagram({ peripherals }: { peripherals: DiagramData['periphe
 
 // Backups Diagram Component
 function BackupsDiagram({ backups }: { backups: DiagramData['backups'] }) {
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return null;
+    return new Date(dateString).toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
   if (backups.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
@@ -597,48 +608,74 @@ function BackupsDiagram({ backups }: { backups: DiagramData['backups'] }) {
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
       {backups.map((backup) => (
         <div
           key={backup.id}
           className="p-4 rounded-lg border border-border hover:border-primary transition-colors bg-card"
         >
           <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-lg bg-accent flex items-center justify-center flex-shrink-0">
-              <Database className="h-5 w-5 text-foreground" />
+            <div className="w-12 h-12 rounded-lg bg-accent flex items-center justify-center flex-shrink-0">
+              <Database className="h-6 w-6 text-foreground" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium truncate">{backup.name}</p>
-              <p className="text-xs text-muted-foreground capitalize">
-                {backup.backup_type.replace(/_/g, ' ')}
-              </p>
-              {backup.vendor && (
-                <p className="text-xs text-muted-foreground truncate mt-1">
-                  {backup.vendor}
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <p className="text-sm font-semibold">{backup.name}</p>
+                <span className={`text-xs px-2 py-0.5 rounded font-medium whitespace-nowrap ${
+                  backup.backup_status === 'active' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                  backup.backup_status === 'failed' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
+                  backup.backup_status === 'warning' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                  'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
+                }`}>
+                  {backup.backup_status}
+                </span>
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">
+                  <span className="font-medium">Type:</span> <span className="capitalize">{backup.backup_type.replace(/_/g, ' ')}</span>
                 </p>
-              )}
-              {backup.frequency && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  {backup.frequency}
-                </p>
-              )}
-              {backup.storage_location && (
-                <p className="text-xs text-muted-foreground truncate mt-1">
-                  {backup.storage_location}
-                </p>
-              )}
-              {backup.backup_status && (
-                <div className="mt-2">
-                  <span className={`text-xs px-2 py-0.5 rounded ${
-                    backup.backup_status === 'active' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                    backup.backup_status === 'failed' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
-                    backup.backup_status === 'warning' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
-                    'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
-                  }`}>
-                    {backup.backup_status}
-                  </span>
-                </div>
-              )}
+                {backup.vendor && (
+                  <p className="text-xs text-muted-foreground">
+                    <span className="font-medium">Vendor:</span> {backup.vendor}
+                  </p>
+                )}
+                {backup.frequency && (
+                  <p className="text-xs text-muted-foreground">
+                    <span className="font-medium">Frequency:</span> {backup.frequency}
+                  </p>
+                )}
+                {backup.retention_period && (
+                  <p className="text-xs text-muted-foreground">
+                    <span className="font-medium">Retention:</span> {backup.retention_period}
+                  </p>
+                )}
+                {backup.storage_location && (
+                  <p className="text-xs text-muted-foreground">
+                    <span className="font-medium">Storage:</span> {backup.storage_location}
+                  </p>
+                )}
+                {backup.storage_capacity && (
+                  <p className="text-xs text-muted-foreground">
+                    <span className="font-medium">Capacity:</span> {backup.storage_capacity}
+                  </p>
+                )}
+                {backup.last_backup_date && (
+                  <p className="text-xs text-muted-foreground">
+                    <span className="font-medium">Last Backup:</span> {formatDate(backup.last_backup_date)}
+                  </p>
+                )}
+                {backup.target_systems && (
+                  <p className="text-xs text-muted-foreground line-clamp-2">
+                    <span className="font-medium">Targets:</span> {backup.target_systems}
+                  </p>
+                )}
+                {backup.cost && (
+                  <p className="text-xs text-muted-foreground">
+                    <span className="font-medium">Cost:</span> ${backup.cost.toFixed(2)}/{backup.cost_period || 'month'}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </div>

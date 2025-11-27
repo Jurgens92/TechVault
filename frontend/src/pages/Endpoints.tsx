@@ -553,6 +553,11 @@ function BackupsList({
   onEdit: (id: string) => void;
   onDelete: (id: string, name: string) => void;
 }) {
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return null;
+    return new Date(dateString).toLocaleString();
+  };
+
   return (
     <div className="space-y-4">
       {backups.length === 0 ? (
@@ -564,18 +569,33 @@ function BackupsList({
           </p>
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
           {backups.map((backup) => (
             <div
               key={backup.id}
               className="border border-border rounded-lg p-4 hover:border-primary transition-colors"
             >
-              <div className="flex items-start justify-between mb-2">
-                <h3 className="font-semibold">{backup.name}</h3>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs px-2 py-1 rounded bg-accent">
-                    {backup.backup_type}
-                  </span>
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex-1">
+                  <h3 className="font-semibold text-lg">{backup.name}</h3>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs px-2 py-1 rounded bg-accent capitalize">
+                      {backup.backup_type.replace(/_/g, ' ')}
+                    </span>
+                    <span className={`text-xs px-2 py-1 rounded font-medium ${
+                      backup.backup_status === 'active'
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                        : backup.backup_status === 'failed'
+                        ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                        : backup.backup_status === 'warning'
+                        ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                        : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
+                    }`}>
+                      {backup.backup_status}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 ml-2">
                   <button
                     onClick={() => onEdit(backup.id)}
                     className="text-muted-foreground hover:text-primary transition-colors"
@@ -592,26 +612,59 @@ function BackupsList({
                   </button>
                 </div>
               </div>
-              {backup.vendor && (
-                <p className="text-sm text-muted-foreground">
-                  Vendor: {backup.vendor}
-                </p>
-              )}
-              {backup.frequency && (
-                <p className="text-sm text-muted-foreground mt-1">
-                  Frequency: {backup.frequency}
-                </p>
-              )}
-              {backup.storage_location && (
-                <p className="text-sm text-muted-foreground mt-1">
-                  Location: {backup.storage_location}
-                </p>
-              )}
-              {backup.backup_status && (
-                <p className="text-sm text-muted-foreground mt-1">
-                  Status: <span className={backup.backup_status === 'active' ? 'text-green-600' : backup.backup_status === 'failed' ? 'text-red-600' : 'text-yellow-600'}>{backup.backup_status}</span>
-                </p>
-              )}
+
+              <div className="space-y-2 text-sm">
+                {backup.vendor && (
+                  <div className="flex items-start">
+                    <span className="text-muted-foreground min-w-[100px]">Vendor:</span>
+                    <span className="font-medium">{backup.vendor}</span>
+                  </div>
+                )}
+                {backup.frequency && (
+                  <div className="flex items-start">
+                    <span className="text-muted-foreground min-w-[100px]">Frequency:</span>
+                    <span className="font-medium">{backup.frequency}</span>
+                  </div>
+                )}
+                {backup.retention_period && (
+                  <div className="flex items-start">
+                    <span className="text-muted-foreground min-w-[100px]">Retention:</span>
+                    <span className="font-medium">{backup.retention_period}</span>
+                  </div>
+                )}
+                {backup.storage_location && (
+                  <div className="flex items-start">
+                    <span className="text-muted-foreground min-w-[100px]">Storage:</span>
+                    <span className="font-medium">{backup.storage_location}</span>
+                  </div>
+                )}
+                {backup.storage_capacity && (
+                  <div className="flex items-start">
+                    <span className="text-muted-foreground min-w-[100px]">Capacity:</span>
+                    <span className="font-medium">{backup.storage_capacity}</span>
+                  </div>
+                )}
+                {backup.target_systems && (
+                  <div className="flex items-start">
+                    <span className="text-muted-foreground min-w-[100px]">Targets:</span>
+                    <span className="font-medium line-clamp-2">{backup.target_systems}</span>
+                  </div>
+                )}
+                {backup.last_backup_date && (
+                  <div className="flex items-start">
+                    <span className="text-muted-foreground min-w-[100px]">Last Backup:</span>
+                    <span className="font-medium text-xs">{formatDate(backup.last_backup_date)}</span>
+                  </div>
+                )}
+                {backup.cost && (
+                  <div className="flex items-start">
+                    <span className="text-muted-foreground min-w-[100px]">Cost:</span>
+                    <span className="font-medium">
+                      ${backup.cost.toFixed(2)}/{backup.cost_period || 'month'}
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
           ))}
         </div>
