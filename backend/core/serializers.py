@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import (
     Organization, Location, Contact, Documentation,
-    PasswordEntry, Configuration, NetworkDevice, EndpointUser, Server, Peripheral
+    PasswordEntry, Configuration, NetworkDevice, EndpointUser, Server, Peripheral, Software
 )
 from users.serializers import UserSerializer
 
@@ -171,5 +171,22 @@ class PeripheralSerializer(serializers.ModelSerializer):
             'manufacturer', 'model', 'ip_address', 'mac_address', 'serial_number',
             'location', 'location_name', 'notes', 'is_active', 'created_by',
             'created_at', 'updated_at', 'deleted_at', 'deleted_by'
+        ]
+        read_only_fields = ['id', 'created_by', 'created_at', 'updated_at', 'deleted_at', 'deleted_by']
+
+
+class SoftwareSerializer(serializers.ModelSerializer):
+    organization_name = serializers.CharField(source='organization.name', read_only=True)
+    assigned_to_name = serializers.CharField(source='assigned_to.full_name', read_only=True, allow_null=True)
+    created_by = UserSerializer(read_only=True)
+    deleted_by = UserSerializer(read_only=True)
+
+    class Meta:
+        model = Software
+        fields = [
+            'id', 'organization', 'organization_name', 'name', 'software_type',
+            'assigned_to', 'assigned_to_name', 'license_key', 'version', 'license_type',
+            'purchase_date', 'expiry_date', 'vendor', 'cost', 'quantity', 'notes',
+            'is_active', 'created_by', 'created_at', 'updated_at', 'deleted_at', 'deleted_by'
         ]
         read_only_fields = ['id', 'created_by', 'created_at', 'updated_at', 'deleted_at', 'deleted_by']

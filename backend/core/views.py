@@ -5,12 +5,12 @@ from rest_framework.permissions import IsAuthenticated
 from django.db.models import Q
 from .models import (
     Organization, Location, Contact, Documentation,
-    PasswordEntry, Configuration, NetworkDevice, EndpointUser, Server, Peripheral
+    PasswordEntry, Configuration, NetworkDevice, EndpointUser, Server, Peripheral, Software
 )
 from .serializers import (
     OrganizationSerializer, LocationSerializer, ContactSerializer,
     DocumentationSerializer, PasswordEntrySerializer, ConfigurationSerializer,
-    NetworkDeviceSerializer, EndpointUserSerializer, ServerSerializer, PeripheralSerializer
+    NetworkDeviceSerializer, EndpointUserSerializer, ServerSerializer, PeripheralSerializer, SoftwareSerializer
 )
 
 
@@ -378,5 +378,30 @@ class PeripheralViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
         if org_id:
             peripherals = Peripheral.objects.filter(organization_id=org_id)
             serializer = self.get_serializer(peripherals, many=True)
+            return Response(serializer.data)
+        return Response([], status=status.HTTP_400_BAD_REQUEST)
+
+
+class SoftwareViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+    """ViewSet for Software CRUD operations."""
+    serializer_class = SoftwareSerializer
+    permission_classes = [IsAuthenticated]
+    filterset_fields = ['organization', 'software_type', 'license_type', 'is_active']
+    search_fields = ['name', 'vendor', 'license_key']
+    ordering_fields = ['name', 'software_type', 'expiry_date', 'created_at']
+    ordering = ['organization', 'software_type', 'name']
+
+    def get_queryset(self):
+        return Software.objects.select_related('organization', 'assigned_to')
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+    @action(detail=False, methods=['get'])
+    def by_organization(self, request):
+        org_id = request.query_params.get('organization_id')
+        if org_id:
+            software = Software.objects.filter(organization_id=org_id)
+            serializer = self.get_serializer(software, many=True)
             return Response(serializer.data)
         return Response([], status=status.HTTP_400_BAD_REQUEST)

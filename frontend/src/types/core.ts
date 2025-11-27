@@ -233,6 +233,32 @@ export interface Peripheral {
   updated_at: string;
 }
 
+export interface Software {
+  id: string;
+  organization: string;
+  organization_name: string;
+  name: string;
+  software_type: 'office' | 'endpoint_protection' | 'design' | 'development' | 'subscription' | 'other';
+  assigned_to: string | null;
+  assigned_to_name: string | null;
+  license_key: string;
+  version: string;
+  license_type: 'perpetual' | 'subscription' | 'trial' | 'free' | 'other';
+  purchase_date: string | null;
+  expiry_date: string | null;
+  vendor: string;
+  cost: number | null;
+  quantity: number;
+  notes: string;
+  is_active: boolean;
+  created_by: {
+    id: number;
+    email: string;
+  };
+  created_at: string;
+  updated_at: string;
+}
+
 export interface DiagramData {
   network_devices: NetworkDevice[];
   endpoint_users: EndpointUser[];

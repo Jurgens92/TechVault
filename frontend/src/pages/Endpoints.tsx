@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useOrganization } from '@/contexts/OrganizationContext';
-import { networkDeviceAPI, endpointUserAPI, serverAPI, peripheralAPI } from '@/services/core';
-import type { NetworkDevice, EndpointUser, Server, Peripheral } from '@/types/core';
-import { Plus, Network, Monitor, HardDrive, Printer, Loader2, Edit, Trash2 } from 'lucide-react';
+import { networkDeviceAPI, endpointUserAPI, serverAPI, peripheralAPI, softwareAPI } from '@/services/core';
+import type { NetworkDevice, EndpointUser, Server, Peripheral, Software } from '@/types/core';
+import { Plus, Network, Monitor, HardDrive, Printer, Package, Loader2, Edit, Trash2 } from 'lucide-react';
 import { DeleteConfirmationModal } from '@/components/DeleteConfirmationModal';
 
 export function Endpoints() {
@@ -12,22 +12,23 @@ export function Endpoints() {
   const [searchParams] = useSearchParams();
 
   // Read the tab from the URL query parameter, default to 'network' if not present
-  const tabFromUrl = searchParams.get('tab') as 'network' | 'users' | 'servers' | 'peripherals' | null;
-  const initialTab = tabFromUrl && ['network', 'users', 'servers', 'peripherals'].includes(tabFromUrl)
+  const tabFromUrl = searchParams.get('tab') as 'network' | 'users' | 'servers' | 'peripherals' | 'software' | null;
+  const initialTab = tabFromUrl && ['network', 'users', 'servers', 'peripherals', 'software'].includes(tabFromUrl)
     ? tabFromUrl
     : 'network';
 
-  const [activeTab, setActiveTab] = useState<'network' | 'users' | 'servers' | 'peripherals'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'network' | 'users' | 'servers' | 'peripherals' | 'software'>(initialTab);
   const [networkDevices, setNetworkDevices] = useState<NetworkDevice[]>([]);
   const [endpointUsers, setEndpointUsers] = useState<EndpointUser[]>([]);
   const [servers, setServers] = useState<Server[]>([]);
   const [peripherals, setPeripherals] = useState<Peripheral[]>([]);
+  const [software, setSoftware] = useState<Software[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleteModal, setDeleteModal] = useState<{
     isOpen: boolean;
     itemId: string;
     itemName: string;
-    itemType: 'network' | 'user' | 'server' | 'peripheral';
+    itemType: 'network' | 'user' | 'server' | 'peripheral' | 'software';
   } | null>(null);
 
   useEffect(() => {
@@ -39,17 +40,19 @@ export function Endpoints() {
 
     try {
       setLoading(true);
-      const [networkRes, usersRes, serversRes, peripheralsRes] = await Promise.all([
+      const [networkRes, usersRes, serversRes, peripheralsRes, softwareRes] = await Promise.all([
         networkDeviceAPI.byOrganization(selectedOrg.id),
         endpointUserAPI.byOrganization(selectedOrg.id),
         serverAPI.byOrganization(selectedOrg.id),
         peripheralAPI.byOrganization(selectedOrg.id),
+        softwareAPI.byOrganization(selectedOrg.id),
       ]);
 
       setNetworkDevices(networkRes.data);
       setEndpointUsers(usersRes.data);
       setServers(serversRes.data);
       setPeripherals(peripheralsRes.data);
+      setSoftware(softwareRes.data);
     } catch (error) {
       console.error('Failed to load endpoints:', error);
     } finally {
@@ -57,17 +60,18 @@ export function Endpoints() {
     }
   };
 
-  const handleEdit = (id: string, type: 'network' | 'user' | 'server' | 'peripheral') => {
+  const handleEdit = (id: string, type: 'network' | 'user' | 'server' | 'peripheral' | 'software') => {
     const routes = {
       network: `/network-devices/${id}/edit`,
       user: `/endpoint-users/${id}/edit`,
       server: `/servers/${id}/edit`,
       peripheral: `/peripherals/${id}/edit`,
+      software: `/software/${id}/edit`,
     };
     navigate(routes[type]);
   };
 
-  const handleDeleteClick = (id: string, name: string, type: 'network' | 'user' | 'server' | 'peripheral') => {
+  const handleDeleteClick = (id: string, name: string, type: 'network' | 'user' | 'server' | 'peripheral' | 'software') => {
     setDeleteModal({
       isOpen: true,
       itemId: id,
@@ -85,6 +89,7 @@ export function Endpoints() {
         user: endpointUserAPI,
         server: serverAPI,
         peripheral: peripheralAPI,
+        software: softwareAPI,
       };
 
       await apiMap[deleteModal.itemType].delete(deleteModal.itemId);
@@ -103,6 +108,9 @@ export function Endpoints() {
         case 'peripheral':
           setPeripherals((prev) => prev.filter((p) => p.id !== deleteModal.itemId));
           break;
+        case 'software':
+          setSoftware((prev) => prev.filter((sw) => sw.id !== deleteModal.itemId));
+          break;
       }
     } catch (error) {
       console.error('Failed to delete item:', error);
@@ -115,6 +123,7 @@ export function Endpoints() {
     { id: 'users' as const, label: 'Users', icon: Monitor, count: endpointUsers.length },
     { id: 'servers' as const, label: 'Servers', icon: HardDrive, count: servers.length },
     { id: 'peripherals' as const, label: 'Peripherals', icon: Printer, count: peripherals.length },
+    { id: 'software' as const, label: 'Software', icon: Package, count: software.length },
   ];
 
   if (!selectedOrg) {
@@ -133,6 +142,7 @@ export function Endpoints() {
       case 'users': return '/endpoint-users/new';
       case 'servers': return '/servers/new';
       case 'peripherals': return '/peripherals/new';
+      case 'software': return '/software/new';
     }
   };
 
@@ -151,7 +161,7 @@ export function Endpoints() {
           disabled={!selectedOrg}
         >
           <Plus className="h-4 w-4" />
-          Add {activeTab === 'network' ? 'Device' : activeTab === 'users' ? 'Endpoint' : activeTab === 'servers' ? 'Server' : 'Peripheral'}
+          Add {activeTab === 'network' ? 'Device' : activeTab === 'users' ? 'Endpoint' : activeTab === 'servers' ? 'Server' : activeTab === 'peripherals' ? 'Peripheral' : 'Software'}
         </button>
       </div>
 
@@ -214,6 +224,13 @@ export function Endpoints() {
               onDelete={(id, name) => handleDeleteClick(id, name, 'peripheral')}
             />
           )}
+          {activeTab === 'software' && (
+            <SoftwareList
+              software={software}
+              onEdit={(id) => handleEdit(id, 'software')}
+              onDelete={(id, name) => handleDeleteClick(id, name, 'software')}
+            />
+          )}
         </>
       )}
 
@@ -229,7 +246,9 @@ export function Endpoints() {
             ? 'Endpoint User'
             : deleteModal?.itemType === 'server'
             ? 'Server'
-            : 'Peripheral'
+            : deleteModal?.itemType === 'peripheral'
+            ? 'Peripheral'
+            : 'Software'
         }
       />
     </div>
@@ -497,6 +516,82 @@ function PeripheralsList({
               )}
               {peripheral.ip_address && (
                 <p className="text-sm text-muted-foreground mt-1">IP: {peripheral.ip_address}</p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SoftwareList({
+  software,
+  onEdit,
+  onDelete,
+}: {
+  software: Software[];
+  onEdit: (id: string) => void;
+  onDelete: (id: string, name: string) => void;
+}) {
+  return (
+    <div className="space-y-4">
+      {software.length === 0 ? (
+        <div className="text-center py-12 border border-dashed rounded-lg">
+          <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+          <p className="text-muted-foreground mb-4">No software found</p>
+          <p className="text-sm text-muted-foreground">
+            Add your first software to get started
+          </p>
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {software.map((sw) => (
+            <div
+              key={sw.id}
+              className="border border-border rounded-lg p-4 hover:border-primary transition-colors"
+            >
+              <div className="flex items-start justify-between mb-2">
+                <h3 className="font-semibold">{sw.name}</h3>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs px-2 py-1 rounded bg-accent">
+                    {sw.software_type}
+                  </span>
+                  <button
+                    onClick={() => onEdit(sw.id)}
+                    className="text-muted-foreground hover:text-primary transition-colors"
+                    title="Edit"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => onDelete(sw.id, sw.name)}
+                    className="text-muted-foreground hover:text-destructive transition-colors"
+                    title="Delete"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+              {sw.assigned_to_name && (
+                <p className="text-sm text-muted-foreground">
+                  User: {sw.assigned_to_name}
+                </p>
+              )}
+              {sw.vendor && (
+                <p className="text-sm text-muted-foreground">
+                  {sw.vendor}
+                </p>
+              )}
+              {sw.expiry_date && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  Expires: {new Date(sw.expiry_date).toLocaleDateString()}
+                </p>
+              )}
+              {sw.version && (
+                <p className="text-sm text-muted-foreground">
+                  Version: {sw.version}
+                </p>
               )}
             </div>
           ))}
