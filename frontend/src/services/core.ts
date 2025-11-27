@@ -2,7 +2,7 @@ import api from './api';
 import {
   Organization, Location, Contact, Documentation,
   PasswordEntry, Configuration, NetworkDevice, EndpointUser,
-  Server, Peripheral, Software, DiagramData, PaginatedResponse
+  Server, Peripheral, Software, Backup, DiagramData, PaginatedResponse
 } from '../types/core';
 
 // Dashboard APIs
@@ -266,6 +266,28 @@ export const softwareAPI = {
     api.post(`/api/software/${id}/restore/`, {}),
   hardDelete: (id: string) =>
     api.delete(`/api/software/${id}/hard_delete/`),
+};
+
+// Backup APIs
+export const backupAPI = {
+  getAll: (params?: Record<string, any>) =>
+    api.get<PaginatedResponse<Backup>>('/api/backups/', { params }),
+  getById: (id: string) =>
+    api.get<Backup>(`/api/backups/${id}/`),
+  create: (data: Partial<Backup>) =>
+    api.post<Backup>('/api/backups/', data),
+  update: (id: string, data: Partial<Backup>) =>
+    api.patch<Backup>(`/api/backups/${id}/`, data),
+  delete: (id: string) =>
+    api.delete(`/api/backups/${id}/`),
+  byOrganization: (organizationId: string) =>
+    api.get<Backup[]>('/api/backups/by_organization/', { params: { organization_id: organizationId } }),
+  getDeleted: (params?: Record<string, any>) =>
+    api.get<PaginatedResponse<Backup>>('/api/backups/deleted/', { params }),
+  restore: (id: string) =>
+    api.post(`/api/backups/${id}/restore/`, {}),
+  hardDelete: (id: string) =>
+    api.delete(`/api/backups/${id}/hard_delete/`),
 };
 
 // Diagram APIs

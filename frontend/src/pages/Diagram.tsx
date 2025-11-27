@@ -212,6 +212,15 @@ export function Diagram() {
             <PeripheralsDiagram peripherals={data.peripherals} />
           </div>
 
+          {/* Backups Diagram */}
+          <div className="border border-border rounded-lg p-6 bg-card">
+            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+              <Database className="h-5 w-5" />
+              Backups
+            </h2>
+            <BackupsDiagram backups={data.backups} />
+          </div>
+
           {/* Software Diagram */}
           <div className="border border-border rounded-lg p-6 bg-card">
             <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
@@ -568,6 +577,67 @@ function PeripheralsDiagram({ peripherals }: { peripherals: DiagramData['periphe
                 <p className="text-xs font-mono text-muted-foreground mt-1">
                   S/N: {peripheral.serial_number}
                 </p>
+              )}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Backups Diagram Component
+function BackupsDiagram({ backups }: { backups: DiagramData['backups'] }) {
+  if (backups.length === 0) {
+    return (
+      <div className="text-center py-8 text-muted-foreground">
+        No backups configured
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {backups.map((backup) => (
+        <div
+          key={backup.id}
+          className="p-4 rounded-lg border border-border hover:border-primary transition-colors bg-card"
+        >
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-lg bg-accent flex items-center justify-center flex-shrink-0">
+              <Database className="h-5 w-5 text-foreground" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium truncate">{backup.name}</p>
+              <p className="text-xs text-muted-foreground capitalize">
+                {backup.backup_type.replace(/_/g, ' ')}
+              </p>
+              {backup.vendor && (
+                <p className="text-xs text-muted-foreground truncate mt-1">
+                  {backup.vendor}
+                </p>
+              )}
+              {backup.frequency && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {backup.frequency}
+                </p>
+              )}
+              {backup.storage_location && (
+                <p className="text-xs text-muted-foreground truncate mt-1">
+                  {backup.storage_location}
+                </p>
+              )}
+              {backup.backup_status && (
+                <div className="mt-2">
+                  <span className={`text-xs px-2 py-0.5 rounded ${
+                    backup.backup_status === 'active' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                    backup.backup_status === 'failed' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
+                    backup.backup_status === 'warning' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                    'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
+                  }`}>
+                    {backup.backup_status}
+                  </span>
+                </div>
               )}
             </div>
           </div>

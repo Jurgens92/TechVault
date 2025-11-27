@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import (
     Organization, Location, Contact, Documentation,
-    PasswordEntry, Configuration, NetworkDevice, EndpointUser, Server, Peripheral, Software
+    PasswordEntry, Configuration, NetworkDevice, EndpointUser, Server, Peripheral, Software, Backup
 )
 from users.serializers import UserSerializer
 
@@ -188,5 +188,23 @@ class SoftwareSerializer(serializers.ModelSerializer):
             'assigned_to', 'assigned_to_name', 'license_key', 'version', 'license_type',
             'purchase_date', 'expiry_date', 'vendor', 'cost', 'quantity', 'notes',
             'is_active', 'created_by', 'created_at', 'updated_at', 'deleted_at', 'deleted_by'
+        ]
+        read_only_fields = ['id', 'created_by', 'created_at', 'updated_at', 'deleted_at', 'deleted_by']
+
+
+class BackupSerializer(serializers.ModelSerializer):
+    organization_name = serializers.CharField(source='organization.name', read_only=True)
+    location_name = serializers.CharField(source='location.name', read_only=True, allow_null=True)
+    created_by = UserSerializer(read_only=True)
+    deleted_by = UserSerializer(read_only=True)
+
+    class Meta:
+        model = Backup
+        fields = [
+            'id', 'organization', 'organization_name', 'name', 'backup_type',
+            'vendor', 'frequency', 'retention_period', 'storage_location', 'storage_capacity',
+            'target_systems', 'last_backup_date', 'next_backup_date', 'backup_status',
+            'cost', 'cost_period', 'location', 'location_name', 'notes', 'is_active',
+            'created_by', 'created_at', 'updated_at', 'deleted_at', 'deleted_by'
         ]
         read_only_fields = ['id', 'created_by', 'created_at', 'updated_at', 'deleted_at', 'deleted_by']

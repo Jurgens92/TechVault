@@ -5,12 +5,12 @@ from rest_framework.permissions import IsAuthenticated
 from django.db.models import Q
 from .models import (
     Organization, Location, Contact, Documentation,
-    PasswordEntry, Configuration, NetworkDevice, EndpointUser, Server, Peripheral, Software
+    PasswordEntry, Configuration, NetworkDevice, EndpointUser, Server, Peripheral, Software, Backup
 )
 from .serializers import (
     OrganizationSerializer, LocationSerializer, ContactSerializer,
     DocumentationSerializer, PasswordEntrySerializer, ConfigurationSerializer,
-    NetworkDeviceSerializer, EndpointUserSerializer, ServerSerializer, PeripheralSerializer, SoftwareSerializer
+    NetworkDeviceSerializer, EndpointUserSerializer, ServerSerializer, PeripheralSerializer, SoftwareSerializer, BackupSerializer
 )
 
 
@@ -403,5 +403,30 @@ class SoftwareViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
         if org_id:
             software = Software.objects.filter(organization_id=org_id)
             serializer = self.get_serializer(software, many=True)
+            return Response(serializer.data)
+        return Response([], status=status.HTTP_400_BAD_REQUEST)
+
+
+class BackupViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+    """ViewSet for Backup CRUD operations."""
+    serializer_class = BackupSerializer
+    permission_classes = [IsAuthenticated]
+    filterset_fields = ['organization', 'backup_type', 'backup_status', 'location', 'is_active']
+    search_fields = ['name', 'vendor', 'target_systems', 'storage_location']
+    ordering_fields = ['name', 'backup_type', 'last_backup_date', 'created_at']
+    ordering = ['organization', 'backup_type', 'name']
+
+    def get_queryset(self):
+        return Backup.objects.select_related('organization', 'location')
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+    @action(detail=False, methods=['get'])
+    def by_organization(self, request):
+        org_id = request.query_params.get('organization_id')
+        if org_id:
+            backups = Backup.objects.filter(organization_id=org_id)
+            serializer = self.get_serializer(backups, many=True)
             return Response(serializer.data)
         return Response([], status=status.HTTP_400_BAD_REQUEST)

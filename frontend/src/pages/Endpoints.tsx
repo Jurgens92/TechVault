@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useOrganization } from '@/contexts/OrganizationContext';
-import { networkDeviceAPI, endpointUserAPI, serverAPI, peripheralAPI, softwareAPI } from '@/services/core';
-import type { NetworkDevice, EndpointUser, Server, Peripheral, Software } from '@/types/core';
-import { Plus, Network, Monitor, HardDrive, Printer, Package, Loader2, Edit, Trash2 } from 'lucide-react';
+import { networkDeviceAPI, endpointUserAPI, serverAPI, peripheralAPI, backupAPI, softwareAPI } from '@/services/core';
+import type { NetworkDevice, EndpointUser, Server, Peripheral, Backup, Software } from '@/types/core';
+import { Plus, Network, Monitor, HardDrive, Printer, Database, Package, Loader2, Edit, Trash2 } from 'lucide-react';
 import { DeleteConfirmationModal } from '@/components/DeleteConfirmationModal';
 
 export function Endpoints() {
@@ -12,23 +12,24 @@ export function Endpoints() {
   const [searchParams] = useSearchParams();
 
   // Read the tab from the URL query parameter, default to 'network' if not present
-  const tabFromUrl = searchParams.get('tab') as 'network' | 'users' | 'servers' | 'peripherals' | 'software' | null;
-  const initialTab = tabFromUrl && ['network', 'users', 'servers', 'peripherals', 'software'].includes(tabFromUrl)
+  const tabFromUrl = searchParams.get('tab') as 'network' | 'users' | 'servers' | 'peripherals' | 'backups' | 'software' | null;
+  const initialTab = tabFromUrl && ['network', 'users', 'servers', 'peripherals', 'backups', 'software'].includes(tabFromUrl)
     ? tabFromUrl
     : 'network';
 
-  const [activeTab, setActiveTab] = useState<'network' | 'users' | 'servers' | 'peripherals' | 'software'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'network' | 'users' | 'servers' | 'peripherals' | 'backups' | 'software'>(initialTab);
   const [networkDevices, setNetworkDevices] = useState<NetworkDevice[]>([]);
   const [endpointUsers, setEndpointUsers] = useState<EndpointUser[]>([]);
   const [servers, setServers] = useState<Server[]>([]);
   const [peripherals, setPeripherals] = useState<Peripheral[]>([]);
+  const [backups, setBackups] = useState<Backup[]>([]);
   const [software, setSoftware] = useState<Software[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleteModal, setDeleteModal] = useState<{
     isOpen: boolean;
     itemId: string;
     itemName: string;
-    itemType: 'network' | 'user' | 'server' | 'peripheral' | 'software';
+    itemType: 'network' | 'user' | 'server' | 'peripheral' | 'backup' | 'software';
   } | null>(null);
 
   useEffect(() => {
@@ -40,11 +41,12 @@ export function Endpoints() {
 
     try {
       setLoading(true);
-      const [networkRes, usersRes, serversRes, peripheralsRes, softwareRes] = await Promise.all([
+      const [networkRes, usersRes, serversRes, peripheralsRes, backupsRes, softwareRes] = await Promise.all([
         networkDeviceAPI.byOrganization(selectedOrg.id),
         endpointUserAPI.byOrganization(selectedOrg.id),
         serverAPI.byOrganization(selectedOrg.id),
         peripheralAPI.byOrganization(selectedOrg.id),
+        backupAPI.byOrganization(selectedOrg.id),
         softwareAPI.byOrganization(selectedOrg.id),
       ]);
 
@@ -52,6 +54,7 @@ export function Endpoints() {
       setEndpointUsers(usersRes.data);
       setServers(serversRes.data);
       setPeripherals(peripheralsRes.data);
+      setBackups(backupsRes.data);
       setSoftware(softwareRes.data);
     } catch (error) {
       console.error('Failed to load endpoints:', error);
@@ -60,18 +63,19 @@ export function Endpoints() {
     }
   };
 
-  const handleEdit = (id: string, type: 'network' | 'user' | 'server' | 'peripheral' | 'software') => {
+  const handleEdit = (id: string, type: 'network' | 'user' | 'server' | 'peripheral' | 'backup' | 'software') => {
     const routes = {
       network: `/network-devices/${id}/edit`,
       user: `/endpoint-users/${id}/edit`,
       server: `/servers/${id}/edit`,
       peripheral: `/peripherals/${id}/edit`,
+      backup: `/backups/${id}/edit`,
       software: `/software/${id}/edit`,
     };
     navigate(routes[type]);
   };
 
-  const handleDeleteClick = (id: string, name: string, type: 'network' | 'user' | 'server' | 'peripheral' | 'software') => {
+  const handleDeleteClick = (id: string, name: string, type: 'network' | 'user' | 'server' | 'peripheral' | 'backup' | 'software') => {
     setDeleteModal({
       isOpen: true,
       itemId: id,
@@ -89,6 +93,7 @@ export function Endpoints() {
         user: endpointUserAPI,
         server: serverAPI,
         peripheral: peripheralAPI,
+        backup: backupAPI,
         software: softwareAPI,
       };
 
@@ -108,6 +113,9 @@ export function Endpoints() {
         case 'peripheral':
           setPeripherals((prev) => prev.filter((p) => p.id !== deleteModal.itemId));
           break;
+        case 'backup':
+          setBackups((prev) => prev.filter((b) => b.id !== deleteModal.itemId));
+          break;
         case 'software':
           setSoftware((prev) => prev.filter((sw) => sw.id !== deleteModal.itemId));
           break;
@@ -123,6 +131,7 @@ export function Endpoints() {
     { id: 'users' as const, label: 'Users', icon: Monitor, count: endpointUsers.length },
     { id: 'servers' as const, label: 'Servers', icon: HardDrive, count: servers.length },
     { id: 'peripherals' as const, label: 'Peripherals', icon: Printer, count: peripherals.length },
+    { id: 'backups' as const, label: 'Backups', icon: Database, count: backups.length },
     { id: 'software' as const, label: 'Software', icon: Package, count: software.length },
   ];
 
@@ -142,6 +151,7 @@ export function Endpoints() {
       case 'users': return '/endpoint-users/new';
       case 'servers': return '/servers/new';
       case 'peripherals': return '/peripherals/new';
+      case 'backups': return '/backups/new';
       case 'software': return '/software/new';
     }
   };
@@ -161,7 +171,7 @@ export function Endpoints() {
           disabled={!selectedOrg}
         >
           <Plus className="h-4 w-4" />
-          Add {activeTab === 'network' ? 'Device' : activeTab === 'users' ? 'Endpoint' : activeTab === 'servers' ? 'Server' : activeTab === 'peripherals' ? 'Peripheral' : 'Software'}
+          Add {activeTab === 'network' ? 'Device' : activeTab === 'users' ? 'Endpoint' : activeTab === 'servers' ? 'Server' : activeTab === 'peripherals' ? 'Peripheral' : activeTab === 'backups' ? 'Backup' : 'Software'}
         </button>
       </div>
 
@@ -224,6 +234,13 @@ export function Endpoints() {
               onDelete={(id, name) => handleDeleteClick(id, name, 'peripheral')}
             />
           )}
+          {activeTab === 'backups' && (
+            <BackupsList
+              backups={backups}
+              onEdit={(id) => handleEdit(id, 'backup')}
+              onDelete={(id, name) => handleDeleteClick(id, name, 'backup')}
+            />
+          )}
           {activeTab === 'software' && (
             <SoftwareList
               software={software}
@@ -248,6 +265,8 @@ export function Endpoints() {
             ? 'Server'
             : deleteModal?.itemType === 'peripheral'
             ? 'Peripheral'
+            : deleteModal?.itemType === 'backup'
+            ? 'Backup'
             : 'Software'
         }
       />
@@ -516,6 +535,82 @@ function PeripheralsList({
               )}
               {peripheral.ip_address && (
                 <p className="text-sm text-muted-foreground mt-1">IP: {peripheral.ip_address}</p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BackupsList({
+  backups,
+  onEdit,
+  onDelete,
+}: {
+  backups: Backup[];
+  onEdit: (id: string) => void;
+  onDelete: (id: string, name: string) => void;
+}) {
+  return (
+    <div className="space-y-4">
+      {backups.length === 0 ? (
+        <div className="text-center py-12 border border-dashed rounded-lg">
+          <Database className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+          <p className="text-muted-foreground mb-4">No backups found</p>
+          <p className="text-sm text-muted-foreground">
+            Add your first backup solution to get started
+          </p>
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {backups.map((backup) => (
+            <div
+              key={backup.id}
+              className="border border-border rounded-lg p-4 hover:border-primary transition-colors"
+            >
+              <div className="flex items-start justify-between mb-2">
+                <h3 className="font-semibold">{backup.name}</h3>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs px-2 py-1 rounded bg-accent">
+                    {backup.backup_type}
+                  </span>
+                  <button
+                    onClick={() => onEdit(backup.id)}
+                    className="text-muted-foreground hover:text-primary transition-colors"
+                    title="Edit"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => onDelete(backup.id, backup.name)}
+                    className="text-muted-foreground hover:text-destructive transition-colors"
+                    title="Delete"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+              {backup.vendor && (
+                <p className="text-sm text-muted-foreground">
+                  Vendor: {backup.vendor}
+                </p>
+              )}
+              {backup.frequency && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  Frequency: {backup.frequency}
+                </p>
+              )}
+              {backup.storage_location && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  Location: {backup.storage_location}
+                </p>
+              )}
+              {backup.backup_status && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  Status: <span className={backup.backup_status === 'active' ? 'text-green-600' : backup.backup_status === 'failed' ? 'text-red-600' : 'text-yellow-600'}>{backup.backup_status}</span>
+                </p>
               )}
             </div>
           ))}

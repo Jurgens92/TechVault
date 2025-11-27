@@ -52,6 +52,8 @@ export function exportAsJSON(data: DiagramData, orgName: string): void {
       endpoint_users: data.endpoint_users,
       servers: data.servers,
       peripherals: data.peripherals,
+      backups: data.backups,
+      software: data.software,
     },
   };
 
@@ -175,9 +177,10 @@ export async function exportAsPDF(
     `Servers: ${data.servers.length}`,
     `Endpoints: ${data.endpoint_users.length}`,
     `Peripherals: ${data.peripherals.length}`,
+    `Backups: ${data.backups.length}`,
   ];
 
-  const summaryItemWidth = contentWidth / 4;
+  const summaryItemWidth = contentWidth / 5;
   summaryItems.forEach((item, index) => {
     pdf.text(item, margin + summaryItemWidth * index + summaryItemWidth / 2, yPosition + 12, {
       align: 'center',
@@ -370,6 +373,41 @@ export async function exportAsPDF(
         { label: 'Serial', value: peripheral.serial_number || '' },
       ]);
     });
+
+    const rows = Math.ceil(data.peripherals.length / cardsPerRow);
+    yPosition += rows * (cardHeight + 3) + 10;
+  }
+
+  // ==================== BACKUPS ====================
+  if (data.backups.length > 0) {
+    drawSectionHeader(`Backups (${data.backups.length})`);
+
+    const cardWidth = (contentWidth - 10) / 3;
+    const cardHeight = 30;
+    const cardsPerRow = 3;
+
+    data.backups.forEach((backup, index) => {
+      const col = index % cardsPerRow;
+      const row = Math.floor(index / cardsPerRow);
+
+      if (col === 0 && index > 0) {
+        checkPageBreak(cardHeight + 5);
+      }
+
+      const x = margin + col * (cardWidth + 5);
+      const y = yPosition + row * (cardHeight + 3);
+
+      drawDeviceCard(x, y, cardWidth, cardHeight, backup.name, [
+        { label: 'Type', value: backup.backup_type },
+        { label: 'Vendor', value: backup.vendor || '' },
+        { label: 'Frequency', value: backup.frequency || '' },
+        { label: 'Location', value: backup.storage_location || '' },
+        { label: 'Status', value: backup.backup_status || '' },
+      ]);
+    });
+
+    const rows = Math.ceil(data.backups.length / cardsPerRow);
+    yPosition += rows * (cardHeight + 3) + 10;
   }
 
   // Add footers to all pages
@@ -506,6 +544,34 @@ function generateSVGDiagram(data: DiagramData, orgName: string): string {
     if (data.peripherals.length > maxPeripherals) {
       svgContent += `
   <text x="50" y="${yOffset + Math.ceil(maxPeripherals / 3) * 80 + 20}" class="label">... and ${data.peripherals.length - maxPeripherals} more peripherals</text>`;
+    }
+
+    yOffset += Math.ceil(maxPeripherals / 3) * 80 + sectionGap;
+  }
+
+  // Backups Section
+  if (data.backups.length > 0) {
+    svgContent += `\n  <!-- Backups -->
+  <text x="20" y="${yOffset}" class="section-title">Backups (${data.backups.length})</text>`;
+    yOffset += 30;
+
+    const maxBackups = Math.min(data.backups.length, 6);
+    data.backups.slice(0, maxBackups).forEach((backup, idx) => {
+      const x = 50 + (idx % 3) * 350;
+      const y = yOffset + Math.floor(idx / 3) * 100;
+
+      svgContent += `
+  <g>
+    <rect x="${x}" y="${y}" width="300" height="80" class="device-box" rx="5"/>
+    <text x="${x + 10}" y="${y + 25}" class="label" font-weight="bold">${escapeXml(backup.name)}</text>
+    <text x="${x + 10}" y="${y + 45}" class="label">Type: ${escapeXml(backup.backup_type)}</text>
+    ${backup.vendor ? `<text x="${x + 10}" y="${y + 60}" class="label">Vendor: ${escapeXml(backup.vendor)}</text>` : ''}
+  </g>`;
+    });
+
+    if (data.backups.length > maxBackups) {
+      svgContent += `
+  <text x="50" y="${yOffset + Math.ceil(maxBackups / 3) * 100 + 20}" class="label">... and ${data.backups.length - maxBackups} more backups</text>`;
     }
   }
 

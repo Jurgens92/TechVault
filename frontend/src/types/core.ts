@@ -259,11 +259,41 @@ export interface Software {
   updated_at: string;
 }
 
+export interface Backup {
+  id: string;
+  organization: string;
+  organization_name: string;
+  name: string;
+  backup_type: 'server' | 'microsoft365' | 'cloud' | 'endpoint' | 'database' | 'nas' | 'other';
+  vendor: string;
+  frequency: string;
+  retention_period: string;
+  storage_location: string;
+  storage_capacity: string;
+  target_systems: string;
+  last_backup_date: string | null;
+  next_backup_date: string | null;
+  backup_status: 'active' | 'inactive' | 'failed' | 'warning';
+  cost: number | null;
+  cost_period: 'monthly' | 'annual' | 'one_time' | '';
+  location: string | null;
+  location_name: string | null;
+  notes: string;
+  is_active: boolean;
+  created_by: {
+    id: number;
+    email: string;
+  };
+  created_at: string;
+  updated_at: string;
+}
+
 export interface DiagramData {
   network_devices: NetworkDevice[];
   endpoint_users: EndpointUser[];
   servers: Server[];
   peripherals: Peripheral[];
+  backups: Backup[];
   software: Software[];
 }
 
