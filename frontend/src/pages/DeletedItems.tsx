@@ -1,58 +1,68 @@
-import { useState, useEffect } from 'react';
-import {
-  Container, Paper, Typography, Box, Tabs, Tab,
-  Table, TableBody, TableCell, TableContainer,
-  TableHead, TableRow, Button, Alert, CircularProgress, Chip
-} from '@mui/material';
-import { RestoreFromTrash, DeleteForever } from '@mui/icons-material';
+import React, { useState, useEffect } from 'react';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { ListHeader } from '../components/ListHeader';
+import { RestoreIcon, Trash2, RefreshCw } from 'lucide-react';
 import {
   organizationAPI, locationAPI, contactAPI, documentationAPI,
   passwordAPI, configurationAPI, networkDeviceAPI, endpointUserAPI,
   serverAPI, peripheralAPI
 } from '../services/core';
 
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
+type EntityType =
+  | 'organizations'
+  | 'locations'
+  | 'contacts'
+  | 'documentations'
+  | 'passwords'
+  | 'configurations'
+  | 'network-devices'
+  | 'endpoints'
+  | 'servers'
+  | 'peripherals';
 
-function TabPanel(props: TabPanelProps) {
-  const { children, value, index, ...other } = props;
-  return (
-    <div role="tabpanel" hidden={value !== index} {...other}>
-      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
-    </div>
-  );
-}
-
-const DeletedItems = () => {
-  const [tabValue, setTabValue] = useState(0);
+const DeletedItems: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<EntityType>('organizations');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
   // State for each entity type
-  const [deletedOrganizations, setDeletedOrganizations] = useState<any[]>([]);
-  const [deletedLocations, setDeletedLocations] = useState<any[]>([]);
-  const [deletedContacts, setDeletedContacts] = useState<any[]>([]);
-  const [deletedDocumentations, setDeletedDocumentations] = useState<any[]>([]);
-  const [deletedPasswords, setDeletedPasswords] = useState<any[]>([]);
-  const [deletedConfigurations, setDeletedConfigurations] = useState<any[]>([]);
-  const [deletedNetworkDevices, setDeletedNetworkDevices] = useState<any[]>([]);
-  const [deletedEndpoints, setDeletedEndpoints] = useState<any[]>([]);
-  const [deletedServers, setDeletedServers] = useState<any[]>([]);
-  const [deletedPeripherals, setDeletedPeripherals] = useState<any[]>([]);
+  const [deletedItems, setDeletedItems] = useState<Record<EntityType, any[]>>({
+    organizations: [],
+    locations: [],
+    contacts: [],
+    documentations: [],
+    passwords: [],
+    configurations: [],
+    'network-devices': [],
+    endpoints: [],
+    servers: [],
+    peripherals: [],
+  });
 
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
-    setTabValue(newValue);
+  const entityConfig = {
+    organizations: { api: organizationAPI, label: 'Organizations', nameField: 'name' },
+    locations: { api: locationAPI, label: 'Locations', nameField: 'name' },
+    contacts: { api: contactAPI, label: 'Contacts', nameField: 'full_name' },
+    documentations: { api: documentationAPI, label: 'Documentation', nameField: 'title' },
+    passwords: { api: passwordAPI, label: 'Passwords', nameField: 'name' },
+    configurations: { api: configurationAPI, label: 'Configurations', nameField: 'name' },
+    'network-devices': { api: networkDeviceAPI, label: 'Network Devices', nameField: 'name' },
+    endpoints: { api: endpointUserAPI, label: 'Endpoints', nameField: 'name' },
+    servers: { api: serverAPI, label: 'Servers', nameField: 'name' },
+    peripherals: { api: peripheralAPI, label: 'Peripherals', nameField: 'name' },
   };
 
-  const loadDeletedItems = async () => {
+  useEffect(() => {
+    loadAllDeletedItems();
+  }, []);
+
+  const loadAllDeletedItems = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [orgs, locs, conts, docs, pass, confs, netdevs, endpts, servs, periphs] = await Promise.all([
+      const results = await Promise.all([
         organizationAPI.getDeleted(),
         locationAPI.getDeleted(),
         contactAPI.getDeleted(),
@@ -65,16 +75,18 @@ const DeletedItems = () => {
         peripheralAPI.getDeleted(),
       ]);
 
-      setDeletedOrganizations(orgs.data.results || []);
-      setDeletedLocations(locs.data.results || []);
-      setDeletedContacts(conts.data.results || []);
-      setDeletedDocumentations(docs.data.results || []);
-      setDeletedPasswords(pass.data.results || []);
-      setDeletedConfigurations(confs.data.results || []);
-      setDeletedNetworkDevices(netdevs.data.results || []);
-      setDeletedEndpoints(endpts.data.results || []);
-      setDeletedServers(servs.data.results || []);
-      setDeletedPeripherals(periphs.data.results || []);
+      setDeletedItems({
+        organizations: results[0].data.results || [],
+        locations: results[1].data.results || [],
+        contacts: results[2].data.results || [],
+        documentations: results[3].data.results || [],
+        passwords: results[4].data.results || [],
+        configurations: results[5].data.results || [],
+        'network-devices': results[6].data.results || [],
+        endpoints: results[7].data.results || [],
+        servers: results[8].data.results || [],
+        peripherals: results[9].data.results || [],
+      });
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to load deleted items');
     } finally {
@@ -82,164 +94,167 @@ const DeletedItems = () => {
     }
   };
 
-  useEffect(() => {
-    loadDeletedItems();
-  }, []);
-
-  const handleRestore = async (id: string, api: any, entityType: string) => {
+  const handleRestore = async (id: string, entityType: EntityType) => {
     try {
-      await api.restore(id);
-      setSuccess(`${entityType} restored successfully!`);
+      const config = entityConfig[entityType];
+      await config.api.restore(id);
+      setSuccess(`${config.label} item restored successfully!`);
       setTimeout(() => setSuccess(null), 3000);
-      loadDeletedItems();
+      loadAllDeletedItems();
     } catch (err: any) {
-      setError(err.response?.data?.detail || `Failed to restore ${entityType}`);
+      setError(err.response?.data?.detail || `Failed to restore item`);
+      setTimeout(() => setError(null), 5000);
     }
   };
 
-  const handleHardDelete = async (id: string, api: any, entityType: string) => {
-    if (!window.confirm(`Are you sure you want to permanently delete this ${entityType}? This action cannot be undone!`)) {
+  const handleHardDelete = async (id: string, entityType: EntityType) => {
+    const config = entityConfig[entityType];
+    if (!window.confirm(`Are you sure you want to PERMANENTLY delete this ${config.label} item? This action cannot be undone!`)) {
       return;
     }
     try {
-      await api.hardDelete(id);
-      setSuccess(`${entityType} permanently deleted!`);
+      await config.api.hardDelete(id);
+      setSuccess(`${config.label} item permanently deleted!`);
       setTimeout(() => setSuccess(null), 3000);
-      loadDeletedItems();
+      loadAllDeletedItems();
     } catch (err: any) {
-      setError(err.response?.data?.detail || `Failed to permanently delete ${entityType}`);
+      setError(err.response?.data?.detail || `Failed to permanently delete item`);
+      setTimeout(() => setError(null), 5000);
     }
   };
 
-  const renderTable = (items: any[], api: any, entityType: string, nameField: string = 'name') => {
-    if (items.length === 0) {
-      return <Typography variant="body2" color="text.secondary">No deleted items</Typography>;
-    }
-
-    return (
-      <TableContainer>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Name</TableCell>
-              <TableCell>Deleted At</TableCell>
-              <TableCell>Deleted By</TableCell>
-              <TableCell>Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {items.map((item) => (
-              <TableRow key={item.id}>
-                <TableCell>{item[nameField] || item.title || 'N/A'}</TableCell>
-                <TableCell>
-                  {item.deleted_at ? new Date(item.deleted_at).toLocaleString() : 'N/A'}
-                </TableCell>
-                <TableCell>
-                  {item.deleted_by ? `${item.deleted_by.first_name} ${item.deleted_by.last_name}` : 'N/A'}
-                </TableCell>
-                <TableCell>
-                  <Button
-                    size="small"
-                    startIcon={<RestoreFromTrash />}
-                    onClick={() => handleRestore(item.id, api, entityType)}
-                    sx={{ mr: 1 }}
-                  >
-                    Restore
-                  </Button>
-                  <Button
-                    size="small"
-                    color="error"
-                    startIcon={<DeleteForever />}
-                    onClick={() => handleHardDelete(item.id, api, entityType)}
-                  >
-                    Permanent Delete
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-    );
+  const formatDate = (dateString: string) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleString();
   };
+
+  const currentItems = deletedItems[activeTab];
+  const config = entityConfig[activeTab];
 
   return (
-    <Container maxWidth="xl">
-      <Box sx={{ my: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          Deleted Items
-        </Typography>
-        <Typography variant="body1" color="text.secondary" gutterBottom>
-          View and restore deleted items. Items can be permanently deleted by administrators.
-        </Typography>
+    <div className="space-y-6">
+      <ListHeader
+        title="Deleted Items"
+        subtitle="Restore or permanently delete items"
+        hideAddButton
+        hideSearch
+      />
 
-        {error && (
-          <Alert severity="error" sx={{ mt: 2 }} onClose={() => setError(null)}>
-            {error}
-          </Alert>
-        )}
+      {error && (
+        <div className="p-4 bg-red-900/20 border border-red-700 rounded-lg text-red-200 flex justify-between items-center">
+          <span>{error}</span>
+          <button onClick={() => setError(null)} className="text-red-400 hover:text-red-300">×</button>
+        </div>
+      )}
 
-        {success && (
-          <Alert severity="success" sx={{ mt: 2 }} onClose={() => setSuccess(null)}>
-            {success}
-          </Alert>
-        )}
+      {success && (
+        <div className="p-4 bg-green-900/20 border border-green-700 rounded-lg text-green-200 flex justify-between items-center">
+          <span>{success}</span>
+          <button onClick={() => setSuccess(null)} className="text-green-400 hover:text-green-300">×</button>
+        </div>
+      )}
 
-        <Paper sx={{ mt: 3 }}>
-          <Tabs value={tabValue} onChange={handleTabChange} variant="scrollable" scrollButtons="auto">
-            <Tab label={`Organizations (${deletedOrganizations.length})`} />
-            <Tab label={`Locations (${deletedLocations.length})`} />
-            <Tab label={`Contacts (${deletedContacts.length})`} />
-            <Tab label={`Documentation (${deletedDocumentations.length})`} />
-            <Tab label={`Passwords (${deletedPasswords.length})`} />
-            <Tab label={`Configurations (${deletedConfigurations.length})`} />
-            <Tab label={`Network Devices (${deletedNetworkDevices.length})`} />
-            <Tab label={`Endpoints (${deletedEndpoints.length})`} />
-            <Tab label={`Servers (${deletedServers.length})`} />
-            <Tab label={`Peripherals (${deletedPeripherals.length})`} />
-          </Tabs>
+      {/* Tab Navigation */}
+      <Card>
+        <div className="border-b border-border overflow-x-auto">
+          <div className="flex min-w-max">
+            {Object.entries(entityConfig).map(([key, value]) => {
+              const count = deletedItems[key as EntityType].length;
+              return (
+                <button
+                  key={key}
+                  onClick={() => setActiveTab(key as EntityType)}
+                  className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                    activeTab === key
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+                  }`}
+                >
+                  {value.label} ({count})
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
+        {/* Content */}
+        <div className="p-6">
           {loading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-              <CircularProgress />
-            </Box>
+            <div className="text-center py-12">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+              <p className="mt-4 text-gray-400">Loading deleted items...</p>
+            </div>
+          ) : currentItems.length === 0 ? (
+            <div className="text-center py-12">
+              <Trash2 className="mx-auto h-12 w-12 text-muted-foreground/50" />
+              <h3 className="mt-4 text-lg font-semibold">No deleted items</h3>
+              <p className="text-muted-foreground">
+                No deleted {config.label.toLowerCase()} found
+              </p>
+            </div>
           ) : (
-            <>
-              <TabPanel value={tabValue} index={0}>
-                {renderTable(deletedOrganizations, organizationAPI, 'Organization')}
-              </TabPanel>
-              <TabPanel value={tabValue} index={1}>
-                {renderTable(deletedLocations, locationAPI, 'Location')}
-              </TabPanel>
-              <TabPanel value={tabValue} index={2}>
-                {renderTable(deletedContacts, contactAPI, 'Contact', 'full_name')}
-              </TabPanel>
-              <TabPanel value={tabValue} index={3}>
-                {renderTable(deletedDocumentations, documentationAPI, 'Documentation')}
-              </TabPanel>
-              <TabPanel value={tabValue} index={4}>
-                {renderTable(deletedPasswords, passwordAPI, 'Password')}
-              </TabPanel>
-              <TabPanel value={tabValue} index={5}>
-                {renderTable(deletedConfigurations, configurationAPI, 'Configuration')}
-              </TabPanel>
-              <TabPanel value={tabValue} index={6}>
-                {renderTable(deletedNetworkDevices, networkDeviceAPI, 'Network Device')}
-              </TabPanel>
-              <TabPanel value={tabValue} index={7}>
-                {renderTable(deletedEndpoints, endpointUserAPI, 'Endpoint')}
-              </TabPanel>
-              <TabPanel value={tabValue} index={8}>
-                {renderTable(deletedServers, serverAPI, 'Server')}
-              </TabPanel>
-              <TabPanel value={tabValue} index={9}>
-                {renderTable(deletedPeripherals, peripheralAPI, 'Peripheral')}
-              </TabPanel>
-            </>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="text-left py-3 px-4 font-semibold text-sm">Name</th>
+                    <th className="text-left py-3 px-4 font-semibold text-sm">Deleted At</th>
+                    <th className="text-left py-3 px-4 font-semibold text-sm">Deleted By</th>
+                    <th className="text-right py-3 px-4 font-semibold text-sm">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {currentItems.map((item: any) => (
+                    <tr key={item.id} className="border-b border-border/50 hover:bg-accent/5">
+                      <td className="py-3 px-4">
+                        <div className="font-medium">
+                          {item[config.nameField] || item.title || 'N/A'}
+                        </div>
+                        {item.organization_name && (
+                          <div className="text-sm text-muted-foreground">
+                            {item.organization_name}
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-sm text-muted-foreground">
+                        {formatDate(item.deleted_at)}
+                      </td>
+                      <td className="py-3 px-4 text-sm text-muted-foreground">
+                        {item.deleted_by
+                          ? `${item.deleted_by.first_name} ${item.deleted_by.last_name}`
+                          : 'N/A'}
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleRestore(item.id, activeTab)}
+                            className="flex items-center gap-1"
+                          >
+                            <RefreshCw className="h-4 w-4" />
+                            Restore
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleHardDelete(item.id, activeTab)}
+                            className="flex items-center gap-1"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            Delete Forever
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
-        </Paper>
-      </Box>
-    </Container>
+        </div>
+      </Card>
+    </div>
   );
 };
 
