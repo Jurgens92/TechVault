@@ -3,10 +3,10 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from core.models import (
     Organization, Location, Contact, Documentation,
-    PasswordEntry, Configuration, NetworkDevice, EndpointUser, Server, Peripheral
+    PasswordEntry, Configuration, NetworkDevice, EndpointUser, Server, Peripheral, Software
 )
 from core.serializers import (
-    NetworkDeviceSerializer, EndpointUserSerializer, ServerSerializer, PeripheralSerializer
+    NetworkDeviceSerializer, EndpointUserSerializer, ServerSerializer, PeripheralSerializer, SoftwareSerializer
 )
 
 
@@ -57,15 +57,18 @@ def diagram_data(request):
         endpoint_users = EndpointUser.objects.filter(organization_id=org_id, is_active=True)
         servers = Server.objects.filter(organization_id=org_id, is_active=True)
         peripherals = Peripheral.objects.filter(organization_id=org_id, is_active=True)
+        software = Software.objects.filter(organization_id=org_id, is_active=True)
     else:
         network_devices = NetworkDevice.objects.filter(is_active=True)
         endpoint_users = EndpointUser.objects.filter(is_active=True)
         servers = Server.objects.filter(is_active=True)
         peripherals = Peripheral.objects.filter(is_active=True)
+        software = Software.objects.filter(is_active=True)
 
     return Response({
         'network_devices': NetworkDeviceSerializer(network_devices, many=True).data,
         'endpoint_users': EndpointUserSerializer(endpoint_users, many=True).data,
         'servers': ServerSerializer(servers, many=True).data,
         'peripherals': PeripheralSerializer(peripherals, many=True).data,
+        'software': SoftwareSerializer(software, many=True).data,
     })

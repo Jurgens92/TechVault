@@ -264,6 +264,7 @@ export interface DiagramData {
   endpoint_users: EndpointUser[];
   servers: Server[];
   peripherals: Peripheral[];
+  software: Software[];
 }
 
 export interface PaginatedResponse<T> {
