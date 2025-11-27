@@ -288,7 +288,7 @@ const Settings: React.FC = () => {
                           </div>
                         </td>
                       </tr>
-                    )))}
+                    ))}
                   </tbody>
                 </table>
               </div>
