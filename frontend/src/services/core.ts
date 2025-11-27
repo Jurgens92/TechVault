@@ -34,6 +34,12 @@ export const organizationAPI = {
     api.get<Organization[]>('/api/organizations/search/', { params: { q } }),
   getStats: (id: string) =>
     api.get(`/api/organizations/${id}/stats/`),
+  getDeleted: (params?: Record<string, any>) =>
+    api.get<PaginatedResponse<Organization>>('/api/organizations/deleted/', { params }),
+  restore: (id: string) =>
+    api.post(`/api/organizations/${id}/restore/`, {}),
+  hardDelete: (id: string) =>
+    api.delete(`/api/organizations/${id}/hard_delete/`),
 };
 
 // Location APIs
@@ -50,6 +56,12 @@ export const locationAPI = {
     api.delete(`/api/locations/${id}/`),
   byOrganization: (organizationId: string) =>
     api.get<Location[]>('/api/locations/by_organization/', { params: { organization_id: organizationId } }),
+  getDeleted: (params?: Record<string, any>) =>
+    api.get<PaginatedResponse<Location>>('/api/locations/deleted/', { params }),
+  restore: (id: string) =>
+    api.post(`/api/locations/${id}/restore/`, {}),
+  hardDelete: (id: string) =>
+    api.delete(`/api/locations/${id}/hard_delete/`),
 };
 
 // Contact APIs
@@ -68,6 +80,12 @@ export const contactAPI = {
     api.get<Contact[]>('/api/contacts/by_organization/', { params: { organization_id: organizationId } }),
   byLocation: (locationId: string) =>
     api.get<Contact[]>('/api/contacts/by_location/', { params: { location_id: locationId } }),
+  getDeleted: (params?: Record<string, any>) =>
+    api.get<PaginatedResponse<Contact>>('/api/contacts/deleted/', { params }),
+  restore: (id: string) =>
+    api.post(`/api/contacts/${id}/restore/`, {}),
+  hardDelete: (id: string) =>
+    api.delete(`/api/contacts/${id}/hard_delete/`),
 };
 
 // Documentation APIs
@@ -88,6 +106,12 @@ export const documentationAPI = {
     api.post(`/api/documentations/${id}/publish/`, {}),
   unpublish: (id: string) =>
     api.post(`/api/documentations/${id}/unpublish/`, {}),
+  getDeleted: (params?: Record<string, any>) =>
+    api.get<PaginatedResponse<Documentation>>('/api/documentations/deleted/', { params }),
+  restore: (id: string) =>
+    api.post(`/api/documentations/${id}/restore/`, {}),
+  hardDelete: (id: string) =>
+    api.delete(`/api/documentations/${id}/hard_delete/`),
 };
 
 // Password Entry APIs
@@ -104,6 +128,12 @@ export const passwordAPI = {
     api.delete(`/api/passwords/${id}/`),
   byOrganization: (organizationId: string) =>
     api.get<PasswordEntry[]>('/api/passwords/by_organization/', { params: { organization_id: organizationId } }),
+  getDeleted: (params?: Record<string, any>) =>
+    api.get<PaginatedResponse<PasswordEntry>>('/api/passwords/deleted/', { params }),
+  restore: (id: string) =>
+    api.post(`/api/passwords/${id}/restore/`, {}),
+  hardDelete: (id: string) =>
+    api.delete(`/api/passwords/${id}/hard_delete/`),
 };
 
 // Configuration APIs
@@ -120,6 +150,12 @@ export const configurationAPI = {
     api.delete(`/api/configurations/${id}/`),
   byOrganization: (organizationId: string) =>
     api.get<Configuration[]>('/api/configurations/by_organization/', { params: { organization_id: organizationId } }),
+  getDeleted: (params?: Record<string, any>) =>
+    api.get<PaginatedResponse<Configuration>>('/api/configurations/deleted/', { params }),
+  restore: (id: string) =>
+    api.post(`/api/configurations/${id}/restore/`, {}),
+  hardDelete: (id: string) =>
+    api.delete(`/api/configurations/${id}/hard_delete/`),
 };
 
 // Network Device APIs
@@ -136,6 +172,12 @@ export const networkDeviceAPI = {
     api.delete(`/api/network-devices/${id}/`),
   byOrganization: (organizationId: string) =>
     api.get<NetworkDevice[]>('/api/network-devices/by_organization/', { params: { organization_id: organizationId } }),
+  getDeleted: (params?: Record<string, any>) =>
+    api.get<PaginatedResponse<NetworkDevice>>('/api/network-devices/deleted/', { params }),
+  restore: (id: string) =>
+    api.post(`/api/network-devices/${id}/restore/`, {}),
+  hardDelete: (id: string) =>
+    api.delete(`/api/network-devices/${id}/hard_delete/`),
 };
 
 // Endpoint User APIs
@@ -152,6 +194,12 @@ export const endpointUserAPI = {
     api.delete(`/api/endpoint-users/${id}/`),
   byOrganization: (organizationId: string) =>
     api.get<EndpointUser[]>('/api/endpoint-users/by_organization/', { params: { organization_id: organizationId } }),
+  getDeleted: (params?: Record<string, any>) =>
+    api.get<PaginatedResponse<EndpointUser>>('/api/endpoint-users/deleted/', { params }),
+  restore: (id: string) =>
+    api.post(`/api/endpoint-users/${id}/restore/`, {}),
+  hardDelete: (id: string) =>
+    api.delete(`/api/endpoint-users/${id}/hard_delete/`),
 };
 
 // Server APIs
@@ -168,6 +216,12 @@ export const serverAPI = {
     api.delete(`/api/servers/${id}/`),
   byOrganization: (organizationId: string) =>
     api.get<Server[]>('/api/servers/by_organization/', { params: { organization_id: organizationId } }),
+  getDeleted: (params?: Record<string, any>) =>
+    api.get<PaginatedResponse<Server>>('/api/servers/deleted/', { params }),
+  restore: (id: string) =>
+    api.post(`/api/servers/${id}/restore/`, {}),
+  hardDelete: (id: string) =>
+    api.delete(`/api/servers/${id}/hard_delete/`),
 };
 
 // Peripheral APIs
@@ -184,6 +238,12 @@ export const peripheralAPI = {
     api.delete(`/api/peripherals/${id}/`),
   byOrganization: (organizationId: string) =>
     api.get<Peripheral[]>('/api/peripherals/by_organization/', { params: { organization_id: organizationId } }),
+  getDeleted: (params?: Record<string, any>) =>
+    api.get<PaginatedResponse<Peripheral>>('/api/peripherals/deleted/', { params }),
+  restore: (id: string) =>
+    api.post(`/api/peripherals/${id}/restore/`, {}),
+  hardDelete: (id: string) =>
+    api.delete(`/api/peripherals/${id}/hard_delete/`),
 };
 
 // Diagram APIs

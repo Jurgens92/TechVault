@@ -19,6 +19,7 @@ import {
   Wrench,
   Network,
   GitBranch,
+  Trash2,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -56,6 +57,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
     { id: 'diagram', label: 'Diagram', icon: GitBranch, path: '/diagram' },
     { id: 'passwords', label: 'Passwords', icon: Lock, path: '/passwords' },
     { id: 'configurations', label: 'Configurations', icon: Wrench, path: '/configurations' },
+    { id: 'deleted-items', label: 'Deleted Items', icon: Trash2, path: '/deleted-items' },
     { id: 'settings', label: 'Settings', icon: SettingsIcon, path: '/settings' },
   ];
 

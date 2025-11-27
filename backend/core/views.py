@@ -14,7 +14,86 @@ from .serializers import (
 )
 
 
-class OrganizationViewSet(viewsets.ModelViewSet):
+class SoftDeleteViewSetMixin:
+    """Mixin to add soft delete functionality to ViewSets."""
+
+    def destroy(self, request, *args, **kwargs):
+        """Override destroy to perform soft delete instead of hard delete."""
+        instance = self.get_object()
+        instance.delete(user=request.user)
+        return Response(
+            {'detail': 'Item moved to deleted items. You can restore it from the Deleted Items section.'},
+            status=status.HTTP_200_OK
+        )
+
+    @action(detail=True, methods=['post'])
+    def restore(self, request, pk=None):
+        """Restore a soft-deleted item."""
+        # Get the object from all_objects manager (includes deleted)
+        model_class = self.get_queryset().model
+        try:
+            instance = model_class.all_objects.get(pk=pk)
+            if not instance.is_deleted:
+                return Response(
+                    {'detail': 'Item is not deleted.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            instance.restore()
+            serializer = self.get_serializer(instance)
+            return Response(
+                {'detail': 'Item restored successfully.', 'data': serializer.data},
+                status=status.HTTP_200_OK
+            )
+        except model_class.DoesNotExist:
+            return Response(
+                {'detail': 'Item not found.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+    @action(detail=False, methods=['get'])
+    def deleted(self, request):
+        """Get all soft-deleted items."""
+        model_class = self.get_queryset().model
+        deleted_items = model_class.objects.deleted()
+
+        # Apply organization filter if provided
+        org_id = request.query_params.get('organization_id')
+        if org_id and hasattr(model_class, 'organization'):
+            deleted_items = deleted_items.filter(organization_id=org_id)
+
+        page = self.paginate_queryset(deleted_items)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(deleted_items, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['delete'])
+    def hard_delete(self, request, pk=None):
+        """Permanently delete an item (admin only)."""
+        if not request.user.is_staff:
+            return Response(
+                {'detail': 'Only administrators can permanently delete items.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        model_class = self.get_queryset().model
+        try:
+            instance = model_class.all_objects.get(pk=pk)
+            instance.hard_delete()
+            return Response(
+                {'detail': 'Item permanently deleted.'},
+                status=status.HTTP_204_NO_CONTENT
+            )
+        except model_class.DoesNotExist:
+            return Response(
+                {'detail': 'Item not found.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+
+class OrganizationViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for Organization CRUD operations."""
     serializer_class = OrganizationSerializer
     permission_classes = [IsAuthenticated]
@@ -55,7 +134,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
         })
 
 
-class LocationViewSet(viewsets.ModelViewSet):
+class LocationViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for Location CRUD operations."""
     serializer_class = LocationSerializer
     permission_classes = [IsAuthenticated]
@@ -80,7 +159,7 @@ class LocationViewSet(viewsets.ModelViewSet):
         return Response([], status=status.HTTP_400_BAD_REQUEST)
 
 
-class ContactViewSet(viewsets.ModelViewSet):
+class ContactViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for Contact CRUD operations."""
     serializer_class = ContactSerializer
     permission_classes = [IsAuthenticated]
@@ -114,7 +193,7 @@ class ContactViewSet(viewsets.ModelViewSet):
         return Response([], status=status.HTTP_400_BAD_REQUEST)
 
 
-class DocumentationViewSet(viewsets.ModelViewSet):
+class DocumentationViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for Documentation CRUD operations."""
     serializer_class = DocumentationSerializer
     permission_classes = [IsAuthenticated]
@@ -153,7 +232,7 @@ class DocumentationViewSet(viewsets.ModelViewSet):
         return Response([], status=status.HTTP_400_BAD_REQUEST)
 
 
-class PasswordEntryViewSet(viewsets.ModelViewSet):
+class PasswordEntryViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for PasswordEntry CRUD operations."""
     serializer_class = PasswordEntrySerializer
     permission_classes = [IsAuthenticated]
@@ -178,7 +257,7 @@ class PasswordEntryViewSet(viewsets.ModelViewSet):
         return Response([], status=status.HTTP_400_BAD_REQUEST)
 
 
-class ConfigurationViewSet(viewsets.ModelViewSet):
+class ConfigurationViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for Configuration CRUD operations."""
     serializer_class = ConfigurationSerializer
     permission_classes = [IsAuthenticated]
@@ -203,7 +282,7 @@ class ConfigurationViewSet(viewsets.ModelViewSet):
         return Response([], status=status.HTTP_400_BAD_REQUEST)
 
 
-class NetworkDeviceViewSet(viewsets.ModelViewSet):
+class NetworkDeviceViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for NetworkDevice CRUD operations."""
     serializer_class = NetworkDeviceSerializer
     permission_classes = [IsAuthenticated]
@@ -228,7 +307,7 @@ class NetworkDeviceViewSet(viewsets.ModelViewSet):
         return Response([], status=status.HTTP_400_BAD_REQUEST)
 
 
-class EndpointUserViewSet(viewsets.ModelViewSet):
+class EndpointUserViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for EndpointUser CRUD operations."""
     serializer_class = EndpointUserSerializer
     permission_classes = [IsAuthenticated]
@@ -253,7 +332,7 @@ class EndpointUserViewSet(viewsets.ModelViewSet):
         return Response([], status=status.HTTP_400_BAD_REQUEST)
 
 
-class ServerViewSet(viewsets.ModelViewSet):
+class ServerViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for Server CRUD operations."""
     serializer_class = ServerSerializer
     permission_classes = [IsAuthenticated]
@@ -278,7 +357,7 @@ class ServerViewSet(viewsets.ModelViewSet):
         return Response([], status=status.HTTP_400_BAD_REQUEST)
 
 
-class PeripheralViewSet(viewsets.ModelViewSet):
+class PeripheralViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for Peripheral CRUD operations."""
     serializer_class = PeripheralSerializer
     permission_classes = [IsAuthenticated]

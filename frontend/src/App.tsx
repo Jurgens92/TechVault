@@ -30,6 +30,7 @@ import { EndpointUserForm } from '@/pages/EndpointUserForm';
 import { ServerForm } from '@/pages/ServerForm';
 import { PeripheralForm } from '@/pages/PeripheralForm';
 import Settings from '@/pages/Settings';
+import DeletedItems from '@/pages/DeletedItems';
 
 function App() {
   return (
@@ -81,6 +82,7 @@ function App() {
             <Route path="configurations/:id" element={<ConfigurationDetail />} />
             <Route path="configurations/:id/edit" element={<ConfigurationForm />} />
             <Route path="configurations/new" element={<ConfigurationForm />} />
+            <Route path="deleted-items" element={<DeletedItems />} />
             <Route path="settings" element={<Settings />} />
           </Route>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
