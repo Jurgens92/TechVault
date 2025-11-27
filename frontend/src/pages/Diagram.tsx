@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { diagramAPI } from '@/services/core';
 import type { DiagramData } from '@/types/core';
-import { Loader2, Network, Monitor, HardDrive, Printer, Globe, Shield, Wifi, Cpu, MemoryStick, Database, FileDown, ChevronDown } from 'lucide-react';
+import { Loader2, Network, Monitor, HardDrive, Printer, Globe, Shield, Wifi, Cpu, MemoryStick, Database, FileDown, ChevronDown, Package, User } from 'lucide-react';
 import { exportAsPNG, exportAsJSON, exportAsSVG, exportAsPDF, printDiagram } from '@/utils/diagramExport';
 
 export function Diagram() {
@@ -210,6 +210,15 @@ export function Diagram() {
               Peripherals
             </h2>
             <PeripheralsDiagram peripherals={data.peripherals} />
+          </div>
+
+          {/* Software Diagram */}
+          <div className="border border-border rounded-lg p-6 bg-card">
+            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              Software
+            </h2>
+            <SoftwareDiagram software={data.software} />
           </div>
         </div>
       )}
@@ -558,6 +567,53 @@ function PeripheralsDiagram({ peripherals }: { peripherals: DiagramData['periphe
               {peripheral.serial_number && (
                 <p className="text-xs font-mono text-muted-foreground mt-1">
                   S/N: {peripheral.serial_number}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Software Diagram Component
+function SoftwareDiagram({ software }: { software: DiagramData['software'] }) {
+  if (software.length === 0) {
+    return (
+      <div className="text-center py-8 text-muted-foreground">
+        No software configured
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {software.map((item) => (
+        <div
+          key={item.id}
+          className="p-4 rounded-lg border border-border hover:border-primary transition-colors bg-card"
+        >
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-lg bg-accent flex items-center justify-center flex-shrink-0">
+              <Package className="h-5 w-5 text-foreground" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium truncate">{item.name}</p>
+              <p className="text-xs text-muted-foreground capitalize">
+                {item.software_type.replace(/_/g, ' ')}
+              </p>
+              {item.assigned_to_name && (
+                <div className="flex items-center gap-1 mt-1">
+                  <User className="h-3 w-3 text-muted-foreground" />
+                  <p className="text-xs text-muted-foreground truncate">
+                    {item.assigned_to_name}
+                  </p>
+                </div>
+              )}
+              {item.notes && (
+                <p className="text-xs text-muted-foreground mt-2 line-clamp-2">
+                  {item.notes}
                 </p>
               )}
             </div>
