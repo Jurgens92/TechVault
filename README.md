@@ -201,8 +201,34 @@ npm run test  # To be configured
 
 ## 🚢 Deployment
 
-### Backend (Production Checklist)
+### Automated Ubuntu 24.04 Installation
 
+**One-command deployment for Ubuntu 24.04 servers:**
+
+```bash
+wget https://raw.githubusercontent.com/Jurgens92/TechVault/main/install.sh
+sudo bash install.sh
+```
+
+This fully automated script will:
+- Install all dependencies (Python, Node.js, PostgreSQL, Nginx)
+- Set up and configure the database
+- Build and deploy both frontend and backend
+- Configure Nginx to serve on port 80
+- Create systemd services for auto-start
+- Generate secure credentials
+
+Default admin credentials:
+- Email: `admin@techvault.local`
+- Password: `TechVault2024!`
+
+For detailed instructions, see [INSTALLATION.md](./INSTALLATION.md)
+
+### Manual Production Deployment
+
+If you prefer manual deployment, follow this checklist:
+
+#### Backend
 - [ ] Set `DEBUG=False`
 - [ ] Configure `ALLOWED_HOSTS`
 - [ ] Generate secure `SECRET_KEY`
@@ -212,7 +238,7 @@ npm run test  # To be configured
 - [ ] Enable HTTPS
 - [ ] Configure production CORS settings
 
-### Frontend (Production Build)
+#### Frontend
 
 ```bash
 cd frontend

@@ -3,6 +3,8 @@
 ################################################################################
 # TechVault Installation Script for Ubuntu 24.04
 #
+# FULLY AUTOMATED - Zero interaction required!
+#
 # This script will:
 # - Install all required dependencies
 # - Clone and set up TechVault
@@ -10,11 +12,18 @@
 # - Build and deploy the application
 # - Set up Nginx to serve on port 80
 # - Create systemd services for auto-start
+# - Create default admin account
 #
 # Usage: sudo bash install.sh
+#
+# Default admin credentials:
+#   Email: admin@techvault.local
+#   Password: TechVault2024!
+#   (You should change this after first login!)
 ################################################################################
 
 set -e  # Exit on any error
+export DEBIAN_FRONTEND=noninteractive  # Non-interactive mode
 
 # Colors for output
 RED='\033[0;31m'
@@ -50,11 +59,7 @@ fi
 log_info "Checking Ubuntu version..."
 if ! grep -q "24.04" /etc/os-release; then
     log_warning "This script is designed for Ubuntu 24.04. You are running a different version."
-    read -p "Do you want to continue anyway? (y/N): " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        exit 1
-    fi
+    log_warning "Installation will continue, but some features may not work as expected."
 fi
 
 # Configuration
@@ -63,13 +68,18 @@ DB_NAME="techvault"
 DB_USER="techvault"
 DB_PASSWORD=$(openssl rand -base64 32)
 SECRET_KEY=$(openssl rand -base64 64)
+ADMIN_PASSWORD="TechVault2024!"
+ADMIN_EMAIL="admin@techvault.local"
+ADMIN_FIRSTNAME="Admin"
+ADMIN_LASTNAME="User"
 GITHUB_REPO="https://github.com/Jurgens92/TechVault.git"
 
-# Get server IP or hostname
-SERVER_IP=$(hostname -I | awk '{print $1}')
-log_info "Detected server IP: $SERVER_IP"
-read -p "Enter domain/IP for this server (default: $SERVER_IP): " USER_DOMAIN
-DOMAIN=${USER_DOMAIN:-$SERVER_IP}
+# Auto-detect server IP
+DOMAIN=$(hostname -I | awk '{print $1}')
+if [ -z "$DOMAIN" ]; then
+    DOMAIN="localhost"
+fi
+log_info "Using domain/IP: $DOMAIN"
 
 log_info "Starting TechVault installation..."
 echo "========================================"
@@ -165,17 +175,14 @@ python manage.py makemigrations
 python manage.py migrate
 log_success "Database migrations completed"
 
-# Create Django superuser
+# Create Django superuser (non-interactive)
 log_info "Creating Django superuser..."
-echo "You will need to create an admin account for TechVault."
-read -p "Admin email: " ADMIN_EMAIL
-read -p "Admin first name: " ADMIN_FIRSTNAME
-read -p "Admin last name: " ADMIN_LASTNAME
-
-python manage.py createsuperuser --email "$ADMIN_EMAIL" --first_name "$ADMIN_FIRSTNAME" --last_name "$ADMIN_LASTNAME" --noinput 2>/dev/null || {
-    log_info "Please set the superuser password manually:"
-    python manage.py createsuperuser --email "$ADMIN_EMAIL" --first_name "$ADMIN_FIRSTNAME" --last_name "$ADMIN_LASTNAME"
-}
+DJANGO_SUPERUSER_PASSWORD="$ADMIN_PASSWORD" python manage.py createsuperuser \
+    --email "$ADMIN_EMAIL" \
+    --first_name "$ADMIN_FIRSTNAME" \
+    --last_name "$ADMIN_LASTNAME" \
+    --noinput
+log_success "Superuser created: $ADMIN_EMAIL"
 
 # Collect static files
 log_info "Collecting Django static files..."
@@ -320,6 +327,8 @@ echo "  - Password: $DB_PASSWORD"
 echo ""
 log_info "Admin Account:"
 echo "  - Email: $ADMIN_EMAIL"
+echo "  - Password: $ADMIN_PASSWORD"
+echo "  - ⚠️  IMPORTANT: Change this password after first login!"
 echo ""
 log_info "Useful Commands:"
 echo "  - View backend logs: journalctl -u techvault-backend -f"
@@ -329,10 +338,13 @@ echo "  - Restart nginx: systemctl restart nginx"
 echo ""
 log_info "Next Steps:"
 echo "  1. Open http://$DOMAIN in your browser"
-echo "  2. Log in with your admin credentials"
-echo "  3. Start using TechVault!"
+echo "  2. Log in with:"
+echo "     - Email: $ADMIN_EMAIL"
+echo "     - Password: $ADMIN_PASSWORD"
+echo "  3. Change your admin password immediately!"
+echo "  4. Start using TechVault!"
 echo ""
-log_warning "Important: Save the database credentials shown above in a secure location!"
+log_warning "Important: Save these credentials in a secure location!"
 echo ""
 
 # Save credentials to file
@@ -351,9 +363,13 @@ Database Credentials:
 
 Admin Account:
   Email: $ADMIN_EMAIL
+  Password: $ADMIN_PASSWORD
+  ⚠️  IMPORTANT: Change this password after first login!
 
 Backend .env location: $INSTALL_DIR/backend/.env
 EOF
 
 chmod 600 "$CREDENTIALS_FILE"
-log_info "Credentials saved to: $CREDENTIALS_FILE"
+echo ""
+log_success "All credentials have been saved to: $CREDENTIALS_FILE"
+echo ""

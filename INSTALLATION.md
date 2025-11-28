@@ -12,7 +12,9 @@ This guide provides instructions for installing TechVault on a fresh Ubuntu 24.0
 
 ## Quick Installation
 
-For a fully automated installation, run:
+**100% Automated - Zero Interaction Required!**
+
+The installation script is fully automated and requires no user input. Simply run:
 
 ```bash
 wget https://raw.githubusercontent.com/Jurgens92/TechVault/main/install.sh
@@ -25,6 +27,22 @@ Or if you've already cloned the repository:
 cd TechVault
 sudo bash install.sh
 ```
+
+The script will automatically:
+- Install all dependencies
+- Set up the database with secure credentials
+- Build and deploy the application
+- Create a default admin account
+- Configure everything to run on port 80
+
+### Default Admin Credentials
+
+After installation, you can immediately login with:
+
+- **Email**: `admin@techvault.local`
+- **Password**: `TechVault2024!`
+
+**⚠️ IMPORTANT**: Change the admin password immediately after first login!
 
 ## What the Install Script Does
 
@@ -56,11 +74,16 @@ The installation script performs the following steps automatically:
 
 ## Post-Installation
 
-After successful installation:
+After successful installation, TechVault is immediately ready to use:
 
 1. **Access the Application**: Open `http://your-server-ip` in your browser
-2. **Login**: Use the admin credentials you created during installation
-3. **Admin Panel**: Access at `http://your-server-ip/admin`
+2. **Login with default credentials**:
+   - Email: `admin@techvault.local`
+   - Password: `TechVault2024!`
+3. **Change your password**: Go to your profile settings and update the password
+4. **Admin Panel**: Access at `http://your-server-ip/admin`
+
+All installation credentials are saved in `/opt/techvault/installation_credentials.txt`
 
 ## Default Locations
 
