@@ -6,10 +6,12 @@ import { Input } from '../components/ui/Input';
 import { organizationAPI } from '../services/core';
 import { Organization } from '../types/core';
 import { ArrowLeft } from 'lucide-react';
+import { useOrganization } from '../contexts/OrganizationContext';
 
 export const OrganizationForm: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id?: string }>();
+  const { setSelectedOrg, refreshOrganizations } = useOrganization();
   const isEditMode = !!id && id !== 'new';
 
   const [loading, setLoading] = useState(isEditMode);
@@ -68,6 +70,8 @@ export const OrganizationForm: React.FC = () => {
         navigate(`/organizations/${id}`);
       } else {
         const response = await organizationAPI.create(formData);
+        setSelectedOrg(response.data);
+        await refreshOrganizations();
         navigate(`/organizations/${response.data.id}`);
       }
     } catch (err: any) {
