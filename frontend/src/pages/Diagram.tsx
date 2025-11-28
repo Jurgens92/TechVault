@@ -706,12 +706,17 @@ function SoftwareDiagram({ software }: { software: DiagramData['software'] }) {
               <p className="text-xs text-muted-foreground capitalize">
                 {item.software_type.replace(/_/g, ' ')}
               </p>
-              {item.assigned_to_name && (
-                <div className="flex items-center gap-1 mt-1">
-                  <User className="h-3 w-3 text-muted-foreground" />
-                  <p className="text-xs text-muted-foreground truncate">
-                    {item.assigned_to_name}
-                  </p>
+            
+              {item.assigned_contacts && (
+                <div className="mt-1 space-y-1">
+                  {item.assigned_contacts.map((c, idx) => (
+                    <div key={idx} className="flex items-center gap-1">
+                      <User className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                      <p className="text-xs text-muted-foreground truncate">
+                        {c.contact_name}
+                      </p>
+                    </div>
+                  ))}
                 </div>
               )}
               {item.notes && (
