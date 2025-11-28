@@ -28,12 +28,27 @@ cd TechVault
 sudo bash install.sh
 ```
 
+### Installing with Public IP/Domain
+
+If you're installing on a server that will be accessed via a public IP or domain name (not just local network), set the `PUBLIC_DOMAIN` environment variable:
+
+```bash
+# For public IP
+PUBLIC_DOMAIN=203.0.113.45 sudo -E bash install.sh
+
+# For domain name
+PUBLIC_DOMAIN=techvault.example.com sudo -E bash install.sh
+```
+
+**Note**: The `-E` flag preserves the environment variable when using sudo.
+
 The script will automatically:
 - Install all dependencies
 - Set up the database with secure credentials
 - Build and deploy the application
 - Create a default admin account
 - Configure everything to run on port 80
+- Use relative URLs (works with any IP/domain)
 
 ### Default Admin Credentials
 
@@ -198,7 +213,42 @@ sudo systemctl restart techvault-backend
 sudo systemctl restart nginx
 ```
 
+## Rebuilding After Installation
+
+If you've already installed TechVault but need to access it from a different IP or domain, you can simply rebuild the frontend:
+
+```bash
+cd /opt/techvault
+sudo bash reconfigure.sh
+```
+
+Or rebuild manually:
+
+```bash
+cd /opt/techvault/frontend
+sudo npm run build
+sudo systemctl restart nginx
+```
+
+**Why this works**: TechVault uses relative URLs, so the frontend automatically adapts to whatever domain/IP you're accessing it from. No reconfiguration needed!
+
 ## Troubleshooting
+
+### Can't Access from Public IP
+
+If you installed TechVault and can't access it from outside your local network:
+
+1. **Check port forwarding**: Ensure your router is forwarding port 80 to the server
+2. **Rebuild frontend**: Run `sudo bash reconfigure.sh` in `/opt/techvault`
+3. **Check firewall**: If you have a firewall, allow port 80:
+   ```bash
+   sudo ufw allow 80/tcp
+   ```
+4. **Verify services**: Check that nginx and backend are running:
+   ```bash
+   sudo systemctl status nginx
+   sudo systemctl status techvault-backend
+   ```
 
 ### Backend Not Starting
 

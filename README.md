@@ -210,6 +210,12 @@ wget https://raw.githubusercontent.com/Jurgens92/TechVault/main/install.sh
 sudo bash install.sh
 ```
 
+**For public IP/domain access**, set the PUBLIC_DOMAIN variable:
+
+```bash
+PUBLIC_DOMAIN=your.domain.com sudo -E bash install.sh
+```
+
 This fully automated script will:
 - Install all dependencies (Python, Node.js, PostgreSQL, Nginx)
 - Set up and configure the database
@@ -217,6 +223,7 @@ This fully automated script will:
 - Configure Nginx to serve on port 80
 - Create systemd services for auto-start
 - Generate secure credentials
+- Work with any IP/domain (uses relative URLs)
 
 Default admin credentials:
 - Email: `admin@techvault.local`

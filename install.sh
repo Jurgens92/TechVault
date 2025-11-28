@@ -74,12 +74,23 @@ ADMIN_FIRSTNAME="Admin"
 ADMIN_LASTNAME="User"
 GITHUB_REPO="https://github.com/Jurgens92/TechVault.git"
 
-# Auto-detect server IP
-DOMAIN=$(hostname -I | awk '{print $1}')
-if [ -z "$DOMAIN" ]; then
-    DOMAIN="localhost"
+# Auto-detect server IP (private)
+DETECTED_IP=$(hostname -I | awk '{print $1}')
+if [ -z "$DETECTED_IP" ]; then
+    DETECTED_IP="localhost"
 fi
-log_info "Using domain/IP: $DOMAIN"
+
+# Get public IP/domain from environment variable or use detected IP
+if [ -z "$PUBLIC_DOMAIN" ]; then
+    log_info "Detected private IP: $DETECTED_IP"
+    log_warning "If you're accessing this server from outside your network, you need to specify the public IP or domain."
+    log_info "You can set it via environment variable: PUBLIC_DOMAIN=your.domain.com sudo -E bash install.sh"
+    log_info "Using detected IP: $DETECTED_IP"
+    DOMAIN="$DETECTED_IP"
+else
+    log_info "Using public domain/IP: $PUBLIC_DOMAIN"
+    DOMAIN="$PUBLIC_DOMAIN"
+fi
 
 log_info "Starting TechVault installation..."
 echo "========================================"
@@ -149,7 +160,8 @@ cat > "$INSTALL_DIR/backend/.env" <<EOF
 # Django Settings
 SECRET_KEY=$SECRET_KEY
 DEBUG=False
-ALLOWED_HOSTS=$DOMAIN,localhost,127.0.0.1
+# Allow all hosts for self-hosted deployments (change if you want to restrict)
+ALLOWED_HOSTS=*
 
 # Database
 DB_NAME=$DB_NAME
@@ -158,8 +170,9 @@ DB_PASSWORD=$DB_PASSWORD
 DB_HOST=localhost
 DB_PORT=5432
 
-# CORS
-CORS_ALLOWED_ORIGINS=http://$DOMAIN,http://localhost
+# CORS - Allow all origins for self-hosted deployments
+# The API is protected by authentication, so this is safe
+CORS_ALLOW_ALL_ORIGINS=True
 
 # JWT Settings
 ACCESS_TOKEN_LIFETIME_MINUTES=60
@@ -196,8 +209,10 @@ log_info "Setting up frontend..."
 cd "$INSTALL_DIR/frontend"
 
 # Create frontend .env file
+# Use empty VITE_API_URL so frontend uses relative URLs (same origin)
+# This allows the app to work with any domain/IP without rebuilding
 cat > "$INSTALL_DIR/frontend/.env" <<EOF
-VITE_API_URL=http://$DOMAIN
+VITE_API_URL=
 EOF
 
 log_info "Installing frontend dependencies..."
