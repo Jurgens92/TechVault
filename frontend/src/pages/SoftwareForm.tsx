@@ -56,7 +56,7 @@ export function SoftwareForm() {
       setFormData({
         name: software.name,
         software_type: software.software_type,
-        assigned_contact_ids: software.assigned_contact_ids || [],
+        assigned_contact_ids: software.assigned_contacts?.map(a => a.contact_id) || [],
         license_key: software.license_key,
         version: software.version,
         license_type: software.license_type,

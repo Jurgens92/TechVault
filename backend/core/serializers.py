@@ -176,7 +176,7 @@ class PeripheralSerializer(serializers.ModelSerializer):
 
 
 class SoftwareAssignmentSerializer(serializers.ModelSerializer):
-    contact_id = serializers.PrimaryKeyRelatedField(source='contact', queryset=Contact.objects.all(), write_only=True)
+    contact_id = serializers.PrimaryKeyRelatedField(source='contact', queryset=Contact.objects.all())
     contact_name = serializers.CharField(source='contact.full_name', read_only=True)
     contact_email = serializers.CharField(source='contact.email', read_only=True)
     created_by = UserSerializer(read_only=True)
@@ -188,7 +188,7 @@ class SoftwareAssignmentSerializer(serializers.ModelSerializer):
             'id', 'contact_id', 'contact_name', 'contact_email', 'created_at',
             'created_by', 'updated_at', 'deleted_at', 'deleted_by'
         ]
-        read_only_fields = ['id', 'created_by', 'created_at', 'updated_at', 'deleted_at', 'deleted_by']
+        read_only_fields = ['id', 'contact_name', 'contact_email', 'created_by', 'created_at', 'updated_at', 'deleted_at', 'deleted_by']
 
 
 class SoftwareSerializer(serializers.ModelSerializer):
