@@ -16,7 +16,7 @@ from django.utils import timezone
 from core.models import (
     Organization, Location, Contact, Documentation, PasswordEntry,
     Configuration, NetworkDevice, EndpointUser, Server, Peripheral,
-    Software, Backup
+    Software, SoftwareAssignment, Backup
 )
 
 User = get_user_model()
@@ -2515,11 +2515,18 @@ echo Backup completed: %DATE%''',
 
             software = Software.objects.create(
                 organization=organizations[org_index],
-                assigned_to=contacts[contact_index] if contact_index is not None else None,
                 created_by=random.choice(users),
                 **software_data_item
             )
             software_list.append(software)
+
+            # Create software assignment if contact is specified
+            if contact_index is not None:
+                SoftwareAssignment.objects.create(
+                    software=software,
+                    contact=contacts[contact_index],
+                    created_by=random.choice(users)
+                )
 
         return software_list
 

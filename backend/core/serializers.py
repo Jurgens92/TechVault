@@ -219,8 +219,16 @@ class SoftwareSerializer(serializers.ModelSerializer):
         contact_ids = validated_data.pop('assigned_contact_ids', [])
         software = Software.objects.create(**validated_data)
 
+        # Get the user from the request context
+        request = self.context.get('request')
+        user = request.user if request else None
+
         for contact in contact_ids:
-            SoftwareAssignment.objects.create(software=software, contact=contact)
+            SoftwareAssignment.objects.create(
+                software=software,
+                contact=contact,
+                created_by=user
+            )
 
         return software
 
@@ -232,10 +240,18 @@ class SoftwareSerializer(serializers.ModelSerializer):
         instance.save()
 
         if contact_ids is not None:
+            # Get the user from the request context
+            request = self.context.get('request')
+            user = request.user if request else None
+
             # Clear existing assignments and create new ones
             instance.software_assignments.all().delete()
             for contact in contact_ids:
-                SoftwareAssignment.objects.create(software=instance, contact=contact)
+                SoftwareAssignment.objects.create(
+                    software=instance,
+                    contact=contact,
+                    created_by=user
+                )
 
         return instance
 

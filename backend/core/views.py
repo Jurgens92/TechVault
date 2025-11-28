@@ -392,7 +392,10 @@ class SoftwareViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     ordering = ['organization', 'software_type', 'name']
 
     def get_queryset(self):
-        return Software.objects.select_related('organization', 'assigned_to')
+        return Software.objects.select_related('organization').prefetch_related(
+            'software_assignments__contact',
+            'software_assignments__created_by'
+        )
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
@@ -401,7 +404,12 @@ class SoftwareViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     def by_organization(self, request):
         org_id = request.query_params.get('organization_id')
         if org_id:
-            software = Software.objects.filter(organization_id=org_id)
+            software = Software.objects.filter(organization_id=org_id).select_related(
+                'organization'
+            ).prefetch_related(
+                'software_assignments__contact',
+                'software_assignments__created_by'
+            )
             serializer = self.get_serializer(software, many=True)
             return Response(serializer.data)
         return Response([], status=status.HTTP_400_BAD_REQUEST)
