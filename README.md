@@ -49,70 +49,32 @@ TechVault/
 - **Routing**: React Router v6.26+
 - **HTTP Client**: Axios with interceptors
 
-## 🔧 Quick Start
+## 📦 Installation
 
-### Prerequisites
+TechVault supports multiple installation methods:
 
-- Python 3.10+
-- Node.js 18+
-- Git
-- SQLite (included with Python) - for development
-- PostgreSQL 12+ (optional) - for production
+### 🚀 Quick Install (Recommended for Ubuntu 24.04)
 
-### 1. Clone the Repository
+One-command deployment on Ubuntu 24.04 servers:
 
 ```bash
-git clone <repository-url>
-cd TechVault
+wget https://raw.githubusercontent.com/Jurgens92/TechVault/main/install.sh
+sudo bash install.sh
 ```
 
-### 2. Backend Setup
+This automated script installs all dependencies, configures the database, deploys the application, and sets up Nginx to serve on port 80.
 
-```bash
-cd backend
+**Default credentials after installation:**
+- Email: `admin@techvault.local`
+- Password: `TechVault2024!`
 
-# Create virtual environment
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+### 👨‍💻 Development Setup
 
-# Install dependencies
-pip install -r requirements.txt
+For local development, see [SETUP_GUIDE.md](./SETUP_GUIDE.md).
 
-# Run migrations (creates SQLite database automatically)
-python manage.py makemigrations
-python manage.py migrate
+### 📚 Complete Installation Guide
 
-# Create superuser
-python manage.py createsuperuser --email admin@example.com --first_name Admin --last_name User
-
-# Start backend server
-python manage.py runserver
-```
-
-Backend will be available at `http://localhost:8000`
-Admin panel at `http://localhost:8000/admin`
-
-### 3. Frontend Setup
-
-Open a new terminal:
-
-```bash
-cd frontend
-
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
-```
-
-Frontend will be available at `http://localhost:5173`
-
-### 4. Login & Explore
-
-1. Open `http://localhost:5173` in your browser
-2. Login with your superuser credentials
-3. Start creating organizations, locations, and more!
+For detailed installation instructions, troubleshooting, updating, and manual setup, see [INSTALLATION.md](./INSTALLATION.md).
 
 ## 📚 Documentation
 
@@ -199,9 +161,7 @@ cd frontend
 npm run test  # To be configured
 ```
 
-## 🚢 Deployment
-
-### Automated Ubuntu 24.04 Installation
+## 🚀 Updating TechVault
 
 **One-command deployment for Ubuntu 24.04 servers:**
 
@@ -240,38 +200,7 @@ cd /opt/techvault
 sudo bash update.sh
 ```
 
-The update script automatically:
-- Creates a backup before updating
-- Pulls latest code from GitHub
-- Updates all dependencies
-- Runs database migrations
-- Rebuilds frontend
-- Restarts services
-
-Backups are stored in `/opt/techvault_backups/` with easy restore scripts.
-
-### Manual Production Deployment
-
-If you prefer manual deployment, follow this checklist:
-
-#### Backend
-- [ ] Set `DEBUG=False`
-- [ ] Configure `ALLOWED_HOSTS`
-- [ ] Generate secure `SECRET_KEY`
-- [ ] Set up proper email backend
-- [ ] Configure static files serving
-- [ ] Set up database backups
-- [ ] Enable HTTPS
-- [ ] Configure production CORS settings
-
-#### Frontend
-
-```bash
-cd frontend
-npm run build
-```
-
-Deploy the `dist/` directory to your hosting platform (Vercel, Netlify, etc.)
+This creates automatic backups and updates all components. See [INSTALLATION.md](./INSTALLATION.md#updating-techvault) for details.
 
 ## 🛠️ Development Workflow
 
@@ -282,28 +211,6 @@ Deploy the `dist/` directory to your hosting platform (Vercel, Netlify, etc.)
 5. Create pull request
 6. Code review
 7. Merge to main
-
-## 📝 Environment Variables
-
-### Backend (.env)
-```env
-SECRET_KEY=your-secret-key
-DEBUG=True
-ALLOWED_HOSTS=localhost,127.0.0.1
-DB_NAME=techvault
-DB_USER=postgres
-DB_PASSWORD=postgres
-DB_HOST=localhost
-DB_PORT=5432
-CORS_ALLOWED_ORIGINS=http://localhost:5173
-GITHUB_CLIENT_ID=your-github-client-id
-GITHUB_CLIENT_SECRET=your-github-client-secret
-```
-
-### Frontend (.env)
-```env
-VITE_API_URL=http://localhost:8000
-```
 
 ## 🤝 Contributing
 
