@@ -224,6 +224,25 @@ Default admin credentials:
 
 For detailed instructions, see [INSTALLATION.md](./INSTALLATION.md)
 
+### Updating TechVault
+
+**One-command update:**
+
+```bash
+cd /opt/techvault
+sudo bash update.sh
+```
+
+The update script automatically:
+- Creates a backup before updating
+- Pulls latest code from GitHub
+- Updates all dependencies
+- Runs database migrations
+- Rebuilds frontend
+- Restarts services
+
+Backups are stored in `/opt/techvault_backups/` with easy restore scripts.
+
 ### Manual Production Deployment
 
 If you prefer manual deployment, follow this checklist:

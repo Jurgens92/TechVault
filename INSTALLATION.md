@@ -135,7 +135,45 @@ sudo tail -f /var/log/nginx/access.log
 
 ## Updating TechVault
 
-To update TechVault to the latest version:
+### Automated Update (Recommended)
+
+**100% Automated - Zero interaction required!**
+
+To update TechVault to the latest version, simply run:
+
+```bash
+cd /opt/techvault
+sudo bash update.sh
+```
+
+Or download and run directly:
+
+```bash
+wget https://raw.githubusercontent.com/Jurgens92/TechVault/main/update.sh
+sudo bash update.sh
+```
+
+The update script will automatically:
+- Create a backup of your current installation and database
+- Pull the latest code from GitHub
+- Update all dependencies (backend and frontend)
+- Run database migrations
+- Rebuild the frontend
+- Collect static files
+- Restart all services
+- Verify everything is working
+
+**Backup Location**: `/opt/techvault_backups/techvault_backup_TIMESTAMP/`
+
+The script creates a timestamped backup before updating. If something goes wrong, you can restore using the generated restore script:
+
+```bash
+sudo bash /opt/techvault_backups/techvault_backup_TIMESTAMP/restore_this_backup.sh
+```
+
+### Manual Update
+
+If you prefer to update manually:
 
 ```bash
 cd /opt/techvault
