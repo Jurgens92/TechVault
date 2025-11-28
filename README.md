@@ -76,6 +76,59 @@ For local development, see [SETUP_GUIDE.md](./SETUP_GUIDE.md).
 
 For detailed installation instructions, troubleshooting, updating, and manual setup, see [INSTALLATION.md](./INSTALLATION.md).
 
+## 📋 Loading Dummy Data
+
+After installation, you can load sample data for testing and evaluation:
+
+### Quick Start
+
+```bash
+cd /opt/techvault/backend
+source venv/bin/activate
+python manage.py load_dummy_data
+```
+
+### Options
+
+**Load dummy data (adds to existing data):**
+```bash
+python manage.py load_dummy_data
+```
+
+**Clear existing data and reload:**
+```bash
+python manage.py load_dummy_data --clear
+```
+
+### Test Users Created
+
+Once loaded, you can log in with these test credentials:
+
+| Email | Password | Role |
+|-------|----------|------|
+| `admin@techvault.com` | `admin123` | Superuser |
+| `john.doe@techvault.com` | `password123` | Regular User |
+| `jane.smith@techvault.com` | `password123` | Regular User |
+| `bob.johnson@techvault.com` | `password123` | Regular User |
+
+### Sample Data Included
+
+The dummy data loader creates:
+- 4 test users
+- 5 organizations (Tech Solutions Inc, Digital Innovations Ltd, Cloud Systems Corp, TechGuard MSP, Acme Manufacturing Co)
+- 8 locations across organizations
+- 25 contacts
+- 50+ documentation entries
+- 30+ password entries
+- Network devices (routers, switches, firewalls)
+- Servers (web, database, file servers)
+- Peripherals (printers, monitors, etc.)
+- Software licenses and assignments
+- Backup job records
+- Configurations and endpoints
+
+This gives you a realistic test environment to explore TechVault's features!
+
 ## 📚 Documentation
 
 - [Setup Guide](./SETUP_GUIDE.md) - Comprehensive setup and API documentation
