@@ -233,14 +233,22 @@ export interface Peripheral {
   updated_at: string;
 }
 
+export interface SoftwareAssignment {
+  id: string;
+  contact_id: string;
+  contact_name: string;
+  contact_email: string;
+  created_at: string;
+}
+
 export interface Software {
   id: string;
   organization: string;
   organization_name: string;
   name: string;
   software_type: 'microsoft365' | 'endpoint_protection' | 'design' | 'development' | 'subscription' | 'other';
-  assigned_to: string | null;
-  assigned_to_name: string | null;
+  assigned_contact_ids: string[];
+  assigned_contacts: SoftwareAssignment[];
   license_key: string;
   version: string;
   license_type: 'perpetual' | 'subscription' | 'trial' | 'free' | 'other';
@@ -248,6 +256,8 @@ export interface Software {
   expiry_date: string | null;
   vendor: string;
   quantity: number;
+  assigned_count: number;
+  available_licenses: number;
   notes: string;
   is_active: boolean;
   created_by: {

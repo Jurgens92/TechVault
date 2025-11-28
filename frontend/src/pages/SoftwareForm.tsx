@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { softwareAPI, contactAPI } from '@/services/core';
 import type { Software, Contact } from '@/types/core';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2, X } from 'lucide-react';
 
 export function SoftwareForm() {
   const { id } = useParams<{ id: string }>();
@@ -11,10 +11,12 @@ export function SoftwareForm() {
   const { selectedOrg } = useOrganization();
   const [loading, setLoading] = useState(false);
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showDropdown, setShowDropdown] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     software_type: 'microsoft365' as Software['software_type'],
-    assigned_to: '',
+    assigned_contact_ids: [] as string[],
     license_key: '',
     version: '',
     license_type: 'perpetual' as Software['license_type'],
@@ -54,7 +56,7 @@ export function SoftwareForm() {
       setFormData({
         name: software.name,
         software_type: software.software_type,
-        assigned_to: software.assigned_to || '',
+        assigned_contact_ids: software.assigned_contact_ids || [],
         license_key: software.license_key,
         version: software.version,
         license_type: software.license_type,
@@ -81,7 +83,6 @@ export function SoftwareForm() {
       const data = {
         ...formData,
         organization: selectedOrg.id,
-        assigned_to: formData.assigned_to || null,
         purchase_date: formData.purchase_date || null,
         expiry_date: formData.expiry_date || null,
       };
@@ -99,6 +100,34 @@ export function SoftwareForm() {
       setLoading(false);
     }
   };
+
+  const handleAddContact = (contactId: string) => {
+    if (!formData.assigned_contact_ids.includes(contactId)) {
+      setFormData({
+        ...formData,
+        assigned_contact_ids: [...formData.assigned_contact_ids, contactId],
+      });
+    }
+    setSearchQuery('');
+    setShowDropdown(false);
+  };
+
+  const handleRemoveContact = (contactId: string) => {
+    setFormData({
+      ...formData,
+      assigned_contact_ids: formData.assigned_contact_ids.filter((id) => id !== contactId),
+    });
+  };
+
+  const filteredContacts = contacts.filter(
+    (contact) =>
+      contact.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      contact.email.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const assignedContacts = contacts.filter((c) =>
+    formData.assigned_contact_ids.includes(c.id)
+  );
 
   if (!selectedOrg) {
     return (
@@ -162,19 +191,78 @@ export function SoftwareForm() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">Assigned To</label>
-            <select
-              value={formData.assigned_to}
-              onChange={(e) => setFormData({ ...formData, assigned_to: e.target.value })}
-              className="w-full px-3 py-2 border border-input rounded-md bg-background"
-            >
-              <option value="">Select user (optional)</option>
-              {contacts.map((contact) => (
-                <option key={contact.id} value={contact.id}>
-                  {contact.full_name} ({contact.email})
-                </option>
-              ))}
-            </select>
+            <label className="block text-sm font-medium mb-2">Assign To Users</label>
+            <div className="relative">
+              <div
+                className="w-full px-3 py-2 border border-input rounded-md bg-background min-h-[42px] cursor-pointer flex items-center justify-between"
+                onClick={() => setShowDropdown(!showDropdown)}
+              >
+                <div className="flex flex-wrap gap-2">
+                  {assignedContacts.length > 0 ? (
+                    assignedContacts.map((contact) => (
+                      <div
+                        key={contact.id}
+                        className="flex items-center gap-1 bg-primary/20 text-primary px-2 py-1 rounded text-sm"
+                      >
+                        <span>{contact.full_name}</span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveContact(contact.id);
+                          }}
+                          className="hover:text-primary/80"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))
+                  ) : (
+                    <span className="text-muted-foreground">Select users (optional)</span>
+                  )}
+                </div>
+              </div>
+
+              {showDropdown && (
+                <div className="absolute z-50 w-full mt-1 bg-background border border-input rounded-md shadow-lg">
+                  <div className="p-2 border-b border-border">
+                    <input
+                      type="text"
+                      className="w-full px-2 py-1 text-sm bg-background border border-input rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                      placeholder="Search users..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
+                  <div className="max-h-60 overflow-y-auto">
+                    {filteredContacts.length === 0 ? (
+                      <div className="px-3 py-2 text-sm text-muted-foreground text-center">
+                        No users found
+                      </div>
+                    ) : (
+                      filteredContacts.map((contact) => (
+                        <div
+                          key={contact.id}
+                          className={`px-3 py-2 text-sm cursor-pointer flex items-center justify-between hover:bg-accent ${
+                            formData.assigned_contact_ids.includes(contact.id) ? 'bg-primary/10' : ''
+                          }`}
+                          onClick={() => handleAddContact(contact.id)}
+                        >
+                          <div>
+                            <p className="font-medium">{contact.full_name}</p>
+                            <p className="text-xs text-muted-foreground">{contact.email}</p>
+                          </div>
+                          {formData.assigned_contact_ids.includes(contact.id) && (
+                            <span className="text-primary">✓</span>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

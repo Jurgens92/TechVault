@@ -5,7 +5,10 @@
       "Bash(python3:*)",
       "Bash(apt-get update:*)",
       "Bash(apt-get install:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(pip install:*)",
+      "Bash(pip3 install:*)",
+      "Bash(/usr/bin/python3 -m pip install:*)"
     ],
     "deny": [],
     "ask": []

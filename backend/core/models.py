@@ -414,9 +414,6 @@ class Software(BaseModel):
         default='other'
     )
 
-    # Assignment
-    assigned_to = models.ForeignKey(Contact, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_software')
-
     # License information
     license_key = models.CharField(max_length=255, blank=True, help_text='Product key or license code')
     version = models.CharField(max_length=100, blank=True, help_text='e.g., 2024, Pro, Standard')
@@ -450,6 +447,29 @@ class Software(BaseModel):
 
     def __str__(self):
         return f"{self.name} ({self.get_software_type_display()})"
+
+    @property
+    def assigned_count(self):
+        """Return the number of users this software is assigned to."""
+        return self.software_assignments.count()
+
+    @property
+    def available_licenses(self):
+        """Return the number of available licenses."""
+        return self.quantity - self.assigned_count
+
+
+class SoftwareAssignment(BaseModel):
+    """Assignment of software licenses to contacts."""
+    software = models.ForeignKey(Software, on_delete=models.CASCADE, related_name='software_assignments')
+    contact = models.ForeignKey(Contact, on_delete=models.CASCADE, related_name='software_assignments')
+
+    class Meta:
+        db_table = 'software_assignments'
+        unique_together = ('software', 'contact')
+
+    def __str__(self):
+        return f"{self.software.name} -> {self.contact.full_name}"
 
 
 class Backup(BaseModel):

@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import (
     Organization, Location, Contact, Documentation,
-    PasswordEntry, Configuration, NetworkDevice, EndpointUser, Server, Peripheral, Software, Backup
+    PasswordEntry, Configuration, NetworkDevice, EndpointUser, Server, Peripheral, Software, SoftwareAssignment, Backup
 )
 from users.serializers import UserSerializer
 
@@ -175,9 +175,33 @@ class PeripheralSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_by', 'created_at', 'updated_at', 'deleted_at', 'deleted_by']
 
 
+class SoftwareAssignmentSerializer(serializers.ModelSerializer):
+    contact_id = serializers.PrimaryKeyRelatedField(source='contact', queryset=Contact.objects.all(), write_only=True)
+    contact_name = serializers.CharField(source='contact.full_name', read_only=True)
+    contact_email = serializers.CharField(source='contact.email', read_only=True)
+    created_by = UserSerializer(read_only=True)
+    deleted_by = UserSerializer(read_only=True)
+
+    class Meta:
+        model = SoftwareAssignment
+        fields = [
+            'id', 'contact_id', 'contact_name', 'contact_email', 'created_at',
+            'created_by', 'updated_at', 'deleted_at', 'deleted_by'
+        ]
+        read_only_fields = ['id', 'created_by', 'created_at', 'updated_at', 'deleted_at', 'deleted_by']
+
+
 class SoftwareSerializer(serializers.ModelSerializer):
     organization_name = serializers.CharField(source='organization.name', read_only=True)
-    assigned_to_name = serializers.CharField(source='assigned_to.full_name', read_only=True, allow_null=True)
+    assigned_contacts = SoftwareAssignmentSerializer(source='software_assignments', many=True, read_only=True)
+    assigned_contact_ids = serializers.PrimaryKeyRelatedField(
+        queryset=Contact.objects.all(),
+        many=True,
+        write_only=True,
+        required=False
+    )
+    assigned_count = serializers.IntegerField(read_only=True)
+    available_licenses = serializers.IntegerField(read_only=True)
     created_by = UserSerializer(read_only=True)
     deleted_by = UserSerializer(read_only=True)
 
@@ -185,11 +209,35 @@ class SoftwareSerializer(serializers.ModelSerializer):
         model = Software
         fields = [
             'id', 'organization', 'organization_name', 'name', 'software_type',
-            'assigned_to', 'assigned_to_name', 'license_key', 'version', 'license_type',
+            'assigned_contact_ids', 'assigned_contacts', 'license_key', 'version', 'license_type',
             'purchase_date', 'expiry_date', 'vendor', 'cost', 'quantity', 'notes',
-            'is_active', 'created_by', 'created_at', 'updated_at', 'deleted_at', 'deleted_by'
+            'assigned_count', 'available_licenses', 'is_active', 'created_by', 'created_at', 'updated_at', 'deleted_at', 'deleted_by'
         ]
         read_only_fields = ['id', 'created_by', 'created_at', 'updated_at', 'deleted_at', 'deleted_by']
+
+    def create(self, validated_data):
+        contact_ids = validated_data.pop('assigned_contact_ids', [])
+        software = Software.objects.create(**validated_data)
+
+        for contact in contact_ids:
+            SoftwareAssignment.objects.create(software=software, contact=contact)
+
+        return software
+
+    def update(self, instance, validated_data):
+        contact_ids = validated_data.pop('assigned_contact_ids', None)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        if contact_ids is not None:
+            # Clear existing assignments and create new ones
+            instance.software_assignments.all().delete()
+            for contact in contact_ids:
+                SoftwareAssignment.objects.create(software=instance, contact=contact)
+
+        return instance
 
 
 class BackupSerializer(serializers.ModelSerializer):

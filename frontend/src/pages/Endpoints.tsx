@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { networkDeviceAPI, endpointUserAPI, serverAPI, peripheralAPI, backupAPI, softwareAPI } from '@/services/core';
@@ -674,6 +674,14 @@ function SoftwareList({
   onEdit: (id: string) => void;
   onDelete: (id: string, name: string) => void;
 }) {
+  const [expandedSoftwareId, setExpandedSoftwareId] = React.useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = React.useState('');
+
+  const filteredSoftware = software.filter((sw) =>
+    sw.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    sw.vendor.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <div className="space-y-4">
       {software.length === 0 ? (
@@ -685,57 +693,113 @@ function SoftwareList({
           </p>
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {software.map((sw) => (
-            <div
-              key={sw.id}
-              className="border border-border rounded-lg p-4 hover:border-primary transition-colors"
-            >
-              <div className="flex items-start justify-between mb-2">
-                <h3 className="font-semibold">{sw.name}</h3>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs px-2 py-1 rounded bg-accent">
-                    {sw.software_type}
-                  </span>
-                  <button
-                    onClick={() => onEdit(sw.id)}
-                    className="text-muted-foreground hover:text-primary transition-colors"
-                    title="Edit"
-                  >
-                    <Edit className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => onDelete(sw.id, sw.name)}
-                    className="text-muted-foreground hover:text-destructive transition-colors"
-                    title="Delete"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+        <>
+          <div className="mb-4">
+            <input
+              type="text"
+              placeholder="Search software..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full px-3 py-2 border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {filteredSoftware.map((sw) => (
+              <div
+                key={sw.id}
+                className="border border-border rounded-lg p-4 hover:border-primary transition-colors"
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <h3 className="font-semibold">{sw.name}</h3>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs px-2 py-1 rounded bg-accent">
+                      {sw.software_type}
+                    </span>
+                    <button
+                      onClick={() => onEdit(sw.id)}
+                      className="text-muted-foreground hover:text-primary transition-colors"
+                      title="Edit"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => onDelete(sw.id, sw.name)}
+                      className="text-muted-foreground hover:text-destructive transition-colors"
+                      title="Delete"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
+
+                {sw.vendor && (
+                  <p className="text-sm text-muted-foreground mb-2">
+                    {sw.vendor}
+                  </p>
+                )}
+
+                <div className="mb-3 p-2 bg-accent/30 rounded">
+                  <p className="text-sm font-medium">
+                    License Usage: <span className="text-primary">{sw.assigned_count}/{sw.quantity}</span>
+                  </p>
+                  <div className="w-full bg-accent rounded-full h-1.5 mt-1">
+                    <div
+                      className="bg-primary h-1.5 rounded-full transition-all"
+                      style={{
+                        width: `${sw.quantity > 0 ? (sw.assigned_count / sw.quantity) * 100 : 0}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {sw.assigned_count > 0 && (
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setExpandedSoftwareId(
+                          expandedSoftwareId === sw.id ? null : sw.id
+                        )
+                      }
+                      className="text-sm text-primary hover:underline font-medium mb-2"
+                    >
+                      {expandedSoftwareId === sw.id ? 'Hide' : 'Show'} Assigned Users ({sw.assigned_count})
+                    </button>
+
+                    {expandedSoftwareId === sw.id && (
+                      <div className="bg-accent/20 rounded p-2 space-y-1 max-h-40 overflow-y-auto">
+                        {sw.assigned_contacts.map((assignment) => (
+                          <div
+                            key={assignment.id}
+                            className="text-sm text-muted-foreground flex items-center justify-between"
+                          >
+                            <div>
+                              <p className="font-medium text-foreground">
+                                {assignment.contact_name}
+                              </p>
+                              <p className="text-xs">{assignment.contact_email}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {sw.expiry_date && (
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Expires: {new Date(sw.expiry_date).toLocaleDateString()}
+                  </p>
+                )}
+                {sw.version && (
+                  <p className="text-sm text-muted-foreground">
+                    Version: {sw.version}
+                  </p>
+                )}
               </div>
-              {sw.assigned_to_name && (
-                <p className="text-sm text-muted-foreground">
-                  User: {sw.assigned_to_name}
-                </p>
-              )}
-              {sw.vendor && (
-                <p className="text-sm text-muted-foreground">
-                  {sw.vendor}
-                </p>
-              )}
-              {sw.expiry_date && (
-                <p className="text-sm text-muted-foreground mt-1">
-                  Expires: {new Date(sw.expiry_date).toLocaleDateString()}
-                </p>
-              )}
-              {sw.version && (
-                <p className="text-sm text-muted-foreground">
-                  Version: {sw.version}
-                </p>
-              )}
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );
