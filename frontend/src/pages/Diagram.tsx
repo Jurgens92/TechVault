@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { diagramAPI } from '@/services/core';
 import type { DiagramData } from '@/types/core';
-import { Loader2, Network, Monitor, HardDrive, Printer, Globe, Shield, Wifi, Cpu, MemoryStick, Database, FileDown, ChevronDown, Package, User } from 'lucide-react';
+import { Loader2, Network, Monitor, HardDrive, Printer, Globe, Shield, Wifi, Cpu, MemoryStick, Database, FileDown, ChevronDown, Package, User, Phone } from 'lucide-react';
 import { exportAsPNG, exportAsJSON, exportAsSVG, exportAsPDF, printDiagram } from '@/utils/diagramExport';
 
 export function Diagram() {
@@ -228,6 +228,15 @@ export function Diagram() {
               Software
             </h2>
             <SoftwareDiagram software={data.software} />
+          </div>
+
+          {/* VoIP Diagram */}
+          <div className="border border-border rounded-lg p-6 bg-card">
+            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+              <Phone className="h-5 w-5" />
+              VoIP Services
+            </h2>
+            <VoIPDiagram voip={data.voip} />
           </div>
         </div>
       )}
@@ -706,7 +715,7 @@ function SoftwareDiagram({ software }: { software: DiagramData['software'] }) {
               <p className="text-xs text-muted-foreground capitalize">
                 {item.software_type.replace(/_/g, ' ')}
               </p>
-            
+
               {item.assigned_contacts && (
                 <div className="mt-1 space-y-1">
                   {item.assigned_contacts.map((c, idx) => (
@@ -722,6 +731,69 @@ function SoftwareDiagram({ software }: { software: DiagramData['software'] }) {
               {item.notes && (
                 <p className="text-xs text-muted-foreground mt-2 line-clamp-2">
                   {item.notes}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// VoIP Diagram Component
+function VoIPDiagram({ voip }: { voip: DiagramData['voip'] }) {
+  if (voip.length === 0) {
+    return (
+      <div className="text-center py-8 text-muted-foreground">
+        No VoIP services configured
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {voip.map((item) => (
+        <div
+          key={item.id}
+          className="p-4 rounded-lg border border-border hover:border-primary transition-colors bg-card"
+        >
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-lg bg-accent flex items-center justify-center flex-shrink-0">
+              <Phone className="h-5 w-5 text-foreground" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium truncate">{item.name}</p>
+              <p className="text-xs text-muted-foreground capitalize">
+                {item.voip_type === 'teams' ? 'Microsoft Teams' :
+                 item.voip_type === '3cx' ? '3CX' :
+                 item.voip_type === 'yeastar' ? 'Yeastar' :
+                 'Other'}
+              </p>
+
+              {item.assigned_contacts && item.assigned_contacts.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {item.assigned_contacts.map((c, idx) => (
+                    <div key={idx} className="flex items-center gap-1">
+                      <User className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                      <p className="text-xs text-muted-foreground truncate">
+                        {c.contact_name}
+                        {c.extension && ` • Ext: ${c.extension}`}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {item.phone_numbers && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  <span className="font-medium">Numbers:</span> {item.phone_numbers}
+                </p>
+              )}
+
+              {item.quantity && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  <span className="font-medium">Licenses:</span> {item.assigned_count || 0}/{item.quantity}
                 </p>
               )}
             </div>
