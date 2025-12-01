@@ -88,33 +88,29 @@ log_success "Backup created successfully"
 
 # Backup database
 log_info "Backing up database..."
-if [ -f "$INSTALL_DIR/backend/.env" ]; then
-    # Source the environment file to get DB settings
-    source <(grep -E '^(ENVIRONMENT|USE_SQLITE|DB_NAME|DB_USER|DB_PASSWORD)=' "$INSTALL_DIR/backend/.env" | sed 's/^/export /')
 
-    # Determine which database is being used
-    if [ "$USE_SQLITE" = "1" ] || [ "$ENVIRONMENT" = "development" ] || [ "$ENVIRONMENT" = "local" ] || [ "$ENVIRONMENT" = "dev" ] || [ -z "$ENVIRONMENT" ]; then
-        # Using SQLite
-        if [ -f "$INSTALL_DIR/backend/db.sqlite3" ]; then
-            cp "$INSTALL_DIR/backend/db.sqlite3" "$BACKUP_PATH/db.sqlite3"
-            log_success "SQLite database backed up to $BACKUP_PATH/db.sqlite3"
+# Check if SQLite database file exists first (most reliable method)
+if [ -f "$INSTALL_DIR/backend/db.sqlite3" ]; then
+    # Using SQLite - backup the file directly
+    cp "$INSTALL_DIR/backend/db.sqlite3" "$BACKUP_PATH/backend/db.sqlite3"
+    log_success "SQLite database backed up"
+elif [ -f "$INSTALL_DIR/backend/.env" ]; then
+    # No SQLite file found, try PostgreSQL backup
+    source <(grep -E '^(DB_NAME|DB_USER|DB_PASSWORD)=' "$INSTALL_DIR/backend/.env" | sed 's/^/export /')
+
+    if [ ! -z "$DB_NAME" ] && [ ! -z "$DB_USER" ]; then
+        log_info "Attempting PostgreSQL backup..."
+        if PGPASSWORD="$DB_PASSWORD" pg_dump -U "$DB_USER" -h localhost "$DB_NAME" > "$BACKUP_PATH/database_backup.sql" 2>/dev/null; then
+            log_success "PostgreSQL database backed up"
         else
-            log_warning "SQLite database file not found. Skipping database backup."
+            log_warning "PostgreSQL backup failed - credentials may be incorrect or PostgreSQL not configured"
+            log_warning "Continuing without database backup..."
         fi
     else
-        # Using PostgreSQL
-        if [ ! -z "$DB_NAME" ] && [ ! -z "$DB_USER" ]; then
-            if PGPASSWORD="$DB_PASSWORD" pg_dump -U "$DB_USER" -h localhost "$DB_NAME" > "$BACKUP_PATH/database_backup.sql" 2>/dev/null; then
-                log_success "PostgreSQL database backed up to $BACKUP_PATH/database_backup.sql"
-            else
-                log_warning "PostgreSQL backup failed. This may be because PostgreSQL is not configured or credentials are incorrect."
-            fi
-        else
-            log_warning "Could not find PostgreSQL credentials. Skipping database backup."
-        fi
+        log_warning "No database credentials found. Skipping database backup."
     fi
 else
-    log_warning ".env file not found. Skipping database backup."
+    log_warning "No database found. Skipping database backup."
 fi
 
 # Stop services before update
