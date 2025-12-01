@@ -435,7 +435,6 @@ class Software(BaseModel):
 
     # Additional details
     vendor = models.CharField(max_length=255, blank=True, help_text='Software vendor or publisher')
-    cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text='License cost')
     quantity = models.IntegerField(default=1, help_text='Number of licenses')
 
     notes = models.TextField(blank=True)
@@ -514,19 +513,6 @@ class Backup(BaseModel):
         default='active'
     )
 
-    # Cost
-    cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text='Monthly or annual cost')
-    cost_period = models.CharField(
-        max_length=50,
-        choices=[
-            ('monthly', 'Monthly'),
-            ('annual', 'Annual'),
-            ('one_time', 'One-time'),
-        ],
-        blank=True,
-        default='monthly'
-    )
-
     # Other details
     location = models.ForeignKey(Location, on_delete=models.SET_NULL, null=True, blank=True, related_name='backups')
     notes = models.TextField(blank=True)
@@ -576,7 +562,6 @@ class VoIP(BaseModel):
 
     # Additional details
     vendor = models.CharField(max_length=255, blank=True, help_text='VoIP vendor or service provider')
-    cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text='License cost per unit')
     quantity = models.IntegerField(default=1, help_text='Number of licenses/extensions')
 
     # VoIP-specific fields

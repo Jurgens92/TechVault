@@ -319,7 +319,6 @@ export interface VoIP {
   purchase_date: string | null;
   expiry_date: string | null;
   vendor: string;
-  cost: number | null;
   quantity: number;
   phone_numbers: string;
   extensions: string;

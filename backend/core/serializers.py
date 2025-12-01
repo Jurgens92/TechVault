@@ -210,7 +210,7 @@ class SoftwareSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'organization', 'organization_name', 'name', 'software_type',
             'assigned_contact_ids', 'assigned_contacts', 'license_key', 'version', 'license_type',
-            'purchase_date', 'expiry_date', 'vendor', 'cost', 'quantity', 'notes',
+            'purchase_date', 'expiry_date', 'vendor', 'quantity', 'notes',
             'assigned_count', 'available_licenses', 'is_active', 'created_by', 'created_at', 'updated_at', 'deleted_at', 'deleted_by'
         ]
         read_only_fields = ['id', 'created_by', 'created_at', 'updated_at', 'deleted_at', 'deleted_by']
@@ -268,7 +268,7 @@ class BackupSerializer(serializers.ModelSerializer):
             'id', 'organization', 'organization_name', 'name', 'backup_type',
             'vendor', 'frequency', 'retention_period', 'storage_location', 'storage_capacity',
             'target_systems', 'last_backup_date', 'next_backup_date', 'backup_status',
-            'cost', 'cost_period', 'location', 'location_name', 'notes', 'is_active',
+            'location', 'location_name', 'notes', 'is_active',
             'created_by', 'created_at', 'updated_at', 'deleted_at', 'deleted_by'
         ]
         read_only_fields = ['id', 'created_by', 'created_at', 'updated_at', 'deleted_at', 'deleted_by']
@@ -309,7 +309,7 @@ class VoIPSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'organization', 'organization_name', 'name', 'voip_type',
             'assigned_contact_ids', 'assigned_contacts', 'license_key', 'version', 'license_type',
-            'purchase_date', 'expiry_date', 'vendor', 'cost', 'quantity', 'phone_numbers',
+            'purchase_date', 'expiry_date', 'vendor', 'quantity', 'phone_numbers',
             'extensions', 'notes', 'assigned_count', 'available_licenses', 'is_active',
             'created_by', 'created_at', 'updated_at', 'deleted_at', 'deleted_by'
         ]
