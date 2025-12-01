@@ -162,6 +162,7 @@ export function Endpoints() {
       case 'peripherals': return '/peripherals/new';
       case 'backups': return '/backups/new';
       case 'software': return '/software/new';
+      case 'voip': return '/voip/new';
     }
   };
 
@@ -180,7 +181,7 @@ export function Endpoints() {
           disabled={!selectedOrg}
         >
           <Plus className="h-4 w-4" />
-          Add {activeTab === 'network' ? 'Device' : activeTab === 'users' ? 'Endpoint' : activeTab === 'servers' ? 'Server' : activeTab === 'peripherals' ? 'Peripheral' : activeTab === 'backups' ? 'Backup' : 'Software'}
+          Add {activeTab === 'network' ? 'Device' : activeTab === 'users' ? 'Endpoint' : activeTab === 'servers' ? 'Server' : activeTab === 'peripherals' ? 'Peripheral' : activeTab === 'backups' ? 'Backup' : activeTab === 'voip' ? 'VoIP' : 'Software'}
         </button>
       </div>
 
