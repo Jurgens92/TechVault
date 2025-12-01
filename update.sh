@@ -89,15 +89,32 @@ log_success "Backup created successfully"
 # Backup database
 log_info "Backing up database..."
 if [ -f "$INSTALL_DIR/backend/.env" ]; then
-    # Source the environment file to get DB credentials
-    source <(grep -E '^(DB_NAME|DB_USER|DB_PASSWORD)=' "$INSTALL_DIR/backend/.env" | sed 's/^/export /')
+    # Source the environment file to get DB settings
+    source <(grep -E '^(ENVIRONMENT|USE_SQLITE|DB_NAME|DB_USER|DB_PASSWORD)=' "$INSTALL_DIR/backend/.env" | sed 's/^/export /')
 
-    if [ ! -z "$DB_NAME" ] && [ ! -z "$DB_USER" ]; then
-        PGPASSWORD="$DB_PASSWORD" pg_dump -U "$DB_USER" -h localhost "$DB_NAME" > "$BACKUP_PATH/database_backup.sql"
-        log_success "Database backed up to $BACKUP_PATH/database_backup.sql"
+    # Determine which database is being used
+    if [ "$USE_SQLITE" = "1" ] || [ "$ENVIRONMENT" = "development" ] || [ "$ENVIRONMENT" = "local" ] || [ "$ENVIRONMENT" = "dev" ] || [ -z "$ENVIRONMENT" ]; then
+        # Using SQLite
+        if [ -f "$INSTALL_DIR/backend/db.sqlite3" ]; then
+            cp "$INSTALL_DIR/backend/db.sqlite3" "$BACKUP_PATH/db.sqlite3"
+            log_success "SQLite database backed up to $BACKUP_PATH/db.sqlite3"
+        else
+            log_warning "SQLite database file not found. Skipping database backup."
+        fi
     else
-        log_warning "Could not find database credentials. Skipping database backup."
+        # Using PostgreSQL
+        if [ ! -z "$DB_NAME" ] && [ ! -z "$DB_USER" ]; then
+            if PGPASSWORD="$DB_PASSWORD" pg_dump -U "$DB_USER" -h localhost "$DB_NAME" > "$BACKUP_PATH/database_backup.sql" 2>/dev/null; then
+                log_success "PostgreSQL database backed up to $BACKUP_PATH/database_backup.sql"
+            else
+                log_warning "PostgreSQL backup failed. This may be because PostgreSQL is not configured or credentials are incorrect."
+            fi
+        else
+            log_warning "Could not find PostgreSQL credentials. Skipping database backup."
+        fi
     fi
+else
+    log_warning ".env file not found. Skipping database backup."
 fi
 
 # Stop services before update
@@ -231,10 +248,12 @@ echo ""
 if [ "$BACKEND_STATUS" != "running" ] || [ "$NGINX_STATUS" != "running" ]; then
     log_warning "Rollback Instructions:"
     echo "  If you need to rollback to the previous version:"
+    echo "  1. Run the automatic restore script: sudo bash $BACKUP_PATH/restore_this_backup.sh"
+    echo ""
+    echo "  Or manually:"
     echo "  1. Stop services: systemctl stop techvault-backend"
     echo "  2. Restore files: rm -rf $INSTALL_DIR && cp -r $BACKUP_PATH $INSTALL_DIR"
-    echo "  3. Restore database: PGPASSWORD=\$DB_PASSWORD psql -U \$DB_USER -h localhost \$DB_NAME < $BACKUP_PATH/database_backup.sql"
-    echo "  4. Restart services: systemctl start techvault-backend && systemctl restart nginx"
+    echo "  3. Restart services: systemctl start techvault-backend && systemctl restart nginx"
     echo ""
 else
     log_info "Backup Retention:"
@@ -287,8 +306,11 @@ rm -rf "$INSTALL_DIR"
 cp -r "$BACKUP_PATH" "$INSTALL_DIR"
 
 # Restore database if backup exists
-if [ -f "$BACKUP_PATH/database_backup.sql" ]; then
-    echo "Restoring database..."
+if [ -f "$BACKUP_PATH/db.sqlite3" ]; then
+    echo "Restoring SQLite database..."
+    cp "$BACKUP_PATH/db.sqlite3" "$INSTALL_DIR/backend/db.sqlite3"
+elif [ -f "$BACKUP_PATH/database_backup.sql" ]; then
+    echo "Restoring PostgreSQL database..."
     source <(grep -E '^(DB_NAME|DB_USER|DB_PASSWORD)=' "$INSTALL_DIR/backend/.env" | sed 's/^/export /')
     PGPASSWORD="$DB_PASSWORD" psql -U "$DB_USER" -h localhost "$DB_NAME" < "$BACKUP_PATH/database_backup.sql"
 fi
