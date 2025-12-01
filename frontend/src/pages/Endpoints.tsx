@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useOrganization } from '@/contexts/OrganizationContext';
-import { networkDeviceAPI, endpointUserAPI, serverAPI, peripheralAPI, backupAPI, softwareAPI } from '@/services/core';
-import type { NetworkDevice, EndpointUser, Server, Peripheral, Backup, Software } from '@/types/core';
-import { Plus, Network, Monitor, HardDrive, Printer, Database, Package, Loader2, Edit, Trash2 } from 'lucide-react';
+import { networkDeviceAPI, endpointUserAPI, serverAPI, peripheralAPI, backupAPI, softwareAPI, voipAPI } from '@/services/core';
+import type { NetworkDevice, EndpointUser, Server, Peripheral, Backup, Software, VoIP } from '@/types/core';
+import { Plus, Network, Monitor, HardDrive, Printer, Database, Package, Phone, Loader2, Edit, Trash2 } from 'lucide-react';
 import { DeleteConfirmationModal } from '@/components/DeleteConfirmationModal';
 
 export function Endpoints() {
@@ -12,24 +12,25 @@ export function Endpoints() {
   const [searchParams] = useSearchParams();
 
   // Read the tab from the URL query parameter, default to 'network' if not present
-  const tabFromUrl = searchParams.get('tab') as 'network' | 'users' | 'servers' | 'peripherals' | 'backups' | 'software' | null;
-  const initialTab = tabFromUrl && ['network', 'users', 'servers', 'peripherals', 'backups', 'software'].includes(tabFromUrl)
+  const tabFromUrl = searchParams.get('tab') as 'network' | 'users' | 'servers' | 'peripherals' | 'backups' | 'software' | 'voip' | null;
+  const initialTab = tabFromUrl && ['network', 'users', 'servers', 'peripherals', 'backups', 'software', 'voip'].includes(tabFromUrl)
     ? tabFromUrl
     : 'network';
 
-  const [activeTab, setActiveTab] = useState<'network' | 'users' | 'servers' | 'peripherals' | 'backups' | 'software'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'network' | 'users' | 'servers' | 'peripherals' | 'backups' | 'software' | 'voip'>(initialTab);
   const [networkDevices, setNetworkDevices] = useState<NetworkDevice[]>([]);
   const [endpointUsers, setEndpointUsers] = useState<EndpointUser[]>([]);
   const [servers, setServers] = useState<Server[]>([]);
   const [peripherals, setPeripherals] = useState<Peripheral[]>([]);
   const [backups, setBackups] = useState<Backup[]>([]);
   const [software, setSoftware] = useState<Software[]>([]);
+  const [voip, setVoIP] = useState<VoIP[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleteModal, setDeleteModal] = useState<{
     isOpen: boolean;
     itemId: string;
     itemName: string;
-    itemType: 'network' | 'user' | 'server' | 'peripheral' | 'backup' | 'software';
+    itemType: 'network' | 'user' | 'server' | 'peripheral' | 'backup' | 'software' | 'voip';
   } | null>(null);
 
   useEffect(() => {
@@ -41,13 +42,14 @@ export function Endpoints() {
 
     try {
       setLoading(true);
-      const [networkRes, usersRes, serversRes, peripheralsRes, backupsRes, softwareRes] = await Promise.all([
+      const [networkRes, usersRes, serversRes, peripheralsRes, backupsRes, softwareRes, voipRes] = await Promise.all([
         networkDeviceAPI.byOrganization(selectedOrg.id),
         endpointUserAPI.byOrganization(selectedOrg.id),
         serverAPI.byOrganization(selectedOrg.id),
         peripheralAPI.byOrganization(selectedOrg.id),
         backupAPI.byOrganization(selectedOrg.id),
         softwareAPI.byOrganization(selectedOrg.id),
+        voipAPI.byOrganization(selectedOrg.id),
       ]);
 
       setNetworkDevices(networkRes.data);
@@ -56,6 +58,7 @@ export function Endpoints() {
       setPeripherals(peripheralsRes.data);
       setBackups(backupsRes.data);
       setSoftware(softwareRes.data);
+      setVoIP(voipRes.data);
     } catch (error) {
       console.error('Failed to load endpoints:', error);
     } finally {
@@ -63,7 +66,7 @@ export function Endpoints() {
     }
   };
 
-  const handleEdit = (id: string, type: 'network' | 'user' | 'server' | 'peripheral' | 'backup' | 'software') => {
+  const handleEdit = (id: string, type: 'network' | 'user' | 'server' | 'peripheral' | 'backup' | 'software' | 'voip') => {
     const routes = {
       network: `/network-devices/${id}/edit`,
       user: `/endpoint-users/${id}/edit`,
@@ -71,11 +74,12 @@ export function Endpoints() {
       peripheral: `/peripherals/${id}/edit`,
       backup: `/backups/${id}/edit`,
       software: `/software/${id}/edit`,
+      voip: `/voip/${id}/edit`,
     };
     navigate(routes[type]);
   };
 
-  const handleDeleteClick = (id: string, name: string, type: 'network' | 'user' | 'server' | 'peripheral' | 'backup' | 'software') => {
+  const handleDeleteClick = (id: string, name: string, type: 'network' | 'user' | 'server' | 'peripheral' | 'backup' | 'software' | 'voip') => {
     setDeleteModal({
       isOpen: true,
       itemId: id,
@@ -95,6 +99,7 @@ export function Endpoints() {
         peripheral: peripheralAPI,
         backup: backupAPI,
         software: softwareAPI,
+        voip: voipAPI,
       };
 
       await apiMap[deleteModal.itemType].delete(deleteModal.itemId);
@@ -119,6 +124,9 @@ export function Endpoints() {
         case 'software':
           setSoftware((prev) => prev.filter((sw) => sw.id !== deleteModal.itemId));
           break;
+        case 'voip':
+          setVoIP((prev) => prev.filter((v) => v.id !== deleteModal.itemId));
+          break;
       }
     } catch (error) {
       console.error('Failed to delete item:', error);
@@ -133,6 +141,7 @@ export function Endpoints() {
     { id: 'peripherals' as const, label: 'Peripherals', icon: Printer, count: peripherals.length },
     { id: 'backups' as const, label: 'Backups', icon: Database, count: backups.length },
     { id: 'software' as const, label: 'Software', icon: Package, count: software.length },
+    { id: 'voip' as const, label: 'VoIP', icon: Phone, count: voip.length },
   ];
 
   if (!selectedOrg) {
@@ -248,6 +257,14 @@ export function Endpoints() {
               onDelete={(id, name) => handleDeleteClick(id, name, 'software')}
             />
           )}
+
+          {activeTab === 'voip' && (
+            <VoIPList
+              voip={voip}
+              onEdit={(id) => handleEdit(id, 'voip')}
+              onDelete={(id, name) => handleDeleteClick(id, name, 'voip')}
+            />
+          )}
         </>
       )}
 
@@ -267,6 +284,8 @@ export function Endpoints() {
             ? 'Peripheral'
             : deleteModal?.itemType === 'backup'
             ? 'Backup'
+            : deleteModal?.itemType === 'voip'
+            ? 'VoIP Service'
             : 'Software'
         }
       />
@@ -794,6 +813,160 @@ function SoftwareList({
                 {sw.version && (
                   <p className="text-sm text-muted-foreground">
                     Version: {sw.version}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function VoIPList({
+  voip,
+  onEdit,
+  onDelete,
+}: {
+  voip: VoIP[];
+  onEdit: (id: string) => void;
+  onDelete: (id: string, name: string) => void;
+}) {
+  const [expandedVoIPId, setExpandedVoIPId] = React.useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = React.useState('');
+
+  const filteredVoIP = voip.filter((v) =>
+    v.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    v.vendor.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  return (
+    <div className="space-y-4">
+      {voip.length === 0 ? (
+        <div className="text-center py-12 border border-dashed rounded-lg">
+          <Phone className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+          <p className="text-muted-foreground mb-4">No VoIP services found</p>
+          <p className="text-sm text-muted-foreground">
+            Add your first VoIP service to get started
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="mb-4">
+            <input
+              type="text"
+              placeholder="Search VoIP services..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full px-3 py-2 border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {filteredVoIP.map((v) => (
+              <div
+                key={v.id}
+                className="border border-border rounded-lg p-4 hover:border-primary transition-colors"
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <h3 className="font-semibold">{v.name}</h3>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs px-2 py-1 rounded bg-accent">
+                      {v.voip_type}
+                    </span>
+                    <button
+                      onClick={() => onEdit(v.id)}
+                      className="text-muted-foreground hover:text-primary transition-colors"
+                      title="Edit"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => onDelete(v.id, v.name)}
+                      className="text-muted-foreground hover:text-destructive transition-colors"
+                      title="Delete"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {v.vendor && (
+                  <p className="text-sm text-muted-foreground mb-2">
+                    {v.vendor}
+                  </p>
+                )}
+
+                <div className="mb-3 p-2 bg-accent/30 rounded">
+                  <p className="text-sm font-medium">
+                    License Usage: <span className="text-primary">{v.assigned_count}/{v.quantity}</span>
+                  </p>
+                  <div className="w-full bg-accent rounded-full h-1.5 mt-1">
+                    <div
+                      className="bg-primary h-1.5 rounded-full transition-all"
+                      style={{
+                        width: `${v.quantity > 0 ? (v.assigned_count / v.quantity) * 100 : 0}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {v.assigned_count > 0 && (
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setExpandedVoIPId(
+                          expandedVoIPId === v.id ? null : v.id
+                        )
+                      }
+                      className="text-sm text-primary hover:underline font-medium mb-2"
+                    >
+                      {expandedVoIPId === v.id ? 'Hide' : 'Show'} Assigned Users ({v.assigned_count})
+                    </button>
+
+                    {expandedVoIPId === v.id && (
+                      <div className="bg-accent/20 rounded p-2 space-y-1 max-h-40 overflow-y-auto">
+                        {v.assigned_contacts.map((assignment) => (
+                          <div
+                            key={assignment.id}
+                            className="text-sm text-muted-foreground flex items-center justify-between"
+                          >
+                            <div>
+                              <p className="font-medium text-foreground">
+                                {assignment.contact_name}
+                              </p>
+                              <p className="text-xs">{assignment.contact_email}</p>
+                              {assignment.extension && (
+                                <p className="text-xs">Ext: {assignment.extension}</p>
+                              )}
+                              {assignment.phone_number && (
+                                <p className="text-xs">Phone: {assignment.phone_number}</p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {v.phone_numbers && (
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Numbers: {v.phone_numbers.split(',').slice(0, 2).join(', ')}
+                    {v.phone_numbers.split(',').length > 2 && '...'}
+                  </p>
+                )}
+
+                {v.expiry_date && (
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Expires: {new Date(v.expiry_date).toLocaleDateString()}
+                  </p>
+                )}
+
+                {v.version && (
+                  <p className="text-sm text-muted-foreground">
+                    Plan: {v.version}
                   </p>
                 )}
               </div>

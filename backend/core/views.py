@@ -8,12 +8,12 @@ import csv
 import io
 from .models import (
     Organization, Location, Contact, Documentation,
-    PasswordEntry, Configuration, NetworkDevice, EndpointUser, Server, Peripheral, Software, Backup
+    PasswordEntry, Configuration, NetworkDevice, EndpointUser, Server, Peripheral, Software, Backup, VoIP
 )
 from .serializers import (
     OrganizationSerializer, LocationSerializer, ContactSerializer,
     DocumentationSerializer, PasswordEntrySerializer, ConfigurationSerializer,
-    NetworkDeviceSerializer, EndpointUserSerializer, ServerSerializer, PeripheralSerializer, SoftwareSerializer, BackupSerializer
+    NetworkDeviceSerializer, EndpointUserSerializer, ServerSerializer, PeripheralSerializer, SoftwareSerializer, BackupSerializer, VoIPSerializer
 )
 
 
@@ -538,5 +538,38 @@ class BackupViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
         if org_id:
             backups = Backup.objects.filter(organization_id=org_id)
             serializer = self.get_serializer(backups, many=True)
+            return Response(serializer.data)
+        return Response([], status=status.HTTP_400_BAD_REQUEST)
+
+
+class VoIPViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+    """ViewSet for VoIP CRUD operations."""
+    serializer_class = VoIPSerializer
+    permission_classes = [IsAuthenticated]
+    filterset_fields = ['organization', 'voip_type', 'license_type', 'is_active']
+    search_fields = ['name', 'vendor', 'license_key']
+    ordering_fields = ['name', 'voip_type', 'expiry_date', 'created_at']
+    ordering = ['organization', 'voip_type', 'name']
+
+    def get_queryset(self):
+        return VoIP.objects.select_related('organization').prefetch_related(
+            'voip_assignments__contact',
+            'voip_assignments__created_by'
+        )
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+    @action(detail=False, methods=['get'])
+    def by_organization(self, request):
+        org_id = request.query_params.get('organization_id')
+        if org_id:
+            voip = VoIP.objects.filter(organization_id=org_id).select_related(
+                'organization'
+            ).prefetch_related(
+                'voip_assignments__contact',
+                'voip_assignments__created_by'
+            )
+            serializer = self.get_serializer(voip, many=True)
             return Response(serializer.data)
         return Response([], status=status.HTTP_400_BAD_REQUEST)

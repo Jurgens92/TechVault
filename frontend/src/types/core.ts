@@ -295,6 +295,46 @@ export interface Backup {
   updated_at: string;
 }
 
+export interface VoIPAssignment {
+  id: string;
+  contact_id: string;
+  contact_name: string;
+  contact_email: string;
+  extension: string;
+  phone_number: string;
+  created_at: string;
+}
+
+export interface VoIP {
+  id: string;
+  organization: string;
+  organization_name: string;
+  name: string;
+  voip_type: 'teams' | '3cx' | 'yeastar' | 'other';
+  assigned_contact_ids: string[];
+  assigned_contacts: VoIPAssignment[];
+  license_key: string;
+  version: string;
+  license_type: 'perpetual' | 'subscription' | 'trial' | 'free' | 'other';
+  purchase_date: string | null;
+  expiry_date: string | null;
+  vendor: string;
+  cost: number | null;
+  quantity: number;
+  phone_numbers: string;
+  extensions: string;
+  assigned_count: number;
+  available_licenses: number;
+  notes: string;
+  is_active: boolean;
+  created_by: {
+    id: number;
+    email: string;
+  };
+  created_at: string;
+  updated_at: string;
+}
+
 export interface DiagramData {
   network_devices: NetworkDevice[];
   endpoint_users: EndpointUser[];
@@ -302,6 +342,7 @@ export interface DiagramData {
   peripherals: Peripheral[];
   backups: Backup[];
   software: Software[];
+  voip: VoIP[];
 }
 
 export interface PaginatedResponse<T> {

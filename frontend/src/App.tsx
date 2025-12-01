@@ -30,6 +30,7 @@ import { EndpointUserForm } from '@/pages/EndpointUserForm';
 import { ServerForm } from '@/pages/ServerForm';
 import { PeripheralForm } from '@/pages/PeripheralForm';
 import { SoftwareForm } from '@/pages/SoftwareForm';
+import { VoIPForm } from '@/pages/VoIPForm';
 import { BackupForm } from '@/pages/BackupForm';
 import Settings from '@/pages/Settings';
 import DeletedItems from '@/pages/DeletedItems';
@@ -79,6 +80,8 @@ function App() {
             <Route path="backups/:id/edit" element={<BackupForm />} />
             <Route path="software/new" element={<SoftwareForm />} />
             <Route path="software/:id/edit" element={<SoftwareForm />} />
+            <Route path="voip/new" element={<VoIPForm />} />
+            <Route path="voip/:id/edit" element={<VoIPForm />} />
             <Route path="diagram" element={<Diagram />} />
             <Route path="passwords" element={<Passwords />} />
             <Route path="passwords/:id" element={<PasswordDetail />} />

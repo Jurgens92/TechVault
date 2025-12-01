@@ -8,7 +8,7 @@ from users.views import UserProfileView, UserManagementViewSet
 from core.views import (
     OrganizationViewSet, LocationViewSet, ContactViewSet,
     DocumentationViewSet, PasswordEntryViewSet, ConfigurationViewSet,
-    NetworkDeviceViewSet, EndpointUserViewSet, ServerViewSet, PeripheralViewSet, SoftwareViewSet, BackupViewSet
+    NetworkDeviceViewSet, EndpointUserViewSet, ServerViewSet, PeripheralViewSet, SoftwareViewSet, BackupViewSet, VoIPViewSet
 )
 from .views import dashboard_stats, diagram_data
 
@@ -27,6 +27,7 @@ router.register(r'servers', ServerViewSet, basename='server')
 router.register(r'peripherals', PeripheralViewSet, basename='peripheral')
 router.register(r'software', SoftwareViewSet, basename='software')
 router.register(r'backups', BackupViewSet, basename='backup')
+router.register(r'voip', VoIPViewSet, basename='voip')
 router.register(r'users', UserManagementViewSet, basename='user')
 
 urlpatterns = [

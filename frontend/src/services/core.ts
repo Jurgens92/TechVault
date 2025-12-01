@@ -2,7 +2,7 @@ import api from './api';
 import {
   Organization, Location, Contact, Documentation,
   PasswordEntry, Configuration, NetworkDevice, EndpointUser,
-  Server, Peripheral, Software, Backup, DiagramData, PaginatedResponse
+  Server, Peripheral, Software, Backup, VoIP, DiagramData, PaginatedResponse
 } from '../types/core';
 
 // Dashboard APIs
@@ -307,6 +307,28 @@ export const backupAPI = {
     api.post(`/api/backups/${id}/restore/`, {}),
   hardDelete: (id: string) =>
     api.delete(`/api/backups/${id}/hard_delete/`),
+};
+
+// VoIP APIs
+export const voipAPI = {
+  getAll: (params?: Record<string, any>) =>
+    api.get<PaginatedResponse<VoIP>>('/api/voip/', { params }),
+  getById: (id: string) =>
+    api.get<VoIP>(`/api/voip/${id}/`),
+  create: (data: Partial<VoIP>) =>
+    api.post<VoIP>('/api/voip/', data),
+  update: (id: string, data: Partial<VoIP>) =>
+    api.patch<VoIP>(`/api/voip/${id}/`, data),
+  delete: (id: string) =>
+    api.delete(`/api/voip/${id}/`),
+  byOrganization: (organizationId: string) =>
+    api.get<VoIP[]>('/api/voip/by_organization/', { params: { organization_id: organizationId } }),
+  getDeleted: (params?: Record<string, any>) =>
+    api.get<PaginatedResponse<VoIP>>('/api/voip/deleted/', { params }),
+  restore: (id: string) =>
+    api.post(`/api/voip/${id}/restore/`, {}),
+  hardDelete: (id: string) =>
+    api.delete(`/api/voip/${id}/hard_delete/`),
 };
 
 // Diagram APIs

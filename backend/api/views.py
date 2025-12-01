@@ -3,10 +3,10 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from core.models import (
     Organization, Location, Contact, Documentation,
-    PasswordEntry, Configuration, NetworkDevice, EndpointUser, Server, Peripheral, Software, Backup
+    PasswordEntry, Configuration, NetworkDevice, EndpointUser, Server, Peripheral, Software, Backup, VoIP
 )
 from core.serializers import (
-    NetworkDeviceSerializer, EndpointUserSerializer, ServerSerializer, PeripheralSerializer, SoftwareSerializer, BackupSerializer
+    NetworkDeviceSerializer, EndpointUserSerializer, ServerSerializer, PeripheralSerializer, SoftwareSerializer, BackupSerializer, VoIPSerializer
 )
 
 
@@ -59,6 +59,7 @@ def diagram_data(request):
         peripherals = Peripheral.objects.filter(organization_id=org_id, is_active=True)
         backups = Backup.objects.filter(organization_id=org_id, is_active=True)
         software = Software.objects.filter(organization_id=org_id, is_active=True)
+        voip = VoIP.objects.filter(organization_id=org_id, is_active=True)
     else:
         network_devices = NetworkDevice.objects.filter(is_active=True)
         endpoint_users = EndpointUser.objects.filter(is_active=True)
@@ -66,6 +67,7 @@ def diagram_data(request):
         peripherals = Peripheral.objects.filter(is_active=True)
         backups = Backup.objects.filter(is_active=True)
         software = Software.objects.filter(is_active=True)
+        voip = VoIP.objects.filter(is_active=True)
 
     return Response({
         'network_devices': NetworkDeviceSerializer(network_devices, many=True).data,
@@ -74,4 +76,5 @@ def diagram_data(request):
         'peripherals': PeripheralSerializer(peripherals, many=True).data,
         'backups': BackupSerializer(backups, many=True).data,
         'software': SoftwareSerializer(software, many=True).data,
+        'voip': VoIPSerializer(voip, many=True).data,
     })

@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import (
     Organization, Location, Contact, Documentation,
-    PasswordEntry, Configuration, NetworkDevice, EndpointUser, Server, Peripheral, Software, SoftwareAssignment, Backup
+    PasswordEntry, Configuration, NetworkDevice, EndpointUser, Server, Peripheral, Software, SoftwareAssignment, Backup, VoIP, VoIPAssignment
 )
 from users.serializers import UserSerializer
 
@@ -272,3 +272,85 @@ class BackupSerializer(serializers.ModelSerializer):
             'created_by', 'created_at', 'updated_at', 'deleted_at', 'deleted_by'
         ]
         read_only_fields = ['id', 'created_by', 'created_at', 'updated_at', 'deleted_at', 'deleted_by']
+
+
+class VoIPAssignmentSerializer(serializers.ModelSerializer):
+    contact_id = serializers.PrimaryKeyRelatedField(source='contact', queryset=Contact.objects.all())
+    contact_name = serializers.CharField(source='contact.full_name', read_only=True)
+    contact_email = serializers.CharField(source='contact.email', read_only=True)
+    created_by = UserSerializer(read_only=True)
+    deleted_by = UserSerializer(read_only=True)
+
+    class Meta:
+        model = VoIPAssignment
+        fields = [
+            'id', 'contact_id', 'contact_name', 'contact_email', 'extension', 'phone_number',
+            'created_at', 'created_by', 'updated_at', 'deleted_at', 'deleted_by'
+        ]
+        read_only_fields = ['id', 'contact_name', 'contact_email', 'created_by', 'created_at', 'updated_at', 'deleted_at', 'deleted_by']
+
+
+class VoIPSerializer(serializers.ModelSerializer):
+    organization_name = serializers.CharField(source='organization.name', read_only=True)
+    assigned_contacts = VoIPAssignmentSerializer(source='voip_assignments', many=True, read_only=True)
+    assigned_contact_ids = serializers.PrimaryKeyRelatedField(
+        queryset=Contact.objects.all(),
+        many=True,
+        write_only=True,
+        required=False
+    )
+    assigned_count = serializers.IntegerField(read_only=True)
+    available_licenses = serializers.IntegerField(read_only=True)
+    created_by = UserSerializer(read_only=True)
+    deleted_by = UserSerializer(read_only=True)
+
+    class Meta:
+        model = VoIP
+        fields = [
+            'id', 'organization', 'organization_name', 'name', 'voip_type',
+            'assigned_contact_ids', 'assigned_contacts', 'license_key', 'version', 'license_type',
+            'purchase_date', 'expiry_date', 'vendor', 'cost', 'quantity', 'phone_numbers',
+            'extensions', 'notes', 'assigned_count', 'available_licenses', 'is_active',
+            'created_by', 'created_at', 'updated_at', 'deleted_at', 'deleted_by'
+        ]
+        read_only_fields = ['id', 'created_by', 'created_at', 'updated_at', 'deleted_at', 'deleted_by']
+
+    def create(self, validated_data):
+        contact_ids = validated_data.pop('assigned_contact_ids', [])
+        voip = VoIP.objects.create(**validated_data)
+
+        # Get the user from the request context
+        request = self.context.get('request')
+        user = request.user if request else None
+
+        for contact in contact_ids:
+            VoIPAssignment.objects.create(
+                voip=voip,
+                contact=contact,
+                created_by=user
+            )
+
+        return voip
+
+    def update(self, instance, validated_data):
+        contact_ids = validated_data.pop('assigned_contact_ids', None)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        if contact_ids is not None:
+            # Get the user from the request context
+            request = self.context.get('request')
+            user = request.user if request else None
+
+            # Clear existing assignments and create new ones
+            instance.voip_assignments.all().delete()
+            for contact in contact_ids:
+                VoIPAssignment.objects.create(
+                    voip=instance,
+                    contact=contact,
+                    created_by=user
+                )
+
+        return instance
