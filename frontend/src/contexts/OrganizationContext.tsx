@@ -1,12 +1,14 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Organization } from '../types/core';
 import { organizationAPI } from '../services/core';
+import { useAuth } from './AuthContext';
 
 interface OrganizationContextType {
   selectedOrg: Organization | null;
   setSelectedOrg: (org: Organization | null) => void;
   organizations: Organization[];
   loading: boolean;
+  error: string | null;
   refreshOrganizations: () => Promise<void>;
 }
 
@@ -15,13 +17,25 @@ const OrganizationContext = createContext<OrganizationContextType | undefined>(u
 const SELECTED_ORG_KEY = 'techvault_selected_org';
 
 export const OrganizationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const { isAuthenticated, user } = useAuth();
   const [selectedOrg, setSelectedOrgState] = useState<Organization | null>(null);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const loadOrganizations = async () => {
+    // Only load organizations if user is authenticated
+    if (!isAuthenticated) {
+      setOrganizations([]);
+      setSelectedOrgState(null);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
     try {
       setLoading(true);
+      setError(null);
       const response = await organizationAPI.getAll();
       const orgs = response.data?.results || [];
       setOrganizations(orgs);
@@ -39,14 +53,18 @@ export const OrganizationProvider: React.FC<{ children: ReactNode }> = ({ childr
       }
     } catch (error) {
       console.error('Failed to load organizations:', error);
+      setError('Failed to load organizations');
+      setOrganizations([]);
     } finally {
       setLoading(false);
     }
   };
 
+  // Load organizations when authentication state changes
   useEffect(() => {
     loadOrganizations();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]);
 
   const setSelectedOrg = (org: Organization | null) => {
     setSelectedOrgState(org);
@@ -68,6 +86,7 @@ export const OrganizationProvider: React.FC<{ children: ReactNode }> = ({ childr
         setSelectedOrg,
         organizations,
         loading,
+        error,
         refreshOrganizations,
       }}
     >

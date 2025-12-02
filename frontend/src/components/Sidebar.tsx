@@ -29,7 +29,7 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
   const { logout } = useAuth();
-  const { selectedOrg, setSelectedOrg, organizations, loading } = useOrganization();
+  const { selectedOrg, setSelectedOrg, organizations, loading, error, refreshOrganizations } = useOrganization();
   const navigate = useNavigate();
   const [activeItem, setActiveItem] = useState('dashboard');
 
@@ -91,6 +91,16 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
           </label>
           {loading ? (
             <div className="text-sm text-muted-foreground">Loading...</div>
+          ) : error ? (
+            <div className="space-y-2">
+              <div className="text-sm text-destructive">{error}</div>
+              <button
+                onClick={refreshOrganizations}
+                className="text-xs text-primary hover:underline"
+              >
+                Try again
+              </button>
+            </div>
           ) : (
             <SearchableSelect
               options={organizations.map((org) => ({
