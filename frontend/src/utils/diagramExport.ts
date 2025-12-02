@@ -168,26 +168,37 @@ export async function exportAsPDF(
 
   // Summary Box
   pdf.setFillColor(...lightGray);
-  pdf.roundedRect(margin, yPosition, contentWidth, 20, 3, 3, 'F');
-  pdf.setFontSize(10);
+  pdf.roundedRect(margin, yPosition, contentWidth, 30, 3, 3, 'F');
+  pdf.setFontSize(9);
   pdf.setTextColor(...darkColor);
 
   const summaryItems = [
-    `Network Devices: ${data.network_devices.length}`,
+    `Network: ${data.network_devices.length}`,
     `Servers: ${data.servers.length}`,
     `Endpoints: ${data.endpoint_users.length}`,
     `Peripherals: ${data.peripherals.length}`,
     `Backups: ${data.backups.length}`,
+    `Software: ${data.software.length}`,
+    `VoIP: ${data.voip.length}`,
   ];
 
-  const summaryItemWidth = contentWidth / 5;
-  summaryItems.forEach((item, index) => {
-    pdf.text(item, margin + summaryItemWidth * index + summaryItemWidth / 2, yPosition + 12, {
+  // First row - 4 items
+  const firstRowItemWidth = contentWidth / 4;
+  for (let i = 0; i < 4; i++) {
+    pdf.text(summaryItems[i], margin + firstRowItemWidth * i + firstRowItemWidth / 2, yPosition + 10, {
       align: 'center',
     });
-  });
+  }
 
-  yPosition += 30;
+  // Second row - 3 items
+  const secondRowItemWidth = contentWidth / 3;
+  for (let i = 4; i < 7; i++) {
+    pdf.text(summaryItems[i], margin + secondRowItemWidth * (i - 4) + secondRowItemWidth / 2, yPosition + 20, {
+      align: 'center',
+    });
+  }
+
+  yPosition += 40;
 
   // Helper function to draw section header
   const drawSectionHeader = (title: string): void => {
@@ -217,35 +228,59 @@ export async function exportAsPDF(
 
     // Title with proper text wrapping
     pdf.setTextColor(...darkColor);
-    pdf.setFontSize(10);
+    pdf.setFontSize(9);
     pdf.setFont('helvetica', 'bold');
 
     // Split title into lines if too long
-    const titleLines = pdf.splitTextToSize(title, width - 6);
-    const titleHeight = titleLines.length * 4;
-    let currentY = y + 6;
+    const maxTitleWidth = width - 6;
+    const titleLines = pdf.splitTextToSize(title, maxTitleWidth);
+    let currentY = y + 5;
 
     // Only show first 2 lines of title to prevent overflow
-    titleLines.slice(0, 2).forEach((line: string) => {
+    const displayTitleLines = titleLines.slice(0, 2);
+    displayTitleLines.forEach((line: string, index: number) => {
+      // If this is the second line and there are more lines, add ellipsis
+      if (index === 1 && titleLines.length > 2) {
+        const textWidth = pdf.getTextWidth(line);
+        const ellipsisWidth = pdf.getTextWidth('...');
+        if (textWidth + ellipsisWidth > maxTitleWidth) {
+          // Truncate the line to fit ellipsis
+          let truncatedLine = line;
+          while (pdf.getTextWidth(truncatedLine + '...') > maxTitleWidth && truncatedLine.length > 0) {
+            truncatedLine = truncatedLine.slice(0, -1);
+          }
+          line = truncatedLine + '...';
+        } else {
+          line = line + '...';
+        }
+      }
       pdf.text(line, x + 3, currentY);
-      currentY += 4;
+      currentY += 3.5;
     });
 
     // Details
     pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(8);
+    pdf.setFontSize(7);
     pdf.setTextColor(...grayColor);
 
-    let detailY = y + Math.min(titleHeight + 6, 14);
+    let detailY = currentY + 2;
     details.forEach((detail) => {
-      if (detail.value && detailY < y + height - 3) {
+      if (detail.value && detailY < y + height - 2) {
         const text = `${detail.label}: ${detail.value}`;
-        // Truncate text if too long
-        const lines = pdf.splitTextToSize(text, width - 6);
-        if (lines[0]) {
-          pdf.text(lines[0], x + 3, detailY);
-          detailY += 4;
+        // Try to fit the text, otherwise truncate with ellipsis
+        const maxDetailWidth = width - 6;
+        let displayText = text;
+
+        if (pdf.getTextWidth(text) > maxDetailWidth) {
+          // Truncate with ellipsis
+          while (pdf.getTextWidth(displayText + '...') > maxDetailWidth && displayText.length > detail.label.length + 3) {
+            displayText = displayText.slice(0, -1);
+          }
+          displayText = displayText + '...';
         }
+
+        pdf.text(displayText, x + 3, detailY);
+        detailY += 3.5;
       }
     });
   };
@@ -407,6 +442,81 @@ export async function exportAsPDF(
     });
 
     const rows = Math.ceil(data.backups.length / cardsPerRow);
+    yPosition += rows * (cardHeight + 3) + 10;
+  }
+
+  // ==================== SOFTWARE ====================
+  if (data.software.length > 0) {
+    drawSectionHeader(`Software (${data.software.length})`);
+
+    const cardWidth = (contentWidth - 10) / 3;
+    const cardHeight = 28;
+    const cardsPerRow = 3;
+
+    data.software.forEach((software, index) => {
+      const col = index % cardsPerRow;
+      const row = Math.floor(index / cardsPerRow);
+
+      if (col === 0 && index > 0) {
+        checkPageBreak(cardHeight + 5);
+      }
+
+      const x = margin + col * (cardWidth + 5);
+      const y = yPosition + row * (cardHeight + 3);
+
+      // Get contact names if any
+      const contactNames = software.assigned_contacts
+        ?.map(c => c.contact_name)
+        .join(', ') || '';
+
+      drawDeviceCard(x, y, cardWidth, cardHeight, software.name, [
+        { label: 'Type', value: software.software_type.replace(/_/g, ' ') },
+        { label: 'Contacts', value: contactNames },
+        { label: 'Notes', value: software.notes || '' },
+      ]);
+    });
+
+    const rows = Math.ceil(data.software.length / cardsPerRow);
+    yPosition += rows * (cardHeight + 3) + 10;
+  }
+
+  // ==================== VOIP ====================
+  if (data.voip.length > 0) {
+    drawSectionHeader(`VoIP Services (${data.voip.length})`);
+
+    const cardWidth = (contentWidth - 10) / 3;
+    const cardHeight = 30;
+    const cardsPerRow = 3;
+
+    data.voip.forEach((voip, index) => {
+      const col = index % cardsPerRow;
+      const row = Math.floor(index / cardsPerRow);
+
+      if (col === 0 && index > 0) {
+        checkPageBreak(cardHeight + 5);
+      }
+
+      const x = margin + col * (cardWidth + 5);
+      const y = yPosition + row * (cardHeight + 3);
+
+      // Get contact names with extensions if any
+      const contactInfo = voip.assigned_contacts
+        ?.map(c => c.extension ? `${c.contact_name} (Ext ${c.extension})` : c.contact_name)
+        .join(', ') || '';
+
+      const voipTypeDisplay = voip.voip_type === 'teams' ? 'Microsoft Teams' :
+                              voip.voip_type === '3cx' ? '3CX' :
+                              voip.voip_type === 'yeastar' ? 'Yeastar' : 'Other';
+
+      drawDeviceCard(x, y, cardWidth, cardHeight, voip.name, [
+        { label: 'Type', value: voipTypeDisplay },
+        { label: 'Contacts', value: contactInfo },
+        { label: 'Numbers', value: voip.phone_numbers || '' },
+        { label: 'Licenses', value: voip.quantity ? `${voip.assigned_count || 0}/${voip.quantity}` : '' },
+      ]);
+    });
+
+    const rows = Math.ceil(data.voip.length / cardsPerRow);
     yPosition += rows * (cardHeight + 3) + 10;
   }
 
@@ -572,6 +682,74 @@ function generateSVGDiagram(data: DiagramData, orgName: string): string {
     if (data.backups.length > maxBackups) {
       svgContent += `
   <text x="50" y="${yOffset + Math.ceil(maxBackups / 3) * 100 + 20}" class="label">... and ${data.backups.length - maxBackups} more backups</text>`;
+    }
+
+    yOffset += Math.ceil(maxBackups / 3) * 100 + sectionGap;
+  }
+
+  // Software Section
+  if (data.software.length > 0) {
+    svgContent += `\n  <!-- Software -->
+  <text x="20" y="${yOffset}" class="section-title">Software (${data.software.length})</text>`;
+    yOffset += 30;
+
+    const maxSoftware = Math.min(data.software.length, 9);
+    data.software.slice(0, maxSoftware).forEach((software, idx) => {
+      const x = 50 + (idx % 3) * 350;
+      const y = yOffset + Math.floor(idx / 3) * 100;
+
+      const contactNames = software.assigned_contacts
+        ?.map(c => c.contact_name)
+        .join(', ') || '';
+
+      svgContent += `
+  <g>
+    <rect x="${x}" y="${y}" width="300" height="80" class="device-box" rx="5"/>
+    <text x="${x + 10}" y="${y + 25}" class="label" font-weight="bold">${escapeXml(software.name)}</text>
+    <text x="${x + 10}" y="${y + 45}" class="label">Type: ${escapeXml(software.software_type.replace(/_/g, ' '))}</text>
+    ${contactNames ? `<text x="${x + 10}" y="${y + 60}" class="label">Contacts: ${escapeXml(contactNames)}</text>` : ''}
+  </g>`;
+    });
+
+    if (data.software.length > maxSoftware) {
+      svgContent += `
+  <text x="50" y="${yOffset + Math.ceil(maxSoftware / 3) * 100 + 20}" class="label">... and ${data.software.length - maxSoftware} more software items</text>`;
+    }
+
+    yOffset += Math.ceil(maxSoftware / 3) * 100 + sectionGap;
+  }
+
+  // VoIP Section
+  if (data.voip.length > 0) {
+    svgContent += `\n  <!-- VoIP Services -->
+  <text x="20" y="${yOffset}" class="section-title">VoIP Services (${data.voip.length})</text>`;
+    yOffset += 30;
+
+    const maxVoip = Math.min(data.voip.length, 9);
+    data.voip.slice(0, maxVoip).forEach((voip, idx) => {
+      const x = 50 + (idx % 3) * 350;
+      const y = yOffset + Math.floor(idx / 3) * 100;
+
+      const voipTypeDisplay = voip.voip_type === 'teams' ? 'Microsoft Teams' :
+                              voip.voip_type === '3cx' ? '3CX' :
+                              voip.voip_type === 'yeastar' ? 'Yeastar' : 'Other';
+
+      const contactInfo = voip.assigned_contacts
+        ?.map(c => c.extension ? `${c.contact_name} (Ext ${c.extension})` : c.contact_name)
+        .join(', ') || '';
+
+      svgContent += `
+  <g>
+    <rect x="${x}" y="${y}" width="300" height="80" class="device-box" rx="5"/>
+    <text x="${x + 10}" y="${y + 25}" class="label" font-weight="bold">${escapeXml(voip.name)}</text>
+    <text x="${x + 10}" y="${y + 45}" class="label">Type: ${escapeXml(voipTypeDisplay)}</text>
+    ${contactInfo ? `<text x="${x + 10}" y="${y + 60}" class="label">Contacts: ${escapeXml(contactInfo)}</text>` : ''}
+  </g>`;
+    });
+
+    if (data.voip.length > maxVoip) {
+      svgContent += `
+  <text x="50" y="${yOffset + Math.ceil(maxVoip / 3) * 100 + 20}" class="label">... and ${data.voip.length - maxVoip} more VoIP services</text>`;
     }
   }
 
