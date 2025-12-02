@@ -123,7 +123,6 @@ export async function exportAsPDF(
     if (yPosition + requiredSpace > pageHeight - margin - 10) {
       pdf.addPage();
       yPosition = margin;
-      addHeader();
     }
   };
 
