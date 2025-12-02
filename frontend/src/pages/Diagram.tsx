@@ -531,12 +531,6 @@ function UserEndpointsDiagram({ endpoints }: { endpoints: DiagramData['endpoint_
             <span className="font-mono">{endpoint.ip_address}</span>
           </div>
         )}
-        {endpoint.hostname && (
-          <div className="flex items-center gap-1.5">
-            <span className="text-muted-foreground">Host:</span>
-            <span className="font-mono truncate">{endpoint.hostname}</span>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -633,12 +627,6 @@ function ServersDiagram({ servers }: { servers: DiagramData['servers'] }) {
               <div className="flex items-center gap-1.5">
                 <span className="text-muted-foreground">IP:</span>
                 <span className="font-mono">{server.ip_address}</span>
-              </div>
-            )}
-            {server.hostname && (
-              <div className="flex items-center gap-1.5">
-                <span className="text-muted-foreground">Host:</span>
-                <span className="font-mono truncate">{server.hostname}</span>
               </div>
             )}
           </div>
