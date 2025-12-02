@@ -55,9 +55,18 @@ def diagram_data(request):
     - location_id: Filter by location (includes unassigned items with location=null)
     """
     from django.db.models import Q
+    import uuid
 
     org_id = request.query_params.get('organization_id')
-    location_id = request.query_params.get('location_id')
+    location_id_str = request.query_params.get('location_id')
+
+    # Convert location_id to UUID if provided
+    location_id = None
+    if location_id_str:
+        try:
+            location_id = uuid.UUID(location_id_str)
+        except (ValueError, AttributeError):
+            location_id = None
 
     # Base filters
     base_filter = {'is_active': True}
