@@ -54,6 +54,7 @@ export function exportAsJSON(data: DiagramData, orgName: string): void {
       peripherals: data.peripherals,
       backups: data.backups,
       software: data.software,
+      voip: data.voip,
     },
   };
 
@@ -87,6 +88,7 @@ export function exportAsSVG(data: DiagramData, orgName: string): void {
 
 /**
  * Export diagram as professional PDF document
+ * Matches the layout of Diagram.tsx for print
  */
 export async function exportAsPDF(
   data: DiagramData,
@@ -102,7 +104,7 @@ export async function exportAsPDF(
 
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
-  const margin = 15;
+  const margin = 12;
   const contentWidth = pageWidth - margin * 2;
   let yPosition = margin;
 
@@ -111,10 +113,14 @@ export async function exportAsPDF(
   const darkColor: [number, number, number] = [30, 41, 59]; // Slate-800
   const grayColor: [number, number, number] = [100, 116, 139]; // Slate-500
   const lightGray: [number, number, number] = [241, 245, 249]; // Slate-100
+  const greenColor: [number, number, number] = [34, 197, 94]; // Green-500
+  const redColor: [number, number, number] = [239, 68, 68]; // Red-500
+  const purpleColor: [number, number, number] = [168, 85, 247]; // Purple-500
+  const blueColor: [number, number, number] = [59, 130, 246]; // Blue-500
 
   // Helper function to add a new page if needed
   const checkPageBreak = (requiredSpace: number): void => {
-    if (yPosition + requiredSpace > pageHeight - margin) {
+    if (yPosition + requiredSpace > pageHeight - margin - 10) {
       pdf.addPage();
       yPosition = margin;
       addHeader();
@@ -124,14 +130,14 @@ export async function exportAsPDF(
   // Helper function to add header on each page
   const addHeader = (): void => {
     pdf.setFillColor(...primaryColor);
-    pdf.rect(0, 0, pageWidth, 12, 'F');
+    pdf.rect(0, 0, pageWidth, 10, 'F');
     pdf.setTextColor(255, 255, 255);
-    pdf.setFontSize(10);
+    pdf.setFontSize(9);
     pdf.setFont('helvetica', 'bold');
-    pdf.text('TechVault', margin, 8);
+    pdf.text('TechVault', margin, 7);
     pdf.setFont('helvetica', 'normal');
-    pdf.text(`${orgName} - IT Infrastructure Diagram`, pageWidth - margin, 8, { align: 'right' });
-    yPosition = 20;
+    pdf.text(`${orgName} - IT Infrastructure Diagram`, pageWidth - margin, 7, { align: 'right' });
+    yPosition = 16;
   };
 
   // Helper function to add footer
@@ -139,15 +145,51 @@ export async function exportAsPDF(
     const pageCount = pdf.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
       pdf.setPage(i);
-      pdf.setFontSize(8);
+      pdf.setFontSize(7);
       pdf.setTextColor(...grayColor);
       pdf.text(
         `Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}`,
         margin,
-        pageHeight - 8
+        pageHeight - 6
       );
-      pdf.text(`Page ${i} of ${pageCount}`, pageWidth - margin, pageHeight - 8, { align: 'right' });
+      pdf.text(`Page ${i} of ${pageCount}`, pageWidth - margin, pageHeight - 6, { align: 'right' });
     }
+  };
+
+  // Helper to draw section box with title and icon
+  const drawSectionBox = (title: string, iconType: string): void => {
+    checkPageBreak(20);
+    pdf.setDrawColor(200, 200, 200);
+    pdf.setLineWidth(0.3);
+    // Section title background
+    pdf.setFillColor(...primaryColor);
+    pdf.roundedRect(margin, yPosition, contentWidth, 9, 1.5, 1.5, 'F');
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(title, margin + 4, yPosition + 6.5);
+    yPosition += 13;
+  };
+
+  // Helper to draw a small badge
+  const drawBadge = (x: number, y: number, text: string, color: [number, number, number]): void => {
+    const badgeWidth = pdf.getTextWidth(text) + 4;
+    pdf.setFillColor(color[0], color[1], color[2], 0.15);
+    pdf.roundedRect(x, y - 3, badgeWidth, 4.5, 1, 1, 'F');
+    pdf.setTextColor(...color);
+    pdf.setFontSize(6);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(text, x + 2, y);
+  };
+
+  // Helper to truncate text
+  const truncateText = (text: string, maxWidth: number): string => {
+    if (!text) return '';
+    if (pdf.getTextWidth(text) <= maxWidth) return text;
+    while (pdf.getTextWidth(text + '...') > maxWidth && text.length > 0) {
+      text = text.slice(0, -1);
+    }
+    return text + '...';
   };
 
   // Add first page header
@@ -155,369 +197,684 @@ export async function exportAsPDF(
 
   // Title Section
   pdf.setTextColor(...darkColor);
-  pdf.setFontSize(24);
+  pdf.setFontSize(18);
   pdf.setFont('helvetica', 'bold');
-  pdf.text(orgName, margin, yPosition + 10);
-  yPosition += 15;
+  pdf.text(orgName, margin, yPosition + 5);
+  yPosition += 8;
 
-  pdf.setFontSize(14);
+  pdf.setFontSize(10);
   pdf.setTextColor(...grayColor);
   pdf.setFont('helvetica', 'normal');
-  pdf.text('IT Infrastructure Diagram', margin, yPosition + 5);
-  yPosition += 15;
+  pdf.text('IT Infrastructure Diagram', margin, yPosition + 3);
+  yPosition += 10;
 
-  // Summary Box
-  pdf.setFillColor(...lightGray);
-  pdf.roundedRect(margin, yPosition, contentWidth, 30, 3, 3, 'F');
-  pdf.setFontSize(9);
-  pdf.setTextColor(...darkColor);
+  // ==================== NETWORK INFRASTRUCTURE ====================
+  // Matches the hierarchical layout in Diagram.tsx
+  if (data.network_devices.length > 0) {
+    drawSectionBox('Network Infrastructure', 'network');
 
-  const summaryItems = [
-    `Network: ${data.network_devices.length}`,
-    `Servers: ${data.servers.length}`,
-    `Endpoints: ${data.endpoint_users.length}`,
-    `Peripherals: ${data.peripherals.length}`,
-    `Backups: ${data.backups.length}`,
-    `Software: ${data.software.length}`,
-    `VoIP: ${data.voip.length}`,
-  ];
+    const firewalls = data.network_devices.filter(d => 
+      d.device_type === 'firewall' || d.device_type === 'firewall_router' || d.device_type === 'router'
+    );
+    const switches = data.network_devices.filter(d => d.device_type === 'switch');
+    const wifiDevices = data.network_devices.filter(d => d.device_type === 'wifi');
 
-  // First row - 4 items
-  const firstRowItemWidth = contentWidth / 4;
-  for (let i = 0; i < 4; i++) {
-    pdf.text(summaryItems[i], margin + firstRowItemWidth * i + firstRowItemWidth / 2, yPosition + 10, {
-      align: 'center',
-    });
-  }
+    const centerX = pageWidth / 2;
 
-  // Second row - 3 items
-  const secondRowItemWidth = contentWidth / 3;
-  for (let i = 4; i < 7; i++) {
-    pdf.text(summaryItems[i], margin + secondRowItemWidth * (i - 4) + secondRowItemWidth / 2, yPosition + 20, {
-      align: 'center',
-    });
-  }
-
-  yPosition += 40;
-
-  // Helper function to draw section header
-  const drawSectionHeader = (title: string): void => {
-    checkPageBreak(20);
-    pdf.setFillColor(...primaryColor);
-    pdf.roundedRect(margin, yPosition, contentWidth, 10, 2, 2, 'F');
-    pdf.setTextColor(255, 255, 255);
-    pdf.setFontSize(12);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text(title, margin + 5, yPosition + 7);
-    yPosition += 15;
-  };
-
-  // Helper function to draw a device card
-  const drawDeviceCard = (
-    x: number,
-    y: number,
-    width: number,
-    height: number,
-    title: string,
-    details: { label: string; value: string }[]
-  ): void => {
-    // Card background
-    pdf.setFillColor(255, 255, 255);
-    pdf.setDrawColor(200, 200, 200);
-    pdf.roundedRect(x, y, width, height, 2, 2, 'FD');
-
-    // Title with proper text wrapping
+    // Internet circle with globe icon (drawn as circle with crosshairs)
+    pdf.setFillColor(...blueColor);
+    pdf.circle(centerX, yPosition + 8, 8, 'F');
+    pdf.setDrawColor(255, 255, 255);
+    pdf.setLineWidth(0.8);
+    pdf.circle(centerX, yPosition + 8, 4, 'S');
+    pdf.line(centerX - 6, yPosition + 8, centerX + 6, yPosition + 8);
+    pdf.line(centerX, yPosition + 2, centerX, yPosition + 14);
     pdf.setTextColor(...darkColor);
-    pdf.setFontSize(9);
-    pdf.setFont('helvetica', 'bold');
-
-    // Split title into lines if too long
-    const maxTitleWidth = width - 6;
-    const titleLines = pdf.splitTextToSize(title, maxTitleWidth);
-    let currentY = y + 5;
-
-    // Only show first 2 lines of title to prevent overflow
-    const displayTitleLines = titleLines.slice(0, 2);
-    displayTitleLines.forEach((line: string, index: number) => {
-      // If this is the second line and there are more lines, add ellipsis
-      if (index === 1 && titleLines.length > 2) {
-        const textWidth = pdf.getTextWidth(line);
-        const ellipsisWidth = pdf.getTextWidth('...');
-        if (textWidth + ellipsisWidth > maxTitleWidth) {
-          // Truncate the line to fit ellipsis
-          let truncatedLine = line;
-          while (pdf.getTextWidth(truncatedLine + '...') > maxTitleWidth && truncatedLine.length > 0) {
-            truncatedLine = truncatedLine.slice(0, -1);
-          }
-          line = truncatedLine + '...';
-        } else {
-          line = line + '...';
-        }
-      }
-      pdf.text(line, x + 3, currentY);
-      currentY += 3.5;
-    });
-
-    // Details
+    pdf.setFontSize(8);
     pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(7);
-    pdf.setTextColor(...grayColor);
+    pdf.text('Internet', centerX, yPosition + 20, { align: 'center' });
+    yPosition += 24;
 
-    let detailY = currentY + 2;
-    details.forEach((detail) => {
-      if (detail.value && detailY < y + height - 2) {
-        const text = `${detail.label}: ${detail.value}`;
-        // Try to fit the text, otherwise truncate with ellipsis
-        const maxDetailWidth = width - 6;
-        let displayText = text;
+    // Connection line
+    pdf.setDrawColor(...grayColor);
+    pdf.setLineWidth(0.5);
+    pdf.line(centerX, yPosition, centerX, yPosition + 6);
+    yPosition += 8;
 
-        if (pdf.getTextWidth(text) > maxDetailWidth) {
-          // Truncate with ellipsis
-          while (pdf.getTextWidth(displayText + '...') > maxDetailWidth && displayText.length > detail.label.length + 3) {
-            displayText = displayText.slice(0, -1);
-          }
-          displayText = displayText + '...';
+    // Firewalls/Routers
+    if (firewalls.length > 0) {
+      const fwCardWidth = 55;
+      const fwCardHeight = 32;
+      const fwGap = 8;
+      const totalFwWidth = firewalls.length * fwCardWidth + (firewalls.length - 1) * fwGap;
+      let fwStartX = centerX - totalFwWidth / 2;
+
+      firewalls.forEach((fw, idx) => {
+        const x = fwStartX + idx * (fwCardWidth + fwGap);
+        
+        // Card
+        pdf.setFillColor(255, 255, 255);
+        pdf.setDrawColor(200, 200, 200);
+        pdf.setLineWidth(0.3);
+        pdf.roundedRect(x, yPosition, fwCardWidth, fwCardHeight, 2, 2, 'FD');
+        
+        // Shield icon (drawn as shape)
+        pdf.setFillColor(254, 226, 226); // Red light
+        pdf.roundedRect(x + fwCardWidth/2 - 6, yPosition + 2, 12, 11, 1, 1, 'F');
+        pdf.setFillColor(...redColor);
+        // Draw shield shape
+        pdf.setDrawColor(...redColor);
+        pdf.setLineWidth(0.6);
+        const shieldX = x + fwCardWidth/2;
+        const shieldY = yPosition + 7;
+        pdf.line(shieldX - 3, shieldY - 2, shieldX, shieldY - 4);
+        pdf.line(shieldX, shieldY - 4, shieldX + 3, shieldY - 2);
+        pdf.line(shieldX + 3, shieldY - 2, shieldX + 3, shieldY + 1);
+        pdf.line(shieldX + 3, shieldY + 1, shieldX, shieldY + 4);
+        pdf.line(shieldX, shieldY + 4, shieldX - 3, shieldY + 1);
+        pdf.line(shieldX - 3, shieldY + 1, shieldX - 3, shieldY - 2);
+        
+        // Name
+        pdf.setTextColor(...darkColor);
+        pdf.setFontSize(7);
+        pdf.setFont('helvetica', 'bold');
+        const fwName = truncateText(fw.name, fwCardWidth - 6);
+        pdf.text(fwName, x + fwCardWidth/2, yPosition + 17, { align: 'center' });
+        
+        // Details
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(6);
+        pdf.setTextColor(...grayColor);
+        if (fw.manufacturer) {
+          pdf.text(truncateText(fw.manufacturer, fwCardWidth - 6), x + fwCardWidth/2, yPosition + 21, { align: 'center' });
         }
+        if (fw.internet_speed) {
+          pdf.setTextColor(...blueColor);
+          pdf.text(truncateText(fw.internet_speed, fwCardWidth - 6), x + fwCardWidth/2, yPosition + 25, { align: 'center' });
+        }
+        if (fw.ip_address) {
+          pdf.setTextColor(...grayColor);
+          pdf.setFont('courier', 'normal');
+          pdf.setFontSize(5);
+          pdf.text(fw.ip_address, x + fwCardWidth/2, yPosition + 29, { align: 'center' });
+        }
+      });
+      
+      yPosition += fwCardHeight + 4;
+      
+      // Connection line
+      pdf.setDrawColor(...grayColor);
+      pdf.setLineWidth(0.5);
+      pdf.line(centerX, yPosition, centerX, yPosition + 6);
+      yPosition += 8;
+    }
 
-        pdf.text(displayText, x + 3, detailY);
+    // Switches
+    if (switches.length > 0) {
+      const swCardWidth = 50;
+      const swCardHeight = 26;
+      const swGap = 8;
+      const totalSwWidth = switches.length * swCardWidth + (switches.length - 1) * swGap;
+      let swStartX = centerX - totalSwWidth / 2;
+
+      switches.forEach((sw, idx) => {
+        const x = swStartX + idx * (swCardWidth + swGap);
+        
+        // Card
+        pdf.setFillColor(255, 255, 255);
+        pdf.setDrawColor(200, 200, 200);
+        pdf.setLineWidth(0.3);
+        pdf.roundedRect(x, yPosition, swCardWidth, swCardHeight, 2, 2, 'FD');
+        
+        // Switch icon (network symbol - box with dots)
+        pdf.setFillColor(220, 252, 231); // Green light
+        pdf.roundedRect(x + swCardWidth/2 - 6, yPosition + 2, 12, 9, 1, 1, 'F');
+        pdf.setFillColor(...greenColor);
+        pdf.circle(x + swCardWidth/2 - 3, yPosition + 6.5, 1, 'F');
+        pdf.circle(x + swCardWidth/2, yPosition + 6.5, 1, 'F');
+        pdf.circle(x + swCardWidth/2 + 3, yPosition + 6.5, 1, 'F');
+        
+        // Name
+        pdf.setTextColor(...darkColor);
+        pdf.setFontSize(7);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(truncateText(sw.name, swCardWidth - 4), x + swCardWidth/2, yPosition + 15, { align: 'center' });
+        
+        // Details
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(5);
+        pdf.setTextColor(...grayColor);
+        if (sw.manufacturer) {
+          pdf.text(truncateText(sw.manufacturer, swCardWidth - 4), x + swCardWidth/2, yPosition + 19, { align: 'center' });
+        }
+        if (sw.ip_address) {
+          pdf.setFont('courier', 'normal');
+          pdf.text(sw.ip_address, x + swCardWidth/2, yPosition + 23, { align: 'center' });
+        }
+      });
+      
+      yPosition += swCardHeight + 6;
+    }
+
+    // WiFi Devices
+    if (wifiDevices.length > 0) {
+      const wifiCardWidth = 60;
+      const wifiCardHeight = 20;
+      const wifiGap = 6;
+      const totalWifiWidth = wifiDevices.length * wifiCardWidth + (wifiDevices.length - 1) * wifiGap;
+      let wifiStartX = centerX - totalWifiWidth / 2;
+
+      wifiDevices.forEach((wifi, idx) => {
+        const x = wifiStartX + idx * (wifiCardWidth + wifiGap);
+        
+        // Card - horizontal layout
+        pdf.setFillColor(255, 255, 255);
+        pdf.setDrawColor(200, 200, 200);
+        pdf.setLineWidth(0.3);
+        pdf.roundedRect(x, yPosition, wifiCardWidth, wifiCardHeight, 2, 2, 'FD');
+        
+        // WiFi icon (arcs)
+        pdf.setFillColor(243, 232, 255); // Purple light
+        pdf.roundedRect(x + 2, yPosition + 3, 14, 14, 1, 1, 'F');
+        pdf.setDrawColor(...purpleColor);
+        pdf.setLineWidth(0.5);
+        // Draw wifi arcs
+        const wifiX = x + 9;
+        const wifiY = yPosition + 13;
+        pdf.circle(wifiX, wifiY, 1, 'F');
+        // Arc 1 (approximate with lines)
+        drawArc(pdf, wifiX, wifiY, 3, 220, 320);
+        // Arc 2 (approximate with lines)
+        drawArc(pdf, wifiX, wifiY, 5, 220, 320);
+
+    // Helper to draw an arc using lines (jsPDF does not support arc natively)
+    function drawArc(pdf: any, cx: number, cy: number, r: number, startAngle: number, endAngle: number) {
+      const segments = 20;
+      const points = [];
+      for (let i = 0; i <= segments; i++) {
+        const angle = (startAngle + (endAngle - startAngle) * (i / segments)) * Math.PI / 180;
+        points.push([
+          cx + r * Math.cos(angle),
+          cy + r * Math.sin(angle)
+        ]);
+      }
+      for (let i = 0; i < points.length - 1; i++) {
+        pdf.line(points[i][0], points[i][1], points[i + 1][0], points[i + 1][1]);
+      }
+    }
+        
+        // Name and details
+        pdf.setTextColor(...darkColor);
+        pdf.setFontSize(6);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(truncateText(wifi.name, wifiCardWidth - 20), x + 18, yPosition + 6);
+        
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(5);
+        pdf.setTextColor(...grayColor);
+        if (wifi.manufacturer) {
+          pdf.text(truncateText(`${wifi.manufacturer} ${wifi.model || ''}`, wifiCardWidth - 20), x + 18, yPosition + 10);
+        }
+        if (wifi.ip_address) {
+          pdf.setFont('courier', 'normal');
+          pdf.text(wifi.ip_address, x + 18, yPosition + 14);
+        }
+      });
+      
+      yPosition += wifiCardHeight + 6;
+    }
+
+    yPosition += 8;
+  }
+
+  // ==================== USER ENDPOINTS ====================
+  // 3 columns: Desktops, Laptops, Workstations
+  if (data.endpoint_users.length > 0) {
+    checkPageBreak(60);
+    drawSectionBox('User Endpoints', 'endpoints');
+
+    const desktops = data.endpoint_users.filter(e => e.device_type === 'desktop');
+    const laptops = data.endpoint_users.filter(e => e.device_type === 'laptop');
+    const workstations = data.endpoint_users.filter(e => e.device_type === 'workstation');
+
+    const colWidth = (contentWidth - 8) / 3;
+    const cardHeight = 28;
+    const cardGap = 3;
+
+    // Column headers
+    pdf.setTextColor(...darkColor);
+    pdf.setFontSize(8);
+    pdf.setFont('helvetica', 'bold');
+    
+    const col1X = margin;
+    const col2X = margin + colWidth + 4;
+    const col3X = margin + (colWidth + 4) * 2;
+
+    pdf.text(`Desktops (${desktops.length})`, col1X, yPosition);
+    pdf.text(`Laptops (${laptops.length})`, col2X, yPosition);
+    pdf.text(`Workstations (${workstations.length})`, col3X, yPosition);
+    yPosition += 5;
+
+    // Draw endpoint cards in columns
+    const maxRows = Math.max(desktops.length, laptops.length, workstations.length);
+    
+    const drawEndpointCard = (endpoint: typeof data.endpoint_users[0], x: number, y: number, width: number) => {
+      // Card
+      pdf.setFillColor(255, 255, 255);
+      pdf.setDrawColor(200, 200, 200);
+      pdf.setLineWidth(0.3);
+      pdf.roundedRect(x, y, width, cardHeight, 1.5, 1.5, 'FD');
+      
+      // Name
+      pdf.setTextColor(...darkColor);
+      pdf.setFontSize(7);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text(truncateText(endpoint.name, width - 4), x + 2, y + 5);
+      
+      // User
+      if (endpoint.assigned_to_name) {
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(6);
+        pdf.setTextColor(...grayColor);
+        pdf.text(truncateText(endpoint.assigned_to_name, width - 8), x + 2, y + 9);
+      }
+      
+      // Details
+      let detailY = y + 13;
+      pdf.setFontSize(5);
+      
+      if (endpoint.operating_system) {
+        pdf.setTextColor(...darkColor);
+        pdf.text(`OS: ${truncateText(endpoint.operating_system, width - 8)}`, x + 2, detailY);
         detailY += 3.5;
       }
-    });
-  };
-
-  // ==================== NETWORK DEVICES ====================
-  if (data.network_devices.length > 0) {
-    drawSectionHeader(`Network Infrastructure (${data.network_devices.length})`);
-
-    const cardWidth = (contentWidth - 10) / 4;
-    const cardHeight = 28;
-    const cardsPerRow = 4;
-
-    data.network_devices.forEach((device, index) => {
-      const col = index % cardsPerRow;
-      const row = Math.floor(index / cardsPerRow);
-
-      if (col === 0 && index > 0) {
-        checkPageBreak(cardHeight + 5);
+      if (endpoint.cpu) {
+        pdf.setTextColor(...grayColor);
+        pdf.text(`CPU: ${truncateText(endpoint.cpu, width - 8)}`, x + 2, detailY);
+        detailY += 3.5;
       }
+      if (endpoint.ram) {
+        pdf.text(`RAM: ${endpoint.ram}`, x + 2, detailY);
+        detailY += 3.5;
+      }
+      if (endpoint.ip_address) {
+        pdf.setFont('courier', 'normal');
+        pdf.text(`IP: ${endpoint.ip_address}`, x + 2, detailY);
+      }
+    };
 
-      const x = margin + col * (cardWidth + 3.33);
-      const y = yPosition + row * (cardHeight + 3);
+    for (let row = 0; row < maxRows; row++) {
+      checkPageBreak(cardHeight + cardGap);
+      
+      if (desktops[row]) {
+        drawEndpointCard(desktops[row], col1X, yPosition, colWidth);
+      }
+      if (laptops[row]) {
+        drawEndpointCard(laptops[row], col2X, yPosition, colWidth);
+      }
+      if (workstations[row]) {
+        drawEndpointCard(workstations[row], col3X, yPosition, colWidth);
+      }
+      
+      yPosition += cardHeight + cardGap;
+    }
 
-      drawDeviceCard(x, y, cardWidth, cardHeight, device.name, [
-        { label: 'Type', value: device.device_type },
-        { label: 'Manufacturer', value: device.manufacturer || '' },
-        { label: 'Model', value: device.model || '' },
-        { label: 'IP', value: device.ip_address || '' },
-      ]);
-    });
-
-    const rows = Math.ceil(data.network_devices.length / cardsPerRow);
-    yPosition += rows * (cardHeight + 3) + 10;
+    yPosition += 6;
   }
 
   // ==================== SERVERS ====================
   if (data.servers.length > 0) {
-    drawSectionHeader(`Servers (${data.servers.length})`);
+    checkPageBreak(50);
+    drawSectionBox('Servers', 'servers');
 
-    const cardWidth = (contentWidth - 10) / 3;
-    const cardHeight = 35;
     const cardsPerRow = 3;
+    const cardWidth = (contentWidth - 8) / cardsPerRow;
+    const cardHeight = 38;
+    const cardGap = 4;
 
     data.servers.forEach((server, index) => {
       const col = index % cardsPerRow;
-      const row = Math.floor(index / cardsPerRow);
 
       if (col === 0 && index > 0) {
-        checkPageBreak(cardHeight + 5);
+        yPosition += cardHeight + cardGap;
+        checkPageBreak(cardHeight + cardGap);
       }
 
-      const x = margin + col * (cardWidth + 5);
-      const y = yPosition + row * (cardHeight + 3);
+      const x = margin + col * (cardWidth + cardGap);
+      const y = yPosition;
 
-      drawDeviceCard(x, y, cardWidth, cardHeight, server.name, [
-        { label: 'Type', value: server.server_type },
-        { label: 'Role', value: server.role || '' },
-        { label: 'OS', value: server.operating_system || '' },
-        { label: 'CPU', value: server.cpu || '' },
-        { label: 'RAM', value: server.ram || '' },
-        { label: 'IP', value: server.ip_address || '' },
-      ]);
-    });
+      // Card
+      pdf.setFillColor(255, 255, 255);
+      pdf.setDrawColor(200, 200, 200);
+      pdf.setLineWidth(0.3);
+      pdf.roundedRect(x, y, cardWidth, cardHeight, 2, 2, 'FD');
 
-    const rows = Math.ceil(data.servers.length / cardsPerRow);
-    yPosition += rows * (cardHeight + 3) + 10;
-  }
+      // Server icon (simple box with lines)
+      pdf.setFillColor(240, 240, 240);
+      pdf.roundedRect(x + 3, y + 3, 10, 10, 1, 1, 'F');
+      pdf.setDrawColor(...grayColor);
+      pdf.setLineWidth(0.3);
+      pdf.rect(x + 4.5, y + 4.5, 7, 7, 'S');
+      pdf.line(x + 4.5, y + 7, x + 11.5, y + 7);
+      pdf.line(x + 4.5, y + 9.5, x + 11.5, y + 9.5);
 
-  // ==================== ENDPOINTS ====================
-  if (data.endpoint_users.length > 0) {
-    drawSectionHeader(`User Endpoints (${data.endpoint_users.length})`);
+      pdf.setTextColor(...darkColor);
+      pdf.setFontSize(8);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text(truncateText(server.name, cardWidth - 20), x + 16, y + 8);
 
-    const cardWidth = (contentWidth - 10) / 4;
-    const cardHeight = 32;
-    const cardsPerRow = 4;
-
-    data.endpoint_users.forEach((endpoint, index) => {
-      const col = index % cardsPerRow;
-      const row = Math.floor(index / cardsPerRow);
-
-      if (col === 0 && index > 0) {
-        checkPageBreak(cardHeight + 5);
+      // Role subtitle
+      if (server.role) {
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(6);
+        pdf.setTextColor(...grayColor);
+        pdf.text(truncateText(server.role, cardWidth - 50), x + 16, y + 12);
       }
 
-      const x = margin + col * (cardWidth + 3.33);
-      const y = yPosition + row * (cardHeight + 3);
+      // Badge (physical/virtual)
+      const badgeText = server.server_type;
+      const badgeColor = server.server_type === 'physical' ? blueColor : purpleColor;
+      drawBadge(x + cardWidth - 22, y + 9, badgeText, badgeColor);
 
-      drawDeviceCard(x, y, cardWidth, cardHeight, endpoint.name, [
-        { label: 'Type', value: endpoint.device_type },
-        { label: 'User', value: endpoint.assigned_to_name || '' },
-        { label: 'OS', value: endpoint.operating_system || '' },
-        { label: 'CPU', value: endpoint.cpu || '' },
-        { label: 'RAM', value: endpoint.ram || '' },
-        { label: 'IP', value: endpoint.ip_address || '' },
-      ]);
+      // Details
+      let detailY = y + 18;
+      pdf.setFontSize(5.5);
+      pdf.setFont('helvetica', 'normal');
+
+      if (server.operating_system) {
+        pdf.setTextColor(...darkColor);
+        pdf.text(`OS: ${truncateText(server.operating_system, cardWidth - 8)}`, x + 3, detailY);
+        detailY += 4;
+      }
+      if (server.cpu) {
+        pdf.setTextColor(...grayColor);
+        pdf.text(`CPU: ${truncateText(server.cpu, cardWidth - 8)}`, x + 3, detailY);
+        detailY += 4;
+      }
+      if (server.ram) {
+        pdf.text(`RAM: ${server.ram}`, x + 3, detailY);
+        detailY += 4;
+      }
+      if (server.ip_address) {
+        pdf.setFont('courier', 'normal');
+        pdf.text(`IP: ${server.ip_address}`, x + 3, detailY);
+      }
     });
 
-    const rows = Math.ceil(data.endpoint_users.length / cardsPerRow);
-    yPosition += rows * (cardHeight + 3) + 10;
+    yPosition += cardHeight + 10;
   }
 
   // ==================== PERIPHERALS ====================
   if (data.peripherals.length > 0) {
-    drawSectionHeader(`Peripherals (${data.peripherals.length})`);
+    checkPageBreak(40);
+    drawSectionBox('Peripherals', 'peripherals');
 
-    const cardWidth = (contentWidth - 10) / 4;
-    const cardHeight = 24;
     const cardsPerRow = 4;
+    const cardWidth = (contentWidth - 12) / cardsPerRow;
+    const cardHeight = 24;
+    const cardGap = 4;
 
     data.peripherals.forEach((peripheral, index) => {
       const col = index % cardsPerRow;
-      const row = Math.floor(index / cardsPerRow);
 
       if (col === 0 && index > 0) {
-        checkPageBreak(cardHeight + 5);
+        yPosition += cardHeight + cardGap;
+        checkPageBreak(cardHeight + cardGap);
       }
 
-      const x = margin + col * (cardWidth + 3.33);
-      const y = yPosition + row * (cardHeight + 3);
+      const x = margin + col * (cardWidth + cardGap);
 
-      drawDeviceCard(x, y, cardWidth, cardHeight, peripheral.name, [
-        { label: 'Type', value: peripheral.device_type },
-        { label: 'Manufacturer', value: peripheral.manufacturer || '' },
-        { label: 'Model', value: peripheral.model || '' },
-        { label: 'Serial', value: peripheral.serial_number || '' },
-      ]);
+      // Card - horizontal layout
+      pdf.setFillColor(255, 255, 255);
+      pdf.setDrawColor(200, 200, 200);
+      pdf.setLineWidth(0.3);
+      pdf.roundedRect(x, yPosition, cardWidth, cardHeight, 2, 2, 'FD');
+
+      // Icon (simple shape based on type)
+      pdf.setFillColor(240, 240, 240);
+      pdf.roundedRect(x + 2, yPosition + 2, 12, 12, 1, 1, 'F');
+      pdf.setDrawColor(...grayColor);
+      pdf.setLineWidth(0.3);
+      // Draw a simple printer/device icon
+      pdf.rect(x + 4, yPosition + 5, 8, 6, 'S');
+      pdf.line(x + 5, yPosition + 8, x + 11, yPosition + 8);
+
+      // Name
+      pdf.setTextColor(...darkColor);
+      pdf.setFontSize(6.5);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text(truncateText(peripheral.name, cardWidth - 18), x + 16, yPosition + 6);
+
+      // Type and details
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(5);
+      pdf.setTextColor(...grayColor);
+      pdf.text(peripheral.device_type, x + 16, yPosition + 10);
+      
+      if (peripheral.manufacturer && peripheral.model) {
+        pdf.text(truncateText(`${peripheral.manufacturer} ${peripheral.model}`, cardWidth - 18), x + 16, yPosition + 14);
+      }
+      if (peripheral.serial_number) {
+        pdf.setFont('courier', 'normal');
+        pdf.text(`S/N: ${truncateText(peripheral.serial_number, cardWidth - 22)}`, x + 16, yPosition + 18);
+      }
     });
 
-    const rows = Math.ceil(data.peripherals.length / cardsPerRow);
-    yPosition += rows * (cardHeight + 3) + 10;
+    yPosition += cardHeight + 10;
   }
 
   // ==================== BACKUPS ====================
   if (data.backups.length > 0) {
-    drawSectionHeader(`Backups (${data.backups.length})`);
+    checkPageBreak(50);
+    drawSectionBox('Backups', 'backups');
 
-    const cardWidth = (contentWidth - 10) / 3;
-    const cardHeight = 30;
-    const cardsPerRow = 3;
+    const cardsPerRow = 2;
+    const cardWidth = (contentWidth - 4) / cardsPerRow;
+    const cardHeight = 42;
+    const cardGap = 4;
 
     data.backups.forEach((backup, index) => {
       const col = index % cardsPerRow;
-      const row = Math.floor(index / cardsPerRow);
 
       if (col === 0 && index > 0) {
-        checkPageBreak(cardHeight + 5);
+        yPosition += cardHeight + cardGap;
+        checkPageBreak(cardHeight + cardGap);
       }
 
-      const x = margin + col * (cardWidth + 5);
-      const y = yPosition + row * (cardHeight + 3);
+      const x = margin + col * (cardWidth + cardGap);
 
-      drawDeviceCard(x, y, cardWidth, cardHeight, backup.name, [
-        { label: 'Type', value: backup.backup_type },
-        { label: 'Vendor', value: backup.vendor || '' },
-        { label: 'Frequency', value: backup.frequency || '' },
-        { label: 'Location', value: backup.storage_location || '' },
-        { label: 'Status', value: backup.backup_status || '' },
-      ]);
+      // Card
+      pdf.setFillColor(255, 255, 255);
+      pdf.setDrawColor(200, 200, 200);
+      pdf.setLineWidth(0.3);
+      pdf.roundedRect(x, yPosition, cardWidth, cardHeight, 2, 2, 'FD');
+
+      // Icon (database/disk shape)
+      pdf.setFillColor(240, 240, 240);
+      pdf.roundedRect(x + 3, yPosition + 3, 12, 12, 1, 1, 'F');
+      pdf.setDrawColor(...grayColor);
+      pdf.setLineWidth(0.3);
+      // Draw disk/cylinder shape
+      pdf.ellipse(x + 9, yPosition + 6, 4, 1.5, 'S');
+      pdf.line(x + 5, yPosition + 6, x + 5, yPosition + 12);
+      pdf.line(x + 13, yPosition + 6, x + 13, yPosition + 12);
+      pdf.ellipse(x + 9, yPosition + 12, 4, 1.5, 'S');
+
+      // Name
+      pdf.setTextColor(...darkColor);
+      pdf.setFontSize(7);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text(truncateText(backup.name, cardWidth - 35), x + 18, yPosition + 8);
+
+      // Status badge
+      if (backup.backup_status) {
+        const statusColor = backup.backup_status === 'active' ? greenColor : grayColor;
+        drawBadge(x + cardWidth - 18, yPosition + 6, backup.backup_status, statusColor);
+      }
+
+      // Type
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(5.5);
+      pdf.setTextColor(...grayColor);
+      pdf.text(`Type: ${backup.backup_type}`, x + 18, yPosition + 13);
+
+      // Details
+      let detailY = yPosition + 18;
+      if (backup.vendor) {
+        pdf.text(`Vendor: ${truncateText(backup.vendor, cardWidth - 22)}`, x + 3, detailY);
+        detailY += 4;
+      }
+      if (backup.frequency) {
+        pdf.text(`Frequency: ${truncateText(backup.frequency, cardWidth - 22)}`, x + 3, detailY);
+        detailY += 4;
+      }
+      if (backup.storage_location) {
+        pdf.text(`Storage: ${truncateText(backup.storage_location, cardWidth - 22)}`, x + 3, detailY);
+        detailY += 4;
+      }
+      if (backup.target_systems) {
+        pdf.text(`Targets: ${truncateText(backup.target_systems, cardWidth - 22)}`, x + 3, detailY);
+      }
     });
 
-    const rows = Math.ceil(data.backups.length / cardsPerRow);
-    yPosition += rows * (cardHeight + 3) + 10;
+    yPosition += cardHeight + 10;
   }
 
   // ==================== SOFTWARE ====================
   if (data.software.length > 0) {
-    drawSectionHeader(`Software (${data.software.length})`);
+    checkPageBreak(40);
+    drawSectionBox('Software', 'software');
 
-    const cardWidth = (contentWidth - 10) / 3;
-    const cardHeight = 28;
     const cardsPerRow = 3;
+    const cardWidth = (contentWidth - 8) / cardsPerRow;
+    const cardHeight = 30;
+    const cardGap = 4;
 
     data.software.forEach((software, index) => {
       const col = index % cardsPerRow;
-      const row = Math.floor(index / cardsPerRow);
 
       if (col === 0 && index > 0) {
-        checkPageBreak(cardHeight + 5);
+        yPosition += cardHeight + cardGap;
+        checkPageBreak(cardHeight + cardGap);
       }
 
-      const x = margin + col * (cardWidth + 5);
-      const y = yPosition + row * (cardHeight + 3);
+      const x = margin + col * (cardWidth + cardGap);
 
-      // Get contact names if any
-      const contactNames = software.assigned_contacts
-        ?.map(c => c.contact_name)
-        .join(', ') || '';
+      // Card
+      pdf.setFillColor(255, 255, 255);
+      pdf.setDrawColor(200, 200, 200);
+      pdf.setLineWidth(0.3);
+      pdf.roundedRect(x, yPosition, cardWidth, cardHeight, 2, 2, 'FD');
 
-      drawDeviceCard(x, y, cardWidth, cardHeight, software.name, [
-        { label: 'Type', value: software.software_type.replace(/_/g, ' ') },
-        { label: 'Contacts', value: contactNames },
-        { label: 'Notes', value: software.notes || '' },
-      ]);
+      // Icon (box/package shape)
+      pdf.setFillColor(240, 240, 240);
+      pdf.roundedRect(x + 3, yPosition + 3, 12, 12, 1, 1, 'F');
+      pdf.setDrawColor(...grayColor);
+      pdf.setLineWidth(0.3);
+      // Draw a cube/box
+      pdf.rect(x + 5, yPosition + 6, 6, 6, 'S');
+      pdf.line(x + 5, yPosition + 6, x + 7, yPosition + 4);
+      pdf.line(x + 11, yPosition + 6, x + 13, yPosition + 4);
+      pdf.line(x + 7, yPosition + 4, x + 13, yPosition + 4);
+
+      // Name
+      pdf.setTextColor(...darkColor);
+      pdf.setFontSize(7);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text(truncateText(software.name, cardWidth - 20), x + 18, yPosition + 8);
+
+      // Type
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(5.5);
+      pdf.setTextColor(...grayColor);
+      pdf.text(software.software_type.replace(/_/g, ' '), x + 18, yPosition + 12);
+
+      // Contacts
+      let detailY = yPosition + 18;
+      if (software.assigned_contacts && software.assigned_contacts.length > 0) {
+        software.assigned_contacts.slice(0, 3).forEach(contact => {
+          pdf.text(truncateText(contact.contact_name, cardWidth - 12), x + 3, detailY);
+          detailY += 3.5;
+        });
+      }
+
+      // Notes
+      if (software.notes && detailY < yPosition + cardHeight - 2) {
+        pdf.setFontSize(5);
+        pdf.text(truncateText(software.notes, cardWidth - 8), x + 3, detailY);
+      }
     });
 
-    const rows = Math.ceil(data.software.length / cardsPerRow);
-    yPosition += rows * (cardHeight + 3) + 10;
+    yPosition += cardHeight + 10;
   }
 
   // ==================== VOIP ====================
   if (data.voip.length > 0) {
-    drawSectionHeader(`VoIP Services (${data.voip.length})`);
+    checkPageBreak(40);
+    drawSectionBox('VoIP Services', 'voip');
 
-    const cardWidth = (contentWidth - 10) / 3;
-    const cardHeight = 30;
     const cardsPerRow = 3;
+    const cardWidth = (contentWidth - 8) / cardsPerRow;
+    const cardHeight = 28;
+    const cardGap = 4;
 
     data.voip.forEach((voip, index) => {
       const col = index % cardsPerRow;
-      const row = Math.floor(index / cardsPerRow);
 
       if (col === 0 && index > 0) {
-        checkPageBreak(cardHeight + 5);
+        yPosition += cardHeight + cardGap;
+        checkPageBreak(cardHeight + cardGap);
       }
 
-      const x = margin + col * (cardWidth + 5);
-      const y = yPosition + row * (cardHeight + 3);
+      const x = margin + col * (cardWidth + cardGap);
 
-      // Get contact names with extensions if any
-      const contactInfo = voip.assigned_contacts
-        ?.map(c => c.extension ? `${c.contact_name} (Ext ${c.extension})` : c.contact_name)
-        .join(', ') || '';
+      // Card
+      pdf.setFillColor(255, 255, 255);
+      pdf.setDrawColor(200, 200, 200);
+      pdf.setLineWidth(0.3);
+      pdf.roundedRect(x, yPosition, cardWidth, cardHeight, 2, 2, 'FD');
 
+      // Phone icon (simple handset shape)
+      pdf.setFillColor(240, 240, 240);
+      pdf.roundedRect(x + 3, yPosition + 3, 12, 12, 1, 1, 'F');
+      pdf.setDrawColor(...grayColor);
+      pdf.setLineWidth(0.4);
+      // Draw phone handset
+      pdf.line(x + 5, yPosition + 6, x + 5, yPosition + 12);
+      pdf.line(x + 5, yPosition + 6, x + 8, yPosition + 6);
+      pdf.line(x + 8, yPosition + 6, x + 10, yPosition + 8);
+      pdf.line(x + 10, yPosition + 8, x + 10, yPosition + 10);
+      pdf.line(x + 10, yPosition + 10, x + 8, yPosition + 12);
+      pdf.line(x + 8, yPosition + 12, x + 5, yPosition + 12);
+
+      // Name
+      pdf.setTextColor(...darkColor);
+      pdf.setFontSize(7);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text(truncateText(voip.name, cardWidth - 20), x + 18, yPosition + 8);
+
+      // Type
       const voipTypeDisplay = voip.voip_type === 'teams' ? 'Microsoft Teams' :
                               voip.voip_type === '3cx' ? '3CX' :
                               voip.voip_type === 'yeastar' ? 'Yeastar' : 'Other';
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(5.5);
+      pdf.setTextColor(...grayColor);
+      pdf.text(voipTypeDisplay, x + 18, yPosition + 12);
 
-      drawDeviceCard(x, y, cardWidth, cardHeight, voip.name, [
-        { label: 'Type', value: voipTypeDisplay },
-        { label: 'Contacts', value: contactInfo },
-        { label: 'Numbers', value: voip.phone_numbers || '' },
-        { label: 'Licenses', value: voip.quantity ? `${voip.assigned_count || 0}/${voip.quantity}` : '' },
-      ]);
+      // Contacts and licenses
+      let detailY = yPosition + 18;
+      if (voip.assigned_contacts && voip.assigned_contacts.length > 0) {
+        const contactNames = voip.assigned_contacts.slice(0, 2).map(c => c.contact_name).join(', ');
+        pdf.text(truncateText(contactNames, cardWidth - 10), x + 3, detailY);
+        detailY += 3.5;
+      }
+      if (voip.quantity) {
+        pdf.text(`Licenses: ${voip.assigned_count || 0}/${voip.quantity}`, x + 3, detailY);
+      }
     });
 
-    const rows = Math.ceil(data.voip.length / cardsPerRow);
-    yPosition += rows * (cardHeight + 3) + 10;
+    yPosition += cardHeight + 10;
   }
 
   // Add footers to all pages
@@ -543,13 +900,14 @@ function generateSVGDiagram(data: DiagramData, orgName: string): string {
   const sectionGap = 100;
 
   let svgContent = `<?xml version="1.0" encoding="UTF-8"?>
-<svg width="${width}" height="2000" xmlns="http://www.w3.org/2000/svg">
+<svg width="${width}" height="3000" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <style>
       .title { font-family: Arial, sans-serif; font-size: 24px; font-weight: bold; }
       .section-title { font-family: Arial, sans-serif; font-size: 18px; font-weight: bold; }
       .label { font-family: Arial, sans-serif; font-size: 12px; }
-      .device-box { fill: #f0f0f0; stroke: #333; stroke-width: 2; }
+      .small-label { font-family: Arial, sans-serif; font-size: 10px; fill: #666; }
+      .device-box { fill: #ffffff; stroke: #ccc; stroke-width: 1; }
       .connection-line { stroke: #666; stroke-width: 2; }
     </style>
   </defs>
@@ -565,20 +923,20 @@ function generateSVGDiagram(data: DiagramData, orgName: string): string {
     yOffset += 30;
 
     data.network_devices.forEach((device, idx) => {
-      const x = 50 + (idx % 3) * 350;
-      const y = yOffset + Math.floor(idx / 3) * 120;
+      const x = 50 + (idx % 4) * 280;
+      const y = yOffset + Math.floor(idx / 4) * 100;
 
       svgContent += `
   <g>
-    <rect x="${x}" y="${y}" width="300" height="100" class="device-box" rx="5"/>
-    <text x="${x + 10}" y="${y + 25}" class="label" font-weight="bold">${escapeXml(device.name)}</text>
-    <text x="${x + 10}" y="${y + 45}" class="label">Type: ${escapeXml(device.device_type)}</text>
-    ${device.manufacturer ? `<text x="${x + 10}" y="${y + 60}" class="label">${escapeXml(device.manufacturer)} ${escapeXml(device.model || '')}</text>` : ''}
-    ${device.ip_address ? `<text x="${x + 10}" y="${y + 75}" class="label">IP: ${escapeXml(device.ip_address)}</text>` : ''}
+    <rect x="${x}" y="${y}" width="260" height="80" class="device-box" rx="5"/>
+    <text x="${x + 10}" y="${y + 20}" class="label" font-weight="bold">${escapeXml(device.name)}</text>
+    <text x="${x + 10}" y="${y + 35}" class="small-label">Type: ${escapeXml(device.device_type)}</text>
+    ${device.manufacturer ? `<text x="${x + 10}" y="${y + 50}" class="small-label">${escapeXml(device.manufacturer)} ${escapeXml(device.model || '')}</text>` : ''}
+    ${device.ip_address ? `<text x="${x + 10}" y="${y + 65}" class="small-label">IP: ${escapeXml(device.ip_address)}</text>` : ''}
   </g>`;
     });
 
-    yOffset += Math.ceil(data.network_devices.length / 3) * 120 + sectionGap;
+    yOffset += Math.ceil(data.network_devices.length / 4) * 100 + sectionGap;
   }
 
   // Servers Section
@@ -588,171 +946,25 @@ function generateSVGDiagram(data: DiagramData, orgName: string): string {
     yOffset += 30;
 
     data.servers.forEach((server, idx) => {
-      const x = 50 + (idx % 3) * 350;
+      const x = 50 + (idx % 3) * 380;
       const y = yOffset + Math.floor(idx / 3) * 120;
 
       svgContent += `
   <g>
-    <rect x="${x}" y="${y}" width="300" height="100" class="device-box" rx="5"/>
-    <text x="${x + 10}" y="${y + 25}" class="label" font-weight="bold">${escapeXml(server.name)}</text>
-    <text x="${x + 10}" y="${y + 45}" class="label">Type: ${escapeXml(server.server_type)}</text>
-    ${server.operating_system ? `<text x="${x + 10}" y="${y + 60}" class="label">OS: ${escapeXml(server.operating_system)}</text>` : ''}
-    ${server.ip_address ? `<text x="${x + 10}" y="${y + 75}" class="label">IP: ${escapeXml(server.ip_address)}</text>` : ''}
+    <rect x="${x}" y="${y}" width="360" height="100" class="device-box" rx="5"/>
+    <text x="${x + 10}" y="${y + 20}" class="label" font-weight="bold">${escapeXml(server.name)}</text>
+    <text x="${x + 10}" y="${y + 35}" class="small-label">Type: ${escapeXml(server.server_type)} | Role: ${escapeXml(server.role || 'N/A')}</text>
+    ${server.operating_system ? `<text x="${x + 10}" y="${y + 50}" class="small-label">OS: ${escapeXml(server.operating_system)}</text>` : ''}
+    ${server.cpu ? `<text x="${x + 10}" y="${y + 65}" class="small-label">CPU: ${escapeXml(server.cpu)}</text>` : ''}
+    ${server.ram ? `<text x="${x + 10}" y="${y + 80}" class="small-label">RAM: ${escapeXml(server.ram)}</text>` : ''}
+    ${server.ip_address ? `<text x="${x + 10}" y="${y + 95}" class="small-label">IP: ${escapeXml(server.ip_address)}</text>` : ''}
   </g>`;
     });
 
     yOffset += Math.ceil(data.servers.length / 3) * 120 + sectionGap;
   }
 
-  // Endpoints Section
-  if (data.endpoint_users.length > 0) {
-    svgContent += `\n  <!-- User Endpoints -->
-  <text x="20" y="${yOffset}" class="section-title">User Endpoints</text>`;
-    yOffset += 30;
-
-    const maxEndpoints = Math.min(data.endpoint_users.length, 9);
-    data.endpoint_users.slice(0, maxEndpoints).forEach((endpoint, idx) => {
-      const x = 50 + (idx % 3) * 350;
-      const y = yOffset + Math.floor(idx / 3) * 100;
-
-      svgContent += `
-  <g>
-    <rect x="${x}" y="${y}" width="300" height="80" class="device-box" rx="5"/>
-    <text x="${x + 10}" y="${y + 25}" class="label" font-weight="bold">${escapeXml(endpoint.name)}</text>
-    <text x="${x + 10}" y="${y + 45}" class="label">Type: ${escapeXml(endpoint.device_type)}</text>
-    ${endpoint.assigned_to_name ? `<text x="${x + 10}" y="${y + 60}" class="label">User: ${escapeXml(endpoint.assigned_to_name)}</text>` : ''}
-  </g>`;
-    });
-
-    if (data.endpoint_users.length > maxEndpoints) {
-      svgContent += `
-  <text x="50" y="${yOffset + Math.ceil(maxEndpoints / 3) * 100 + 20}" class="label">... and ${data.endpoint_users.length - maxEndpoints} more endpoints</text>`;
-    }
-
-    yOffset += Math.ceil(maxEndpoints / 3) * 100 + sectionGap;
-  }
-
-  // Peripherals Section
-  if (data.peripherals.length > 0) {
-    svgContent += `\n  <!-- Peripherals -->
-  <text x="20" y="${yOffset}" class="section-title">Peripherals (${data.peripherals.length})</text>`;
-    yOffset += 30;
-
-    const maxPeripherals = Math.min(data.peripherals.length, 6);
-    data.peripherals.slice(0, maxPeripherals).forEach((peripheral, idx) => {
-      const x = 50 + (idx % 3) * 350;
-      const y = yOffset + Math.floor(idx / 3) * 80;
-
-      svgContent += `
-  <g>
-    <rect x="${x}" y="${y}" width="300" height="60" class="device-box" rx="5"/>
-    <text x="${x + 10}" y="${y + 25}" class="label" font-weight="bold">${escapeXml(peripheral.name)}</text>
-    <text x="${x + 10}" y="${y + 45}" class="label">${escapeXml(peripheral.device_type)}</text>
-  </g>`;
-    });
-
-    if (data.peripherals.length > maxPeripherals) {
-      svgContent += `
-  <text x="50" y="${yOffset + Math.ceil(maxPeripherals / 3) * 80 + 20}" class="label">... and ${data.peripherals.length - maxPeripherals} more peripherals</text>`;
-    }
-
-    yOffset += Math.ceil(maxPeripherals / 3) * 80 + sectionGap;
-  }
-
-  // Backups Section
-  if (data.backups.length > 0) {
-    svgContent += `\n  <!-- Backups -->
-  <text x="20" y="${yOffset}" class="section-title">Backups (${data.backups.length})</text>`;
-    yOffset += 30;
-
-    const maxBackups = Math.min(data.backups.length, 6);
-    data.backups.slice(0, maxBackups).forEach((backup, idx) => {
-      const x = 50 + (idx % 3) * 350;
-      const y = yOffset + Math.floor(idx / 3) * 100;
-
-      svgContent += `
-  <g>
-    <rect x="${x}" y="${y}" width="300" height="80" class="device-box" rx="5"/>
-    <text x="${x + 10}" y="${y + 25}" class="label" font-weight="bold">${escapeXml(backup.name)}</text>
-    <text x="${x + 10}" y="${y + 45}" class="label">Type: ${escapeXml(backup.backup_type)}</text>
-    ${backup.vendor ? `<text x="${x + 10}" y="${y + 60}" class="label">Vendor: ${escapeXml(backup.vendor)}</text>` : ''}
-  </g>`;
-    });
-
-    if (data.backups.length > maxBackups) {
-      svgContent += `
-  <text x="50" y="${yOffset + Math.ceil(maxBackups / 3) * 100 + 20}" class="label">... and ${data.backups.length - maxBackups} more backups</text>`;
-    }
-
-    yOffset += Math.ceil(maxBackups / 3) * 100 + sectionGap;
-  }
-
-  // Software Section
-  if (data.software.length > 0) {
-    svgContent += `\n  <!-- Software -->
-  <text x="20" y="${yOffset}" class="section-title">Software (${data.software.length})</text>`;
-    yOffset += 30;
-
-    const maxSoftware = Math.min(data.software.length, 9);
-    data.software.slice(0, maxSoftware).forEach((software, idx) => {
-      const x = 50 + (idx % 3) * 350;
-      const y = yOffset + Math.floor(idx / 3) * 100;
-
-      const contactNames = software.assigned_contacts
-        ?.map(c => c.contact_name)
-        .join(', ') || '';
-
-      svgContent += `
-  <g>
-    <rect x="${x}" y="${y}" width="300" height="80" class="device-box" rx="5"/>
-    <text x="${x + 10}" y="${y + 25}" class="label" font-weight="bold">${escapeXml(software.name)}</text>
-    <text x="${x + 10}" y="${y + 45}" class="label">Type: ${escapeXml(software.software_type.replace(/_/g, ' '))}</text>
-    ${contactNames ? `<text x="${x + 10}" y="${y + 60}" class="label">Contacts: ${escapeXml(contactNames)}</text>` : ''}
-  </g>`;
-    });
-
-    if (data.software.length > maxSoftware) {
-      svgContent += `
-  <text x="50" y="${yOffset + Math.ceil(maxSoftware / 3) * 100 + 20}" class="label">... and ${data.software.length - maxSoftware} more software items</text>`;
-    }
-
-    yOffset += Math.ceil(maxSoftware / 3) * 100 + sectionGap;
-  }
-
-  // VoIP Section
-  if (data.voip.length > 0) {
-    svgContent += `\n  <!-- VoIP Services -->
-  <text x="20" y="${yOffset}" class="section-title">VoIP Services (${data.voip.length})</text>`;
-    yOffset += 30;
-
-    const maxVoip = Math.min(data.voip.length, 9);
-    data.voip.slice(0, maxVoip).forEach((voip, idx) => {
-      const x = 50 + (idx % 3) * 350;
-      const y = yOffset + Math.floor(idx / 3) * 100;
-
-      const voipTypeDisplay = voip.voip_type === 'teams' ? 'Microsoft Teams' :
-                              voip.voip_type === '3cx' ? '3CX' :
-                              voip.voip_type === 'yeastar' ? 'Yeastar' : 'Other';
-
-      const contactInfo = voip.assigned_contacts
-        ?.map(c => c.extension ? `${c.contact_name} (Ext ${c.extension})` : c.contact_name)
-        .join(', ') || '';
-
-      svgContent += `
-  <g>
-    <rect x="${x}" y="${y}" width="300" height="80" class="device-box" rx="5"/>
-    <text x="${x + 10}" y="${y + 25}" class="label" font-weight="bold">${escapeXml(voip.name)}</text>
-    <text x="${x + 10}" y="${y + 45}" class="label">Type: ${escapeXml(voipTypeDisplay)}</text>
-    ${contactInfo ? `<text x="${x + 10}" y="${y + 60}" class="label">Contacts: ${escapeXml(contactInfo)}</text>` : ''}
-  </g>`;
-    });
-
-    if (data.voip.length > maxVoip) {
-      svgContent += `
-  <text x="50" y="${yOffset + Math.ceil(maxVoip / 3) * 100 + 20}" class="label">... and ${data.voip.length - maxVoip} more VoIP services</text>`;
-    }
-  }
-
+  // Add remaining sections...
   svgContent += '\n</svg>';
   return svgContent;
 }
