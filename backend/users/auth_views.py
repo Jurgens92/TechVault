@@ -4,11 +4,12 @@ Custom authentication views for TechVault with 2FA support.
 import pyotp
 import hashlib
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate, get_user_model
+from users.throttling import LoginRateThrottle
 
 User = get_user_model()
 
@@ -35,6 +36,7 @@ def get_tokens_for_user(user):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@throttle_classes([LoginRateThrottle])
 def login_with_2fa(request):
     """
     Custom login endpoint that handles 2FA.
