@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Settings as SettingsIcon, User, Mail, Shield, Users, Plus, Edit, Trash2, X } from 'lucide-react';
+import { Settings as SettingsIcon, User, Mail, Shield, Users, Plus, Edit, Trash2, X, ShieldCheck, ShieldAlert } from 'lucide-react';
 import { userManagementService, User as UserType, CreateUserData } from '@/services/users';
 
 const Settings: React.FC = () => {
@@ -253,6 +253,7 @@ const Settings: React.FC = () => {
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Email</th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Status</th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Role</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">2FA</th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Joined</th>
                       <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Actions</th>
                     </tr>
@@ -270,6 +271,21 @@ const Settings: React.FC = () => {
                         <td className="py-3 px-4 text-sm">
                           <span className={`px-2 py-1 rounded text-xs ${u.is_staff ? 'bg-blue-500/10 text-blue-500' : 'bg-gray-500/10 text-gray-500'}`}>
                             {u.is_staff ? 'Admin' : 'User'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-sm">
+                          <span className={`flex items-center gap-1 px-2 py-1 rounded text-xs w-fit ${u.twofa_enabled ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'}`}>
+                            {u.twofa_enabled ? (
+                              <>
+                                <ShieldCheck className="h-3 w-3" />
+                                Enabled
+                              </>
+                            ) : (
+                              <>
+                                <ShieldAlert className="h-3 w-3" />
+                                Disabled
+                              </>
+                            )}
                           </span>
                         </td>
                         <td className="py-3 px-4 text-sm text-muted-foreground">
