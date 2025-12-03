@@ -4,6 +4,9 @@ Django management command to load dummy data for TechVault application.
 Usage:
     python manage.py load_dummy_data
     python manage.py load_dummy_data --clear  # Clear existing data first
+
+Note: This command requires at least one active user to exist in the database.
+It will use existing users for the created_by fields instead of creating new users.
 """
 
 import random
@@ -38,13 +41,20 @@ class Command(BaseCommand):
             self.clear_data()
             self.stdout.write(self.style.SUCCESS('Data cleared successfully'))
 
+        # Get existing users for created_by fields
+        users = list(User.objects.filter(is_active=True))
+
+        if not users:
+            self.stdout.write(self.style.ERROR(
+                'No active users found in the database. '
+                'Please create at least one user before loading dummy data.'
+            ))
+            return
+
+        self.stdout.write(self.style.SUCCESS(f'Using {len(users)} existing user(s) for created_by fields'))
         self.stdout.write(self.style.SUCCESS('Loading dummy data...'))
 
         with transaction.atomic():
-            # Create users
-            users = self.create_users()
-            self.stdout.write(self.style.SUCCESS(f'Created {len(users)} users'))
-
             # Create organizations
             organizations = self.create_organizations(users)
             self.stdout.write(self.style.SUCCESS(f'Created {len(organizations)} organizations'))
@@ -94,13 +104,9 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS(f'Created {len(backups)} backup entries'))
 
         self.stdout.write(self.style.SUCCESS('\nDummy data loaded successfully!'))
-        self.stdout.write(self.style.SUCCESS('\nTest Users:'))
-        self.stdout.write('  Superuser: admin@techvault.com / admin123')
-        self.stdout.write('  User 1: john.doe@techvault.com / password123')
-        self.stdout.write('  User 2: jane.smith@techvault.com / password123')
 
     def clear_data(self):
-        """Clear all data from the database."""
+        """Clear all data from the database (except users)."""
         Backup.objects.all().delete()
         Software.objects.all().delete()
         Peripheral.objects.all().delete()
@@ -113,40 +119,6 @@ class Command(BaseCommand):
         Contact.objects.all().delete()
         Location.objects.all().delete()
         Organization.objects.all().delete()
-        User.objects.all().delete()
-
-    def create_users(self):
-        """Create test users."""
-        users = []
-
-        # Create superuser
-        if not User.objects.filter(email='admin@techvault.com').exists():
-            superuser = User.objects.create_superuser(
-                email='admin@techvault.com',
-                password='admin123',
-                first_name='Admin',
-                last_name='User'
-            )
-            users.append(superuser)
-
-        # Create regular users
-        user_data = [
-            {'email': 'john.doe@techvault.com', 'first_name': 'John', 'last_name': 'Doe'},
-            {'email': 'jane.smith@techvault.com', 'first_name': 'Jane', 'last_name': 'Smith'},
-            {'email': 'bob.johnson@techvault.com', 'first_name': 'Bob', 'last_name': 'Johnson'},
-        ]
-
-        for data in user_data:
-            if not User.objects.filter(email=data['email']).exists():
-                user = User.objects.create_user(
-                    email=data['email'],
-                    password='password123',
-                    first_name=data['first_name'],
-                    last_name=data['last_name']
-                )
-                users.append(user)
-
-        return users
 
     def create_organizations(self, users):
         """Create organizations."""
