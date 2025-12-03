@@ -40,7 +40,6 @@ TechVault/
 - **Authentication**: Django-allauth + SimpleJWT
 - **Two-Factor Authentication**: TOTP (Time-based One-Time Password)
 - **Security**: HTTPS with Let's Encrypt, Backup codes, Password hashing
-- **Social Auth**: GitHub OAuth
 
 ### Frontend
 - **Framework**: React 18
@@ -85,7 +84,6 @@ TechVault/
 
 ### Security & Authentication
 - **Email-based Authentication** - Secure registration and login system
-- **GitHub OAuth** - Social authentication integration (optional)
 - **Two-Factor Authentication (2FA)** - TOTP-based 2FA with QR code setup and backup codes
 - **JWT Tokens** - Automatic token refresh for secure API access
 - **Rate Limiting** - Brute force protection on authentication endpoints
@@ -231,12 +229,6 @@ See [SECURITY.md](./SECURITY.md) for detailed 2FA documentation and troubleshoot
 
 ## 🔐 Authentication
 
-### Email/Password Registration
-
-1. Navigate to `http://localhost:5173/register`
-2. Fill in your details
-3. Submit the form
-4. You'll be automatically logged in and redirected to the dashboard
 
 ### Email/Password Login
 
@@ -244,20 +236,6 @@ See [SECURITY.md](./SECURITY.md) for detailed 2FA documentation and troubleshoot
 2. Enter your credentials
 3. Submit the form
 
-### GitHub OAuth (Optional)
-
-1. Create a GitHub OAuth App:
-   - Go to GitHub Settings → Developer settings → OAuth Apps
-   - Click "New OAuth App"
-   - Homepage URL: `http://localhost:5173`
-   - Callback URL: `http://localhost:8000/accounts/github/login/callback/`
-2. Copy Client ID and Secret to `backend/.env`:
-   ```
-   GITHUB_CLIENT_ID=your_client_id
-   GITHUB_CLIENT_SECRET=your_client_secret
-   ```
-3. Restart the Django server
-4. Click "GitHub" button on login/register pages
 
 ## 🎨 Design Philosophy
 
