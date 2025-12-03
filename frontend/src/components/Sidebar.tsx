@@ -20,6 +20,7 @@ import {
   Network,
   GitBranch,
   Trash2,
+  KeyRound,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -58,6 +59,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
     { id: 'passwords', label: 'Passwords', icon: Lock, path: '/passwords' },
     { id: 'configurations', label: 'Configurations', icon: Wrench, path: '/configurations' },
     { id: 'deleted-items', label: 'Deleted Items', icon: Trash2, path: '/deleted-items' },
+    { id: '2fa', label: '2FA Security', icon: KeyRound, path: '/2fa' },
     { id: 'settings', label: 'Settings', icon: SettingsIcon, path: '/settings' },
   ];
 
