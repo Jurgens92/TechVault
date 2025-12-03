@@ -35,6 +35,7 @@ import { BackupForm } from '@/pages/BackupForm';
 import Settings from '@/pages/Settings';
 import DeletedItems from '@/pages/DeletedItems';
 import TwoFactorAuth from '@/pages/TwoFactorAuth';
+import Reports from '@/pages/Reports';
 
 function App() {
   return (
@@ -92,6 +93,7 @@ function App() {
             <Route path="configurations/:id" element={<ConfigurationDetail />} />
             <Route path="configurations/:id/edit" element={<ConfigurationForm />} />
             <Route path="configurations/new" element={<ConfigurationForm />} />
+            <Route path="reports" element={<Reports />} />
             <Route path="deleted-items" element={<DeletedItems />} />
             <Route path="settings" element={<Settings />} />
             <Route path="2fa" element={<TwoFactorAuth />} />
