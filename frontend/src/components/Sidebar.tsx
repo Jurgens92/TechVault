@@ -57,11 +57,11 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
     { id: 'documentation', label: 'Documentation', icon: FileText, path: '/documentations' },
     { id: 'endpoints', label: 'Endpoints', icon: Network, path: '/endpoints' },
     { id: 'diagram', label: 'Diagram', icon: GitBranch, path: '/diagram' },
-    { id: 'reports', label: 'Reports', icon: BarChart3, path: '/reports' },
     { id: 'passwords', label: 'Passwords', icon: Lock, path: '/passwords' },
     { id: 'configurations', label: 'Configurations', icon: Wrench, path: '/configurations' },
     { id: 'deleted-items', label: 'Deleted Items', icon: Trash2, path: '/deleted-items' },
     { id: '2fa', label: '2FA Security', icon: KeyRound, path: '/2fa' },
+    { id: 'reports', label: 'Reports', icon: BarChart3, path: '/reports' },
     { id: 'settings', label: 'Settings', icon: SettingsIcon, path: '/settings' },
   ];
 
