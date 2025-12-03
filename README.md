@@ -38,6 +38,8 @@ TechVault/
 - **API**: Django REST Framework 3.14
 - **Database**: PostgreSQL
 - **Authentication**: Django-allauth + SimpleJWT
+- **Two-Factor Authentication**: TOTP (Time-based One-Time Password)
+- **Security**: HTTPS with Let's Encrypt, Backup codes, Password hashing
 - **Social Auth**: GitHub OAuth
 
 ### Frontend
@@ -67,6 +69,30 @@ This automated script installs all dependencies, configures the database, deploy
 **Default credentials after installation:**
 - Email: `admin@techvault.local`
 - Password: `TechVault2024!`
+
+### 🔒 Secure Install with HTTPS (Production)
+
+For production deployments, enable HTTPS with Let's Encrypt:
+
+```bash
+PUBLIC_DOMAIN=techvault.yourdomain.com \
+ENABLE_HTTPS=true \
+ADMIN_EMAIL=admin@yourdomain.com \
+sudo -E bash install.sh
+```
+
+**Requirements:**
+- Valid domain name pointing to your server's public IP
+- Ports 80 and 443 open and accessible
+- Email address for SSL certificate notifications
+
+This will automatically:
+- Obtain and configure SSL certificates from Let's Encrypt
+- Set up automatic certificate renewal
+- Redirect HTTP to HTTPS
+- Configure secure headers
+
+See [SECURITY.md](./SECURITY.md) for detailed security documentation.
 
 ### 👨‍💻 Development Setup
 
@@ -132,8 +158,40 @@ This gives you a realistic test environment to explore TechVault's features!
 ## 📚 Documentation
 
 - [Setup Guide](./SETUP_GUIDE.md) - Comprehensive setup and API documentation
+- [Security Documentation](./SECURITY.md) - HTTPS and 2FA setup guide
 - [Backend Documentation](./backend/README.md)
 - [Frontend Documentation](./frontend/README.md)
+
+## 🔐 Security Features
+
+### HTTPS with Let's Encrypt
+
+TechVault supports automatic HTTPS configuration using Let's Encrypt for production deployments:
+
+- **Automatic SSL certificate** generation and renewal
+- **HTTP to HTTPS redirect** for secure connections
+- **Secure headers** and best practices
+- **Free SSL certificates** that auto-renew before expiration
+
+See [SECURITY.md](./SECURITY.md) for detailed HTTPS setup instructions.
+
+### Two-Factor Authentication (2FA)
+
+Protect your account with an additional layer of security:
+
+- **TOTP-based** authentication (Time-based One-Time Passwords)
+- Compatible with popular authenticator apps (Google Authenticator, Authy, Microsoft Authenticator, etc.)
+- **QR code setup** for easy configuration
+- **Backup codes** for account recovery
+- Per-user 2FA settings (enable/disable as needed)
+
+**To enable 2FA:**
+1. Log in to TechVault
+2. Navigate to **2FA Security** in the sidebar
+3. Click **Enable 2FA** and follow the setup wizard
+4. Save your backup codes in a secure location
+
+See [SECURITY.md](./SECURITY.md) for detailed 2FA documentation and troubleshooting.
 
 ## 🔐 Authentication
 

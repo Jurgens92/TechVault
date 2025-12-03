@@ -5,6 +5,10 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView, TokenVerifyView
 from users.views import UserProfileView, UserManagementViewSet
+from users.twofa_views import (
+    setup_2fa, enable_2fa, disable_2fa, verify_2fa_token,
+    regenerate_backup_codes, get_2fa_status
+)
 from core.views import (
     OrganizationViewSet, LocationViewSet, ContactViewSet,
     DocumentationViewSet, PasswordEntryViewSet, ConfigurationViewSet,
@@ -42,6 +46,14 @@ urlpatterns = [
 
     # User endpoints
     path('user/profile/', UserProfileView.as_view(), name='user-profile'),
+
+    # Two-Factor Authentication endpoints
+    path('auth/2fa/status/', get_2fa_status, name='2fa-status'),
+    path('auth/2fa/setup/', setup_2fa, name='2fa-setup'),
+    path('auth/2fa/enable/', enable_2fa, name='2fa-enable'),
+    path('auth/2fa/disable/', disable_2fa, name='2fa-disable'),
+    path('auth/2fa/verify/', verify_2fa_token, name='2fa-verify'),
+    path('auth/2fa/backup-codes/regenerate/', regenerate_backup_codes, name='2fa-regenerate-backup-codes'),
 
     # JWT token endpoints
     path('token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),

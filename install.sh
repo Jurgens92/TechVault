@@ -10,11 +10,20 @@
 # - Clone and set up TechVault
 # - Configure PostgreSQL database
 # - Build and deploy the application
-# - Set up Nginx to serve on port 80
+# - Set up Nginx to serve on port 80 (or 443 with HTTPS)
+# - Optionally configure HTTPS with Let's Encrypt
 # - Create systemd services for auto-start
 # - Create default admin account
 #
-# Usage: sudo bash install.sh
+# Usage:
+#   Basic: sudo bash install.sh
+#   With domain: PUBLIC_DOMAIN=yourdomain.com sudo -E bash install.sh
+#   With HTTPS: PUBLIC_DOMAIN=yourdomain.com ENABLE_HTTPS=true ADMIN_EMAIL=admin@yourdomain.com sudo -E bash install.sh
+#
+# Environment Variables:
+#   PUBLIC_DOMAIN - Your domain name or public IP (required for HTTPS)
+#   ENABLE_HTTPS - Set to 'true' to enable HTTPS with Let's Encrypt (requires valid domain, not IP)
+#   ADMIN_EMAIL - Admin email for Let's Encrypt notifications (recommended for HTTPS)
 #
 # Default admin credentials:
 #   Email: admin@techvault.local
@@ -92,6 +101,21 @@ else
     DOMAIN="$PUBLIC_DOMAIN"
 fi
 
+# Check if HTTPS should be enabled
+USE_HTTPS=false
+if [ "$ENABLE_HTTPS" = "true" ]; then
+    # Validate that DOMAIN is not an IP address (Let's Encrypt requires a domain)
+    if [[ $DOMAIN =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        log_error "HTTPS requires a valid domain name, not an IP address."
+        log_error "Please set PUBLIC_DOMAIN to a domain name that points to this server."
+        exit 1
+    fi
+    log_info "HTTPS will be enabled for domain: $DOMAIN"
+    USE_HTTPS=true
+else
+    log_info "HTTPS not enabled. Set ENABLE_HTTPS=true to enable SSL/TLS."
+fi
+
 log_info "Starting TechVault installation..."
 echo "========================================"
 
@@ -102,18 +126,15 @@ apt-get upgrade -y
 
 # Install system dependencies
 log_info "Installing system dependencies..."
-apt-get install -y \
-    python3.12 \
-    python3.12-venv \
-    python3-pip \
-    postgresql \
-    postgresql-contrib \
-    nginx \
-    git \
-    curl \
-    build-essential \
-    libpq-dev \
-    python3-dev
+PACKAGES="python3.12 python3.12-venv python3-pip postgresql postgresql-contrib nginx git curl build-essential libpq-dev python3-dev"
+
+# Add certbot if HTTPS is enabled
+if [ "$USE_HTTPS" = "true" ]; then
+    log_info "HTTPS enabled - adding certbot to installation"
+    PACKAGES="$PACKAGES certbot python3-certbot-nginx"
+fi
+
+apt-get install -y $PACKAGES
 
 log_success "System dependencies installed"
 
@@ -251,47 +272,51 @@ deactivate
 
 # Configure Nginx
 log_info "Configuring Nginx..."
-cat > /etc/nginx/sites-available/techvault <<EOF
+cat > /etc/nginx/sites-available/techvault <<'NGINX_EOF'
 server {
     listen 80;
-    server_name $DOMAIN;
+    server_name SERVER_NAME_PLACEHOLDER;
     client_max_body_size 100M;
 
     # Frontend - serve built React app
     location / {
-        root $INSTALL_DIR/frontend/dist;
-        try_files \$uri \$uri/ /index.html;
+        root INSTALL_DIR_PLACEHOLDER/frontend/dist;
+        try_files $uri $uri/ /index.html;
     }
 
     # Backend API
     location /api/ {
         proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 
     # Django Admin
     location /admin/ {
         proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 
     # Django Static Files
     location /static/ {
-        alias $INSTALL_DIR/backend/staticfiles/;
+        alias INSTALL_DIR_PLACEHOLDER/backend/staticfiles/;
     }
 
     # Django Media Files
     location /media/ {
-        alias $INSTALL_DIR/backend/media/;
+        alias INSTALL_DIR_PLACEHOLDER/backend/media/;
     }
 }
-EOF
+NGINX_EOF
+
+# Replace placeholders
+sed -i "s|SERVER_NAME_PLACEHOLDER|$DOMAIN|g" /etc/nginx/sites-available/techvault
+sed -i "s|INSTALL_DIR_PLACEHOLDER|$INSTALL_DIR|g" /etc/nginx/sites-available/techvault
 
 # Enable Nginx site
 ln -sf /etc/nginx/sites-available/techvault /etc/nginx/sites-enabled/
@@ -301,11 +326,49 @@ rm -f /etc/nginx/sites-enabled/default
 log_info "Testing Nginx configuration..."
 nginx -t
 
-# Start and enable services
+# Start services before certbot (certbot needs nginx running)
 log_info "Starting services..."
 systemctl daemon-reload
 systemctl enable techvault-backend
 systemctl start techvault-backend
+systemctl restart nginx
+
+# Configure HTTPS with Let's Encrypt if enabled
+if [ "$USE_HTTPS" = "true" ]; then
+    log_info "Configuring HTTPS with Let's Encrypt..."
+    log_warning "Make sure your domain $DOMAIN points to this server's public IP!"
+    log_info "Certbot will automatically configure SSL and set up auto-renewal"
+
+    # Determine admin email for Let's Encrypt
+    if [ -z "$ADMIN_EMAIL" ]; then
+        CERT_EMAIL="admin@techvault.local"
+        log_warning "No ADMIN_EMAIL provided, using default: $CERT_EMAIL"
+        log_info "For production, set ADMIN_EMAIL environment variable for Let's Encrypt notifications"
+    else
+        CERT_EMAIL="$ADMIN_EMAIL"
+    fi
+
+    # Run certbot
+    log_info "Running certbot for domain: $DOMAIN with email: $CERT_EMAIL"
+    certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --email "$CERT_EMAIL" --redirect
+
+    if [ $? -eq 0 ]; then
+        log_success "SSL certificate obtained and configured successfully!"
+        log_info "Certbot will automatically renew certificates before they expire"
+        PROTOCOL="https"
+    else
+        log_error "Failed to obtain SSL certificate. Check that:"
+        log_error "  1. Domain $DOMAIN points to this server's public IP"
+        log_error "  2. Port 80 is accessible from the internet"
+        log_error "  3. No firewall is blocking the connection"
+        log_warning "Continuing with HTTP only..."
+        PROTOCOL="http"
+    fi
+else
+    PROTOCOL="http"
+fi
+
+# Restart nginx after certbot modifications
 systemctl restart nginx
 
 log_success "Services started and enabled"
@@ -333,8 +396,12 @@ echo ""
 log_info "Installation Summary:"
 echo "  - Installation directory: $INSTALL_DIR"
 echo "  - Database: PostgreSQL ($DB_NAME)"
-echo "  - Application URL: http://$DOMAIN"
-echo "  - Admin panel: http://$DOMAIN/admin"
+echo "  - Application URL: $PROTOCOL://$DOMAIN"
+echo "  - Admin panel: $PROTOCOL://$DOMAIN/admin"
+if [ "$USE_HTTPS" = "true" ] && [ "$PROTOCOL" = "https" ]; then
+    echo "  - HTTPS: Enabled (Let's Encrypt SSL certificate configured)"
+    echo "  - Auto-renewal: Enabled (certbot timer running)"
+fi
 echo ""
 log_info "Database Credentials (save these securely):"
 echo "  - Database: $DB_NAME"
@@ -353,12 +420,17 @@ echo "  - Restart backend: systemctl restart techvault-backend"
 echo "  - Restart nginx: systemctl restart nginx"
 echo ""
 log_info "Next Steps:"
-echo "  1. Open http://$DOMAIN in your browser"
+echo "  1. Open $PROTOCOL://$DOMAIN in your browser"
 echo "  2. Log in with:"
 echo "     - Email: $ADMIN_EMAIL"
 echo "     - Password: $ADMIN_PASSWORD"
 echo "  3. Change your admin password immediately!"
-echo "  4. Start using TechVault!"
+if [ "$USE_HTTPS" = "true" ] && [ "$PROTOCOL" = "https" ]; then
+    echo "  4. Configure 2FA for enhanced security (see documentation)"
+    echo "  5. Start using TechVault!"
+else
+    echo "  4. Start using TechVault!"
+fi
 echo ""
 log_warning "Important: Save these credentials in a secure location!"
 echo ""
@@ -369,8 +441,9 @@ cat > "$CREDENTIALS_FILE" <<EOF
 TechVault Installation Credentials
 Generated: $(date)
 
-Application URL: http://$DOMAIN
-Admin Panel: http://$DOMAIN/admin
+Application URL: $PROTOCOL://$DOMAIN
+Admin Panel: $PROTOCOL://$DOMAIN/admin
+$(if [ "$USE_HTTPS" = "true" ] && [ "$PROTOCOL" = "https" ]; then echo "HTTPS: Enabled (Let's Encrypt)"; fi)
 
 Database Credentials:
   Database: $DB_NAME

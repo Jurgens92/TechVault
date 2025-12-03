@@ -9,6 +9,11 @@ django-allauth==0.57.0
 dj-rest-auth==5.0.2
 djangorestframework-simplejwt==5.3.1
 
+# Two-Factor Authentication
+pyotp==2.9.0
+qrcode==7.4.2
+Pillow==10.2.0
+
 # Database
 psycopg[binary]>=3.1
 

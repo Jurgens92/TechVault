@@ -38,6 +38,23 @@ class User(AbstractUser):
     email = models.EmailField(unique=True)
     username = None  # Remove username field
 
+    # Two-Factor Authentication fields
+    twofa_secret = models.CharField(
+        max_length=32,
+        blank=True,
+        null=True,
+        help_text="TOTP secret key for 2FA"
+    )
+    twofa_enabled = models.BooleanField(
+        default=False,
+        help_text="Whether 2FA is enabled for this user"
+    )
+    twofa_backup_codes = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Backup codes for 2FA recovery (hashed)"
+    )
+
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['first_name', 'last_name']
 

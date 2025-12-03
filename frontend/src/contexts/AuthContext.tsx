@@ -6,7 +6,7 @@ import { getAccessToken } from '@/services/api';
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (credentials: LoginCredentials) => Promise<void>;
+  login: (credentials: LoginCredentials) => Promise<any>;
   register: (data: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
   isAuthenticated: boolean;
@@ -51,8 +51,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (credentials: LoginCredentials) => {
     try {
-      const { user } = await authService.login(credentials);
-      setUser(user);
+      const response = await authService.login(credentials);
+
+      // If 2FA is required, don't set user yet, return the response
+      if (response.requires_2fa) {
+        return response;
+      }
+
+      // Normal login - set user
+      setUser(response.user);
+      return response;
     } catch (error) {
       console.error('Login failed:', error);
       throw error;

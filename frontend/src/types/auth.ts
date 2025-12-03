@@ -7,11 +7,13 @@ export interface User {
   is_active: boolean;
   is_staff: boolean;
   date_joined: string;
+  twofa_enabled?: boolean;
 }
 
 export interface LoginCredentials {
   email: string;
   password: string;
+  twofa_token?: string;
 }
 
 export interface RegisterData {
