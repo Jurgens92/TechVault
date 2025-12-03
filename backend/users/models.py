@@ -1,4 +1,6 @@
 from django.contrib.auth.models import AbstractUser, UserManager as BaseUserManager
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
 from django.db import models
 
 
@@ -8,11 +10,19 @@ class CustomUserManager(BaseUserManager):
     """
 
     def create_user(self, email, password=None, first_name='', last_name='', **extra_fields):
-        """Create and save a regular user."""
+        """Create and save a regular user with password validation."""
         if not email:
             raise ValueError('Email is required')
         email = self.normalize_email(email)
         user = self.model(email=email, first_name=first_name, last_name=last_name, **extra_fields)
+
+        # Validate password strength before setting
+        if password:
+            try:
+                validate_password(password, user)
+            except ValidationError as e:
+                raise ValueError(f"Password validation failed: {', '.join(e.messages)}")
+
         user.set_password(password)
         user.save(using=self._db)
         return user
