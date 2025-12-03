@@ -5,6 +5,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView, TokenVerifyView
 from users.views import UserProfileView, UserManagementViewSet
+from users.auth_views import login_with_2fa
 from users.twofa_views import (
     setup_2fa, enable_2fa, disable_2fa, verify_2fa_token,
     regenerate_backup_codes, get_2fa_status
@@ -46,6 +47,9 @@ urlpatterns = [
 
     # User endpoints
     path('user/profile/', UserProfileView.as_view(), name='user-profile'),
+
+    # Auth endpoints
+    path('auth/login/', login_with_2fa, name='login'),
 
     # Two-Factor Authentication endpoints
     path('auth/2fa/status/', get_2fa_status, name='2fa-status'),
