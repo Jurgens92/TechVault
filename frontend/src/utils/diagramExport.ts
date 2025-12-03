@@ -35,7 +35,6 @@ export async function exportAsPNG(elementId: string, filename: string): Promise<
       }
     }, 'image/png');
   } catch (error) {
-    console.error('Failed to export as PNG:', error);
     throw new Error('Failed to export diagram as PNG');
   }
 }

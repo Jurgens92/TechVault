@@ -51,6 +51,46 @@ TechVault/
 - **Routing**: React Router v6.26+
 - **HTTP Client**: Axios with interceptors
 
+## ✨ Features
+
+### Core Management
+- **Organizations** - Multi-tenant organization management with full CRUD operations
+- **Locations** - Multiple locations per organization with address and contact details
+- **Contacts** - Contact management with CSV import/export, software and VoIP assignments
+- **Documentation** - Rich documentation system with categories (procedures, configurations, guides, troubleshooting, policies), versioning, and publish/unpublish functionality
+- **Password Vault** - Secure password management with categories (account, service, device)
+- **Configurations** - System and service configuration tracking (Network, Server, Application, Security, Backup)
+
+### IT Infrastructure Inventory
+- **Network Devices** - Comprehensive tracking of firewalls, routers, switches, and WiFi access points with IP/MAC addresses, internet speed, and manufacturer details
+- **Servers** - Full server inventory (physical, virtual, cloud, container) with hardware specs, roles, and operating systems
+- **Endpoints** - Desktop, laptop, and workstation management with user assignments, hardware details, and operating systems
+- **Peripherals** - Track printers, scanners, UPS devices, and NAS storage
+
+### Software & Services
+- **Software Management** - License tracking (perpetual, subscription, trial, free) with assignments to contacts and expiry monitoring
+- **VoIP Services** - VoIP service tracking (Microsoft Teams, 3CX, Yeastar) with extension assignments and license management
+- **Backups** - Backup solution monitoring with status tracking, frequency, retention periods, and last backup dates
+
+### Visualization & Export
+- **Infrastructure Diagrams** - Interactive network topology visualization showing the complete IT infrastructure
+- **Multi-format Export** - Export diagrams as PNG, PDF, SVG, or JSON
+- **Dashboard Statistics** - Overview of all entities with counts and quick access
+
+### Data Management
+- **Soft Delete** - All entities support soft delete with full recovery capability
+- **Deleted Items Recovery** - Dedicated interface for viewing and restoring soft-deleted items
+- **Audit Trail** - Track who created, modified, or deleted items with timestamps
+- **CSV Import/Export** - Bulk import and export contacts
+
+### Security & Authentication
+- **Email-based Authentication** - Secure registration and login system
+- **GitHub OAuth** - Social authentication integration (optional)
+- **Two-Factor Authentication (2FA)** - TOTP-based 2FA with QR code setup and backup codes
+- **JWT Tokens** - Automatic token refresh for secure API access
+- **Rate Limiting** - Brute force protection on authentication endpoints
+- **Security Headers** - Production-ready HTTPS enforcement, HSTS, secure cookies
+
 ## 📦 Installation
 
 TechVault supports multiple installation methods:
@@ -93,10 +133,6 @@ This will automatically:
 - Configure secure headers
 
 See [SECURITY.md](./SECURITY.md) for detailed security documentation.
-
-### 👨‍💻 Development Setup
-
-For local development, see [SETUP_GUIDE.md](./SETUP_GUIDE.md).
 
 ### 📚 Complete Installation Guide
 
@@ -157,7 +193,7 @@ This gives you a realistic test environment to explore TechVault's features!
 
 ## 📚 Documentation
 
-- [Setup Guide](./SETUP_GUIDE.md) - Comprehensive setup and API documentation
+- [Installation Guide](./INSTALLATION.md) - Complete installation and setup instructions
 - [Security Documentation](./SECURITY.md) - HTTPS and 2FA setup guide
 - [Backend Documentation](./backend/README.md)
 - [Frontend Documentation](./frontend/README.md)
@@ -233,30 +269,52 @@ TechVault follows a **premium, enterprise-grade design language**:
 - **Responsive** design that works on all devices
 - **Accessible** with proper contrast and focus states
 
-## 🔒 Security Features
-
-- JWT-based authentication with automatic token refresh
-- HTTP-only refresh tokens (configurable)
-- CORS protection
-- Password validation
-- Protected API endpoints
-- Secure token storage
-
 ## 📦 API Endpoints
 
-### Authentication
+### Authentication & User Management
 - `POST /api/auth/registration/` - Register new user
 - `POST /api/auth/login/` - Login
 - `POST /api/auth/logout/` - Logout
-- `POST /api/token/refresh/` - Refresh access token
-- `POST /api/token/verify/` - Verify token
-
-### User
+- `POST /api/token/refresh/` - Refresh JWT access token
+- `POST /api/token/verify/` - Verify JWT token
 - `GET /api/user/profile/` - Get current user profile
 - `PATCH /api/user/profile/` - Update user profile
 
+### Two-Factor Authentication
+- `GET /api/auth/2fa/status/` - Get 2FA status
+- `POST /api/auth/2fa/setup/` - Initialize 2FA setup (get QR code)
+- `POST /api/auth/2fa/enable/` - Enable 2FA with TOTP verification
+- `POST /api/auth/2fa/disable/` - Disable 2FA
+- `POST /api/auth/2fa/verify/` - Verify TOTP token
+- `POST /api/auth/2fa/backup-codes/regenerate/` - Regenerate backup codes
+
+### Core Resources (Full REST API)
+- `/api/organizations/` - Organizations CRUD
+- `/api/locations/` - Locations CRUD
+- `/api/contacts/` - Contacts CRUD with CSV import/export
+- `/api/documentations/` - Documentation CRUD with versioning
+- `/api/passwords/` - Password vault CRUD
+- `/api/configurations/` - Configuration CRUD
+
+### IT Infrastructure
+- `/api/network-devices/` - Network devices (firewalls, routers, switches, WiFi)
+- `/api/servers/` - Server inventory (physical, virtual, cloud, container)
+- `/api/endpoint-users/` - Endpoint devices (desktops, laptops, workstations)
+- `/api/peripherals/` - Peripherals (printers, scanners, UPS, NAS)
+
+### Software & Services
+- `/api/software/` - Software and license management
+- `/api/voip/` - VoIP services and assignments
+- `/api/backups/` - Backup solutions and monitoring
+
+### Dashboard & Visualization
+- `GET /api/dashboard/stats/` - Dashboard statistics for all entities
+- `GET /api/diagram/data/` - Infrastructure diagram data
+
 ### Admin
 - `/admin/` - Django admin interface
+
+All resource endpoints support standard REST operations: `GET` (list/retrieve), `POST` (create), `PUT`/`PATCH` (update), `DELETE` (soft delete)
 
 ## 🧪 Testing
 
@@ -272,37 +330,7 @@ cd frontend
 npm run test  # To be configured
 ```
 
-## 🚀 Updating TechVault
-
-**One-command deployment for Ubuntu 24.04 servers:**
-
-```bash
-wget https://raw.githubusercontent.com/Jurgens92/TechVault/main/install.sh
-sudo bash install.sh
-```
-
-**For public IP/domain access**, set the PUBLIC_DOMAIN variable:
-
-```bash
-PUBLIC_DOMAIN=your.domain.com sudo -E bash install.sh
-```
-
-This fully automated script will:
-- Install all dependencies (Python, Node.js, PostgreSQL, Nginx)
-- Set up and configure the database
-- Build and deploy both frontend and backend
-- Configure Nginx to serve on port 80
-- Create systemd services for auto-start
-- Generate secure credentials
-- Work with any IP/domain (uses relative URLs)
-
-Default admin credentials:
-- Email: `admin@techvault.local`
-- Password: `TechVault2024!`
-
-For detailed instructions, see [INSTALLATION.md](./INSTALLATION.md)
-
-### Updating TechVault
+## 🔄 Updating TechVault
 
 **One-command update:**
 
