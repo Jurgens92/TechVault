@@ -58,7 +58,7 @@ class ReportService:
                 'name': org.name,
                 'address': org.address,
                 'city': org.city,
-                'state': org.state,
+                'state': org.state_province,
                 'postal_code': org.postal_code,
                 'country': org.country,
                 'phone': org.phone,
@@ -142,7 +142,7 @@ class ReportService:
                 'name': location.name,
                 'address': location.address,
                 'city': location.city,
-                'state': location.state,
+                'state': location.state_province,
                 'postal_code': location.postal_code,
                 'country': location.country,
             },
@@ -263,7 +263,7 @@ class ReportService:
             org = Organization.objects.get(id=organization_id)
             report['organization'] = {'id': str(org.id), 'name': org.name}
 
-        software_list = Software.objects.filter(**filters).prefetch_related('assignments', 'assignments__contact')
+        software_list = Software.objects.filter(**filters).prefetch_related('software_assignments', 'software_assignments__contact')
 
         for software in software_list:
             license_data = {
@@ -275,19 +275,18 @@ class ReportService:
                 'license_key': software.license_key,
                 'purchase_date': software.purchase_date.isoformat() if software.purchase_date else None,
                 'expiry_date': software.expiry_date.isoformat() if software.expiry_date else None,
-                'cost': str(software.cost) if software.cost else None,
-                'seats_total': software.seats_total,
-                'seats_used': software.assignments.count(),
-                'seats_available': software.seats_total - software.assignments.count() if software.seats_total else None,
+                'seats_total': software.quantity,
+                'seats_used': software.software_assignments.count(),
+                'seats_available': software.quantity - software.software_assignments.count() if software.quantity else None,
                 'status': self._get_license_status(software),
                 'assignments': [
                     {
                         'contact_id': str(assignment.contact.id),
-                        'contact_name': assignment.contact.name,
+                        'contact_name': assignment.contact.full_name,
                         'contact_email': assignment.contact.email,
-                        'assigned_at': assignment.assigned_at.isoformat()
+                        'assigned_at': assignment.created_at.isoformat()
                     }
-                    for assignment in software.assignments.all()
+                    for assignment in software.software_assignments.all()
                 ]
             }
             report['licenses'].append(license_data)
@@ -314,7 +313,7 @@ class ReportService:
                 'name': loc.name,
                 'address': loc.address,
                 'city': loc.city,
-                'state': loc.state,
+                'state': loc.state_province,
                 'postal_code': loc.postal_code,
                 'country': loc.country,
             }
@@ -330,7 +329,7 @@ class ReportService:
         """Format contact data."""
         return {
             'id': str(contact.id),
-            'name': contact.name,
+            'name': contact.full_name,
             'title': contact.title,
             'email': contact.email,
             'phone': contact.phone,
@@ -403,7 +402,7 @@ class ReportService:
             'storage_gb': endpoint.storage_gb,
             'serial_number': endpoint.serial_number,
             'location': endpoint.location.name if endpoint.location else None,
-            'assigned_to': endpoint.contact.name if endpoint.contact else None,
+            'assigned_to': endpoint.contact.full_name if endpoint.contact else None,
             'status': endpoint.status,
         }
 
@@ -423,13 +422,13 @@ class ReportService:
             'serial_number': peripheral.serial_number,
             'ip_address': peripheral.ip_address,
             'location': peripheral.location.name if peripheral.location else None,
-            'assigned_to': peripheral.contact.name if peripheral.contact else None,
+            'assigned_to': peripheral.contact.full_name if peripheral.contact else None,
             'status': peripheral.status,
         }
 
     def _get_software(self, org):
         """Get all software for an organization."""
-        software_list = Software.objects.filter(organization=org).prefetch_related('assignments')
+        software_list = Software.objects.filter(organization=org).prefetch_related('software_assignments')
         return [
             {
                 'id': str(software.id),
@@ -438,8 +437,8 @@ class ReportService:
                 'version': software.version,
                 'license_type': software.license_type,
                 'expiry_date': software.expiry_date.isoformat() if software.expiry_date else None,
-                'seats_total': software.seats_total,
-                'seats_used': software.assignments.count(),
+                'seats_total': software.quantity,
+                'seats_used': software.software_assignments.count(),
                 'status': self._get_license_status(software),
             }
             for software in software_list
@@ -447,16 +446,16 @@ class ReportService:
 
     def _get_voip(self, org):
         """Get all VoIP services for an organization."""
-        voip_services = VoIP.objects.filter(organization=org).prefetch_related('assignments')
+        voip_services = VoIP.objects.filter(organization=org).prefetch_related('voip_assignments')
         return [
             {
                 'id': str(voip.id),
                 'name': voip.name,
-                'provider': voip.provider,
-                'service_type': voip.service_type,
-                'account_number': voip.account_number,
-                'extensions_total': voip.extensions_total,
-                'extensions_used': voip.assignments.count(),
+                'vendor': voip.vendor,
+                'voip_type': voip.voip_type,
+                'license_key': voip.license_key,
+                'extensions_total': voip.quantity,
+                'extensions_used': voip.voip_assignments.count(),
             }
             for voip in voip_services
         ]
@@ -472,12 +471,13 @@ class ReportService:
             'id': str(backup.id),
             'name': backup.name,
             'backup_type': backup.backup_type,
-            'source': backup.source,
-            'destination': backup.destination,
+            'vendor': backup.vendor,
+            'target_systems': backup.target_systems,
+            'storage_location': backup.storage_location,
             'frequency': backup.frequency,
-            'retention_days': backup.retention_days,
-            'last_backup': backup.last_backup.isoformat() if backup.last_backup else None,
-            'status': backup.status,
+            'retention_period': backup.retention_period,
+            'last_backup': backup.last_backup_date.isoformat() if backup.last_backup_date else None,
+            'status': backup.backup_status,
             'location': backup.location.name if backup.location else None,
         }
 
@@ -543,7 +543,7 @@ class ReportService:
             elif days_until_expiry <= 30:
                 return 'expiring_soon'
 
-        if software.seats_total and software.assignments.count() > software.seats_total:
+        if software.quantity and software.software_assignments.count() > software.quantity:
             return 'over_capacity'
 
         return 'active'
