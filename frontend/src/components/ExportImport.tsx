@@ -34,9 +34,10 @@ const ExportImport: React.FC<ExportImportProps> = ({ isAdmin }) => {
   const loadOrganizations = async () => {
     try {
       const response = await organizationAPI.getAll({ page_size: 1000 });
-      setOrganizations(response.results);
+      setOrganizations(response.results || []);
     } catch (err) {
       console.error('Failed to load organizations:', err);
+      setOrganizations([]);
     }
   };
 
@@ -113,10 +114,10 @@ const ExportImport: React.FC<ExportImportProps> = ({ isAdmin }) => {
   };
 
   const toggleSelectAll = () => {
-    if (selectedOrgs.length === organizations.length) {
+    if (selectedOrgs.length === (organizations?.length || 0)) {
       setSelectedOrgs([]);
     } else {
-      setSelectedOrgs(organizations.map(org => org.id));
+      setSelectedOrgs((organizations || []).map(org => org.id));
     }
   };
 
@@ -174,17 +175,17 @@ const ExportImport: React.FC<ExportImportProps> = ({ isAdmin }) => {
                   <div className="border border-border rounded p-3 max-h-64 overflow-y-auto space-y-2">
                     <div className="flex items-center justify-between mb-2 pb-2 border-b border-border">
                       <span className="text-sm font-medium">
-                        {selectedOrgs.length} of {organizations.length} selected
+                        {selectedOrgs.length} of {organizations?.length || 0} selected
                       </span>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={toggleSelectAll}
                       >
-                        {selectedOrgs.length === organizations.length ? 'Deselect All' : 'Select All'}
+                        {selectedOrgs.length === (organizations?.length || 0) ? 'Deselect All' : 'Select All'}
                       </Button>
                     </div>
-                    {organizations.map(org => (
+                    {(organizations || []).map(org => (
                       <label key={org.id} className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-2 rounded">
                         <input
                           type="checkbox"
