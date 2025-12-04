@@ -530,19 +530,20 @@ class OrganizationExportImportService:
             org.save()
 
             # Delete all existing related data to avoid conflicts
-            # Use hard_delete to permanently remove them
-            org.locations.all().hard_delete()
-            org.contacts.all().hard_delete()
-            org.documentations.all().hard_delete()
-            org.password_entries.all().hard_delete()
-            org.configurations.all().hard_delete()
-            org.network_devices.all().hard_delete()
-            org.endpoint_users.all().hard_delete()
-            org.servers.all().hard_delete()
-            org.peripherals.all().hard_delete()
-            org.software.all().hard_delete()
-            org.voip.all().hard_delete()
-            org.backups.all().hard_delete()
+            # Use QuerySet.delete() which performs hard delete at DB level
+            # This bypasses the model's soft delete and permanently removes records
+            Location.all_objects.filter(organization=org).delete()
+            Contact.all_objects.filter(organization=org).delete()
+            Documentation.all_objects.filter(organization=org).delete()
+            PasswordEntry.all_objects.filter(organization=org).delete()
+            Configuration.all_objects.filter(organization=org).delete()
+            NetworkDevice.all_objects.filter(organization=org).delete()
+            EndpointUser.all_objects.filter(organization=org).delete()
+            Server.all_objects.filter(organization=org).delete()
+            Peripheral.all_objects.filter(organization=org).delete()
+            Software.all_objects.filter(organization=org).delete()
+            VoIP.all_objects.filter(organization=org).delete()
+            Backup.all_objects.filter(organization=org).delete()
         else:
             # Create new organization
             org_id = uuid.UUID(org_info['id']) if preserve_ids else uuid.uuid4()
