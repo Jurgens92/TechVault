@@ -8,7 +8,6 @@ import {
   passwordAPI, configurationAPI, networkDeviceAPI, endpointUserAPI,
   serverAPI, peripheralAPI
 } from '../services/core';
-import { useOrganization } from '../contexts/OrganizationContext';
 
 type EntityType =
   | 'organizations'
@@ -23,7 +22,6 @@ type EntityType =
   | 'peripherals';
 
 const DeletedItems: React.FC = () => {
-  const { selectedOrg } = useOrganization();
   const [activeTab, setActiveTab] = useState<EntityType>('organizations');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -130,20 +128,7 @@ const DeletedItems: React.FC = () => {
     return new Date(dateString).toLocaleString();
   };
 
-  // Filter items based on selected organization
-  const getFilteredItems = () => {
-    const items = deletedItems[activeTab];
-
-    // Don't filter organizations tab or when no org is selected
-    if (activeTab === 'organizations' || !selectedOrg) {
-      return items;
-    }
-
-    // Filter items by selected organization
-    return items.filter((item: any) => item.organization === selectedOrg.id);
-  };
-
-  const currentItems = getFilteredItems();
+  const currentItems = deletedItems[activeTab];
   const config = entityConfig[activeTab];
 
   return (
