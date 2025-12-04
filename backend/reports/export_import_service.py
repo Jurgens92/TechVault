@@ -438,7 +438,6 @@ class OrganizationExportImportService:
             for backup in backups
         ]
 
-    @transaction.atomic
     def import_organizations(
         self,
         import_data: Dict[str, Any],
@@ -491,6 +490,7 @@ class OrganizationExportImportService:
 
         return results
 
+    @transaction.atomic
     def _import_organization(
         self,
         org_data: Dict[str, Any],
@@ -501,8 +501,9 @@ class OrganizationExportImportService:
         org_info = org_data['organization']
         org_name = org_info['name']
 
-        # Check if organization already exists
-        existing_org = Organization.objects.filter(name=org_name).first()
+        # Check if organization already exists (check ALL records, including soft-deleted)
+        # Use all_objects to bypass the soft delete filter
+        existing_org = Organization.all_objects.filter(name=org_name).first()
 
         if existing_org and not overwrite_existing:
             return {
