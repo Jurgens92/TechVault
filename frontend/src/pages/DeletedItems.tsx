@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { ListHeader } from '../components/ListHeader';
-import { RotateCcw, Trash2, RefreshCw } from 'lucide-react';
+import { SearchableSelect } from '../components/ui/SearchableSelect';
+import { RotateCcw, Trash2, RefreshCw, Filter, X } from 'lucide-react';
 import {
   organizationAPI, locationAPI, contactAPI, documentationAPI,
   passwordAPI, configurationAPI, networkDeviceAPI, endpointUserAPI,
   serverAPI, peripheralAPI
 } from '../services/core';
+import { Organization } from '../types/core';
 
 type EntityType =
   | 'organizations'
@@ -26,6 +28,11 @@ const DeletedItems: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  // Filter state
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [selectedOrgFilter, setSelectedOrgFilter] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   // State for each entity type
   const [deletedItems, setDeletedItems] = useState<Record<EntityType, any[]>>({
@@ -55,8 +62,18 @@ const DeletedItems: React.FC = () => {
   };
 
   useEffect(() => {
+    loadOrganizations();
     loadAllDeletedItems();
   }, []);
+
+  const loadOrganizations = async () => {
+    try {
+      const response = await organizationAPI.getAll();
+      setOrganizations(response.data?.results || []);
+    } catch (err) {
+      console.error('Failed to load organizations:', err);
+    }
+  };
 
   const loadAllDeletedItems = async () => {
     setLoading(true);
@@ -128,7 +145,41 @@ const DeletedItems: React.FC = () => {
     return new Date(dateString).toLocaleString();
   };
 
-  const currentItems = deletedItems[activeTab];
+  // Apply filters to current items
+  const getFilteredItems = () => {
+    let items = deletedItems[activeTab];
+
+    // Filter by organization (skip for organizations tab)
+    if (selectedOrgFilter && activeTab !== 'organizations') {
+      items = items.filter((item: any) => item.organization === selectedOrgFilter);
+    }
+
+    // Filter by search query
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      items = items.filter((item: any) => {
+        const nameField = config.nameField;
+        const name = (item[nameField] || item.title || '').toLowerCase();
+        const orgName = (item.organization_name || '').toLowerCase();
+        const deletedBy = item.deleted_by
+          ? `${item.deleted_by.first_name} ${item.deleted_by.last_name}`.toLowerCase()
+          : '';
+
+        return name.includes(query) || orgName.includes(query) || deletedBy.includes(query);
+      });
+    }
+
+    return items;
+  };
+
+  const clearFilters = () => {
+    setSelectedOrgFilter('');
+    setSearchQuery('');
+  };
+
+  const hasActiveFilters = selectedOrgFilter || searchQuery;
+
+  const currentItems = getFilteredItems();
   const config = entityConfig[activeTab];
 
   return (
@@ -151,6 +202,60 @@ const DeletedItems: React.FC = () => {
           <button onClick={() => setSuccess(null)} className="text-green-400 hover:text-green-300">×</button>
         </div>
       )}
+
+      {/* Filters */}
+      <Card>
+        <div className="p-4">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Filter className="h-4 w-4" />
+              <span className="text-sm font-medium">Filters:</span>
+            </div>
+
+            {/* Organization Filter */}
+            {activeTab !== 'organizations' && (
+              <div className="flex-1 max-w-xs">
+                <SearchableSelect
+                  options={[
+                    { value: '', label: 'All Organizations' },
+                    ...organizations.map((org) => ({
+                      value: org.id.toString(),
+                      label: org.name,
+                    })),
+                  ]}
+                  value={selectedOrgFilter}
+                  onChange={setSelectedOrgFilter}
+                  placeholder="Filter by Organization"
+                />
+              </div>
+            )}
+
+            {/* Search Filter */}
+            <div className="flex-1 max-w-md">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by name, organization, or deleted by..."
+                className="w-full px-3 py-2 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+              />
+            </div>
+
+            {/* Clear Filters Button */}
+            {hasActiveFilters && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={clearFilters}
+                className="flex items-center gap-1"
+              >
+                <X className="h-4 w-4" />
+                Clear
+              </Button>
+            )}
+          </div>
+        </div>
+      </Card>
 
       {/* Tab Navigation */}
       <Card>
