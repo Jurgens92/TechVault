@@ -312,17 +312,6 @@ export function EndpointUserForm() {
               placeholder="e.g., Windows 11 Pro"
             />
           </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2">Installed Software</label>
-            <textarea
-              value={formData.software_installed}
-              onChange={(e) => setFormData({ ...formData, software_installed: e.target.value })}
-              className="w-full px-3 py-2 border border-input rounded-md bg-background"
-              rows={3}
-              placeholder="Comma-separated list: Microsoft Office, Adobe Creative Suite, etc."
-            />
-          </div>
         </div>
 
         <div className="border border-border rounded-lg p-6 space-y-4">
