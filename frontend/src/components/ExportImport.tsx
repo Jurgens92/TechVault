@@ -16,6 +16,7 @@ const ExportImport: React.FC<ExportImportProps> = ({ isAdmin }) => {
   const [exportAll, setExportAll] = useState(true);
   const [includeDeleted, setIncludeDeleted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadingOrgs, setLoadingOrgs] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [overwriteExisting, setOverwriteExisting] = useState(false);
   const [importResult, setImportResult] = useState<{
@@ -32,12 +33,20 @@ const ExportImport: React.FC<ExportImportProps> = ({ isAdmin }) => {
   }, [isAdmin]);
 
   const loadOrganizations = async () => {
+    setLoadingOrgs(true);
     try {
       const response = await organizationAPI.getAll({ page_size: 1000 });
-      setOrganizations(response.results || []);
+      console.log('Organizations response:', response);
+
+      // Handle both paginated and direct array responses
+      const orgs = response.results || response.data || response || [];
+      console.log('Organizations loaded:', orgs);
+      setOrganizations(Array.isArray(orgs) ? orgs : []);
     } catch (err) {
       console.error('Failed to load organizations:', err);
       setOrganizations([]);
+    } finally {
+      setLoadingOrgs(false);
     }
   };
 
@@ -181,21 +190,32 @@ const ExportImport: React.FC<ExportImportProps> = ({ isAdmin }) => {
                         variant="ghost"
                         size="sm"
                         onClick={toggleSelectAll}
+                        disabled={loadingOrgs || (organizations?.length || 0) === 0}
                       >
                         {selectedOrgs.length === (organizations?.length || 0) ? 'Deselect All' : 'Select All'}
                       </Button>
                     </div>
-                    {(organizations || []).map(org => (
-                      <label key={org.id} className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-2 rounded">
-                        <input
-                          type="checkbox"
-                          checked={selectedOrgs.includes(org.id)}
-                          onChange={() => toggleOrgSelection(org.id)}
-                          className="w-4 h-4"
-                        />
-                        <span className="text-sm">{org.name}</span>
-                      </label>
-                    ))}
+                    {loadingOrgs ? (
+                      <div className="text-center py-4 text-sm text-muted-foreground">
+                        Loading organizations...
+                      </div>
+                    ) : (organizations || []).length === 0 ? (
+                      <div className="text-center py-4 text-sm text-muted-foreground">
+                        No organizations found
+                      </div>
+                    ) : (
+                      (organizations || []).map(org => (
+                        <label key={org.id} className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-2 rounded">
+                          <input
+                            type="checkbox"
+                            checked={selectedOrgs.includes(org.id)}
+                            onChange={() => toggleOrgSelection(org.id)}
+                            className="w-4 h-4"
+                          />
+                          <span className="text-sm">{org.name}</span>
+                        </label>
+                      ))
+                    )}
                   </div>
                 )}
 
