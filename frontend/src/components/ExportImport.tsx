@@ -38,7 +38,6 @@ const ExportImport: React.FC<ExportImportProps> = ({ isAdmin }) => {
       const response = await organizationAPI.getAll({ page_size: 1000 });
       console.log('Organizations API response:', response);
       console.log('response.data:', response.data);
-      console.log('response.results:', response.results);
 
       // Axios wraps the response in a data property
       // So response.data.results is the actual array
@@ -47,9 +46,6 @@ const ExportImport: React.FC<ExportImportProps> = ({ isAdmin }) => {
       if (response.data && response.data.results) {
         // Standard paginated response: { data: { results: [...] } }
         orgs = response.data.results;
-      } else if (response.results) {
-        // Direct results property
-        orgs = response.results;
       } else if (Array.isArray(response.data)) {
         // Direct array in data
         orgs = response.data;
