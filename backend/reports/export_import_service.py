@@ -528,6 +528,21 @@ class OrganizationExportImportService:
             org.is_active = org_info.get('is_active', True)
             org.created_by = self.user
             org.save()
+
+            # Delete all existing related data to avoid conflicts
+            # Use hard_delete to permanently remove them
+            org.locations.all().hard_delete()
+            org.contacts.all().hard_delete()
+            org.documentations.all().hard_delete()
+            org.password_entries.all().hard_delete()
+            org.configurations.all().hard_delete()
+            org.network_devices.all().hard_delete()
+            org.endpoint_users.all().hard_delete()
+            org.servers.all().hard_delete()
+            org.peripherals.all().hard_delete()
+            org.software.all().hard_delete()
+            org.voip.all().hard_delete()
+            org.backups.all().hard_delete()
         else:
             # Create new organization
             org_id = uuid.UUID(org_info['id']) if preserve_ids else uuid.uuid4()
