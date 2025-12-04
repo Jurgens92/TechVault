@@ -36,12 +36,30 @@ const ExportImport: React.FC<ExportImportProps> = ({ isAdmin }) => {
     setLoadingOrgs(true);
     try {
       const response = await organizationAPI.getAll({ page_size: 1000 });
-      console.log('Organizations response:', response);
+      console.log('Organizations API response:', response);
+      console.log('response.data:', response.data);
+      console.log('response.results:', response.results);
 
-      // Handle both paginated and direct array responses
-      const orgs = response.results || response.data || response || [];
-      console.log('Organizations loaded:', orgs);
-      setOrganizations(Array.isArray(orgs) ? orgs : []);
+      // Axios wraps the response in a data property
+      // So response.data.results is the actual array
+      let orgs: Organization[] = [];
+
+      if (response.data && response.data.results) {
+        // Standard paginated response: { data: { results: [...] } }
+        orgs = response.data.results;
+      } else if (response.results) {
+        // Direct results property
+        orgs = response.results;
+      } else if (Array.isArray(response.data)) {
+        // Direct array in data
+        orgs = response.data;
+      } else if (Array.isArray(response)) {
+        // Direct array
+        orgs = response;
+      }
+
+      console.log('Final organizations array:', orgs);
+      setOrganizations(orgs);
     } catch (err) {
       console.error('Failed to load organizations:', err);
       setOrganizations([]);
