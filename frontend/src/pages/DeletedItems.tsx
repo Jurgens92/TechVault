@@ -157,8 +157,9 @@ const DeletedItems: React.FC = () => {
     // Filter by search query
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
+      const currentConfig = entityConfig[activeTab];
       items = items.filter((item: any) => {
-        const nameField = config.nameField;
+        const nameField = currentConfig.nameField;
         const name = (item[nameField] || item.title || '').toLowerCase();
         const orgName = (item.organization_name || '').toLowerCase();
         const deletedBy = item.deleted_by
