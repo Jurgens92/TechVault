@@ -340,3 +340,30 @@ export const diagramAPI = {
     return api.get<DiagramData>('/api/diagram/data/', { params: Object.keys(params).length > 0 ? params : undefined });
   },
 };
+
+// Reports / Export/Import APIs
+export const reportsAPI = {
+  exportOrganizations: (organizationIds?: string[], includeDeleted: boolean = false) =>
+    api.post('/api/reports/export-organizations/', {
+      organization_ids: organizationIds,
+      include_deleted: includeDeleted
+    }, {
+      responseType: 'blob'
+    }),
+  importOrganizations: (file: File, overwriteExisting: boolean = false, preserveIds: boolean = false) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('overwrite_existing', overwriteExisting.toString());
+    formData.append('preserve_ids', preserveIds.toString());
+    return api.post<{
+      success: boolean;
+      imported_organizations: string[];
+      skipped_organizations: Array<{ name: string; reason: string }>;
+      errors: Array<{ organization: string; error: string }>;
+    }>('/api/reports/import-organizations/', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+  },
+};

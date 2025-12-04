@@ -1,13 +1,16 @@
 """
 API views for report generation and export.
 """
+import json
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.http import HttpResponse
 from .services import ReportService
 from .exporters import ExcelExporter, CSVExporter, PDFExporter
+from .export_import_service import OrganizationExportImportService
 
 
 class ReportViewSet(viewsets.ViewSet):
@@ -260,3 +263,109 @@ class ReportViewSet(viewsets.ViewSet):
         response = HttpResponse(pdf_file, content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename="{report_name}_{report_data.get("generated_at", "")}.pdf"'
         return response
+
+    @action(detail=False, methods=['post'], url_path='export-organizations')
+    def export_organizations(self, request):
+        """
+        Export complete organization data for backup purposes.
+
+        POST /api/reports/export-organizations/
+        Body:
+        {
+            "organization_ids": ["uuid1", "uuid2", ...],  // optional, null/empty = all orgs
+            "include_deleted": false  // optional, default false
+        }
+        """
+        organization_ids = request.data.get('organization_ids')
+        include_deleted = request.data.get('include_deleted', False)
+
+        try:
+            service = OrganizationExportImportService(request.user)
+            export_data = service.export_organizations(
+                organization_ids=organization_ids,
+                include_deleted=include_deleted
+            )
+
+            # Return as downloadable JSON file
+            response = HttpResponse(
+                json.dumps(export_data, indent=2),
+                content_type='application/json'
+            )
+            filename = f'organizations_export_{export_data.get("exported_at", "")}.json'
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            return response
+
+        except Exception as e:
+            return Response(
+                {'error': f'Error exporting organizations: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(
+        detail=False,
+        methods=['post'],
+        url_path='import-organizations',
+        parser_classes=[MultiPartParser, FormParser, JSONParser]
+    )
+    def import_organizations(self, request):
+        """
+        Import organization data from an export file.
+
+        POST /api/reports/import-organizations/
+        Body (multipart/form-data):
+        {
+            "file": <file>,  // JSON file from export
+            "overwrite_existing": false,  // optional
+            "preserve_ids": false  // optional
+        }
+        OR Body (application/json):
+        {
+            "data": {...},  // Export data object
+            "overwrite_existing": false,  // optional
+            "preserve_ids": false  // optional
+        }
+        """
+        overwrite_existing = request.data.get('overwrite_existing', 'false')
+        preserve_ids = request.data.get('preserve_ids', 'false')
+
+        # Convert string booleans to actual booleans
+        if isinstance(overwrite_existing, str):
+            overwrite_existing = overwrite_existing.lower() == 'true'
+        if isinstance(preserve_ids, str):
+            preserve_ids = preserve_ids.lower() == 'true'
+
+        # Get import data from either file upload or direct JSON
+        if 'file' in request.FILES:
+            # Handle file upload
+            uploaded_file = request.FILES['file']
+            try:
+                import_data = json.load(uploaded_file)
+            except json.JSONDecodeError:
+                return Response(
+                    {'error': 'Invalid JSON file'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        elif 'data' in request.data:
+            # Handle direct JSON data
+            import_data = request.data['data']
+        else:
+            return Response(
+                {'error': 'No import data provided. Include either "file" or "data" in request.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            service = OrganizationExportImportService(request.user)
+            results = service.import_organizations(
+                import_data=import_data,
+                overwrite_existing=overwrite_existing,
+                preserve_ids=preserve_ids
+            )
+
+            return Response(results, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response(
+                {'error': f'Error importing organizations: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
