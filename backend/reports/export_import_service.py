@@ -527,6 +527,9 @@ class OrganizationExportImportService:
             org.country = org_info.get('country', '')
             org.is_active = org_info.get('is_active', True)
             org.created_by = self.user
+            # Clear soft delete fields to restore the organization if it was deleted
+            org.deleted_at = None
+            org.deleted_by = None
             org.save()
 
             # Delete all existing related data to avoid conflicts
