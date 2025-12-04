@@ -107,10 +107,12 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
             </div>
           ) : (
             <SearchableSelect
-              options={organizations.map((org) => ({
-                value: org.id.toString(),
-                label: org.name,
-              }))}
+              options={organizations
+                .filter((org) => org.is_active)
+                .map((org) => ({
+                  value: org.id.toString(),
+                  label: org.name,
+                }))}
               value={selectedOrg?.id.toString() || ''}
               onChange={handleOrgChange}
               placeholder="Select Organization"
