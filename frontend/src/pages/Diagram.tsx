@@ -378,7 +378,7 @@ function NetworkDiagram({ devices }: { devices: DiagramData['network_devices'] }
                 </div>
                 <span className="mt-2 text-sm font-medium text-center">{device.name}</span>
                 {device.manufacturer && (
-                  <span className="text-xs text-muted-foreground">{device.manufacturer}</span>
+                  <span className="text-xs text-muted-foreground">{device.manufacturer} {device.model}</span>
                 )}
                 {device.internet_speed && (
                   <span className="text-xs font-medium text-blue-600 dark:text-blue-400 mt-1">
