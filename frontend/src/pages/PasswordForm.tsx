@@ -17,6 +17,7 @@ export const PasswordForm: React.FC = () => {
   const [loading, setLoading] = useState(isEditMode);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
   const [formData, setFormData] = useState<Partial<PasswordEntry>>({
     name: '',
     username: '',
@@ -139,9 +140,17 @@ export const PasswordForm: React.FC = () => {
                   <span className="font-medium text-gray-400">Username:</span>
                   <span className="ml-2 text-gray-300">{version.username || '(none)'}</span>
                 </div>
-                <div>
+                <div className="flex items-center gap-2">
                   <span className="font-medium text-gray-400">Password:</span>
-                  <span className="ml-2 text-gray-300">{'•'.repeat(8)}</span>
+                  <span className="ml-2 text-gray-300 font-mono">
+                    {showPasswords[version.id] ? version.password : '•'.repeat(12)}
+                  </span>
+                  <button
+                    onClick={() => setShowPasswords(prev => ({ ...prev, [version.id]: !prev[version.id] }))}
+                    className="px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded"
+                  >
+                    {showPasswords[version.id] ? 'Hide' : 'Show'}
+                  </button>
                 </div>
                 <div>
                   <span className="font-medium text-gray-400">URL:</span>

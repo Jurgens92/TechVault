@@ -1,7 +1,8 @@
 from django.contrib import admin
 from .models import (
     Organization, Location, Contact, Documentation,
-    PasswordEntry, Configuration
+    PasswordEntry, Configuration,
+    DocumentationVersion, PasswordEntryVersion, ConfigurationVersion
 )
 
 
@@ -65,3 +66,31 @@ class ConfigurationAdmin(admin.ModelAdmin):
     list_filter = ['organization', 'config_type', 'is_active', 'created_at']
     search_fields = ['name', 'description']
     readonly_fields = ['id', 'created_by', 'created_at', 'updated_at']
+
+
+# Version History Admin
+@admin.register(DocumentationVersion)
+class DocumentationVersionAdmin(admin.ModelAdmin):
+    list_display = ['documentation', 'version_number', 'title', 'created_at', 'created_by']
+    list_filter = ['created_at', 'is_published']
+    search_fields = ['title', 'content', 'change_note']
+    readonly_fields = ['id', 'created_at', 'created_by']
+    ordering = ['-created_at']
+
+
+@admin.register(PasswordEntryVersion)
+class PasswordEntryVersionAdmin(admin.ModelAdmin):
+    list_display = ['password_entry', 'version_number', 'name', 'created_at', 'created_by']
+    list_filter = ['created_at', 'category']
+    search_fields = ['name', 'username', 'change_note']
+    readonly_fields = ['id', 'created_at', 'created_by']
+    ordering = ['-created_at']
+
+
+@admin.register(ConfigurationVersion)
+class ConfigurationVersionAdmin(admin.ModelAdmin):
+    list_display = ['configuration', 'version_number', 'name', 'config_type', 'created_at', 'created_by']
+    list_filter = ['created_at', 'config_type', 'is_active']
+    search_fields = ['name', 'content', 'change_note']
+    readonly_fields = ['id', 'created_at', 'created_by']
+    ordering = ['-created_at']
