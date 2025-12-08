@@ -350,3 +350,59 @@ export interface PaginatedResponse<T> {
   previous: string | null;
   results: T[];
 }
+
+// Version History Interfaces
+
+export interface DocumentationVersion {
+  id: string;
+  documentation: string;
+  version_number: number;
+  title: string;
+  content: string;
+  category: 'procedure' | 'configuration' | 'guide' | 'troubleshooting' | 'policy' | 'other';
+  tags: string;
+  is_published: boolean;
+  change_note: string;
+  created_at: string;
+  created_by: {
+    id: number;
+    email: string;
+  };
+}
+
+export interface PasswordEntryVersion {
+  id: string;
+  password_entry: string;
+  version_number: number;
+  name: string;
+  username: string;
+  password: string;
+  url: string;
+  notes: string;
+  category: 'account' | 'service' | 'device' | 'other';
+  is_encrypted: boolean;
+  change_note: string;
+  created_at: string;
+  created_by: {
+    id: number;
+    email: string;
+  };
+}
+
+export interface ConfigurationVersion {
+  id: string;
+  configuration: string;
+  version_number: number;
+  name: string;
+  config_type: 'network' | 'server' | 'application' | 'security' | 'backup' | 'other';
+  content: string;
+  description: string;
+  version: string;
+  is_active: boolean;
+  change_note: string;
+  created_at: string;
+  created_by: {
+    id: number;
+    email: string;
+  };
+}

@@ -4,9 +4,10 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { configurationAPI } from '../services/core';
-import { Configuration } from '../types/core';
+import { Configuration, ConfigurationVersion } from '../types/core';
 import { ArrowLeft } from 'lucide-react';
 import { useOrganization } from '../contexts/OrganizationContext';
+import { VersionHistory } from '../components/VersionHistory';
 
 export const ConfigurationForm: React.FC = () => {
   const navigate = useNavigate();
@@ -119,6 +120,52 @@ export const ConfigurationForm: React.FC = () => {
           </div>
         </form>
       </Card>
+
+      {isEditMode && id && (
+        <Card className="p-6">
+          <VersionHistory<ConfigurationVersion>
+            entryId={id}
+            getVersions={configurationAPI.getVersions}
+            restoreVersion={configurationAPI.restoreVersion}
+            onRestore={() => {
+              // Reload the form data after restore
+              configurationAPI.getById(id).then(r => setFormData(r.data));
+            }}
+            renderVersionDetails={(version) => (
+              <div className="space-y-2 text-sm">
+                <div>
+                  <span className="font-medium text-gray-400">Name:</span>
+                  <span className="ml-2 text-gray-300">{version.name}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-400">Type:</span>
+                  <span className="ml-2 text-gray-300">{version.config_type}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-400">Version:</span>
+                  <span className="ml-2 text-gray-300">{version.version || '(none)'}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-400">Active:</span>
+                  <span className="ml-2 text-gray-300">{version.is_active ? 'Yes' : 'No'}</span>
+                </div>
+                {version.description && (
+                  <div>
+                    <span className="font-medium text-gray-400">Description:</span>
+                    <p className="mt-1 text-gray-300">{version.description}</p>
+                  </div>
+                )}
+                <div>
+                  <span className="font-medium text-gray-400">Content:</span>
+                  <pre className="mt-1 p-2 bg-gray-800 rounded text-gray-300 whitespace-pre-wrap text-xs font-mono">
+                    {version.content}
+                  </pre>
+                </div>
+              </div>
+            )}
+          />
+        </Card>
+      )}
     </div>
   );
 };

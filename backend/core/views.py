@@ -8,13 +8,122 @@ import csv
 import io
 from .models import (
     Organization, Location, Contact, Documentation,
-    PasswordEntry, Configuration, NetworkDevice, EndpointUser, Server, Peripheral, Software, Backup, VoIP
+    PasswordEntry, Configuration, NetworkDevice, EndpointUser, Server, Peripheral, Software, Backup, VoIP,
+    DocumentationVersion, PasswordEntryVersion, ConfigurationVersion
 )
 from .serializers import (
     OrganizationSerializer, LocationSerializer, ContactSerializer,
     DocumentationSerializer, PasswordEntrySerializer, ConfigurationSerializer,
-    NetworkDeviceSerializer, EndpointUserSerializer, ServerSerializer, PeripheralSerializer, SoftwareSerializer, BackupSerializer, VoIPSerializer
+    NetworkDeviceSerializer, EndpointUserSerializer, ServerSerializer, PeripheralSerializer, SoftwareSerializer, BackupSerializer, VoIPSerializer,
+    DocumentationVersionSerializer, PasswordEntryVersionSerializer, ConfigurationVersionSerializer
 )
+
+
+class VersionHistoryMixin:
+    """Mixin to add version history functionality to ViewSets."""
+    version_model = None  # Must be set in subclass
+    version_serializer = None  # Must be set in subclass
+    version_fields = []  # Fields to track in versions
+    parent_field = None  # Name of the field linking to parent (e.g., 'documentation', 'password_entry')
+
+    def _create_version(self, instance, change_note=''):
+        """Create a version snapshot of the current instance."""
+        if not self.version_model or not self.parent_field:
+            return
+
+        # Get the next version number
+        last_version = self.version_model.objects.filter(
+            **{self.parent_field: instance}
+        ).order_by('-version_number').first()
+
+        next_version = (last_version.version_number + 1) if last_version else 1
+
+        # Create version data from instance
+        version_data = {
+            self.parent_field: instance,
+            'version_number': next_version,
+            'created_by': self.request.user if hasattr(self, 'request') else None,
+            'change_note': change_note
+        }
+
+        # Copy tracked fields
+        for field in self.version_fields:
+            version_data[field] = getattr(instance, field)
+
+        # Create the version
+        self.version_model.objects.create(**version_data)
+
+    def perform_update(self, serializer):
+        """Override update to create a version before saving changes."""
+        instance = self.get_object()
+
+        # Create version before updating
+        change_note = self.request.data.get('change_note', '')
+        self._create_version(instance, change_note)
+
+        # Save the update
+        serializer.save()
+
+    @action(detail=True, methods=['get'])
+    def versions(self, request, pk=None):
+        """Get version history for this entry."""
+        instance = self.get_object()
+        versions = self.version_model.objects.filter(
+            **{self.parent_field: instance}
+        ).order_by('-version_number')
+
+        serializer = self.version_serializer(versions, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['get'], url_path='versions/(?P<version_number>[0-9]+)')
+    def get_version(self, request, pk=None, version_number=None):
+        """Get a specific version."""
+        instance = self.get_object()
+        try:
+            version = self.version_model.objects.get(
+                **{self.parent_field: instance, 'version_number': version_number}
+            )
+            serializer = self.version_serializer(version)
+            return Response(serializer.data)
+        except self.version_model.DoesNotExist:
+            return Response(
+                {'detail': 'Version not found.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+    @action(detail=True, methods=['post'], url_path='restore-version/(?P<version_number>[0-9]+)')
+    def restore_version(self, request, pk=None, version_number=None):
+        """Restore an entry to a specific version."""
+        instance = self.get_object()
+
+        try:
+            version = self.version_model.objects.get(
+                **{self.parent_field: instance, 'version_number': version_number}
+            )
+
+            # Create a new version of the current state before restoring
+            self._create_version(instance, f'Before restoring to version {version_number}')
+
+            # Restore fields from version
+            for field in self.version_fields:
+                setattr(instance, field, getattr(version, field))
+
+            instance.save()
+
+            # Create a new version after restoring
+            self._create_version(instance, f'Restored from version {version_number}')
+
+            serializer = self.get_serializer(instance)
+            return Response({
+                'detail': f'Successfully restored to version {version_number}',
+                'data': serializer.data
+            })
+
+        except self.version_model.DoesNotExist:
+            return Response(
+                {'detail': 'Version not found.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
 
 
 class SoftDeleteViewSetMixin:
@@ -295,7 +404,7 @@ class ContactViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
             )
 
 
-class DocumentationViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+class DocumentationViewSet(VersionHistoryMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for Documentation CRUD operations."""
     serializer_class = DocumentationSerializer
     permission_classes = [IsAuthenticated]
@@ -304,11 +413,19 @@ class DocumentationViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     ordering_fields = ['title', 'created_at', 'category']
     ordering = ['-created_at']
 
+    # Version history configuration
+    version_model = DocumentationVersion
+    version_serializer = DocumentationVersionSerializer
+    version_fields = ['title', 'content', 'category', 'tags', 'is_published']
+    parent_field = 'documentation'
+
     def get_queryset(self):
         return Documentation.objects.select_related('organization')
 
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+        instance = serializer.save(created_by=self.request.user)
+        # Create initial version on create
+        self._create_version(instance, 'Initial version')
 
     @action(detail=True, methods=['post'])
     def publish(self, request, pk=None):
@@ -334,7 +451,7 @@ class DocumentationViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
         return Response([], status=status.HTTP_400_BAD_REQUEST)
 
 
-class PasswordEntryViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+class PasswordEntryViewSet(VersionHistoryMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for PasswordEntry CRUD operations."""
     serializer_class = PasswordEntrySerializer
     permission_classes = [IsAuthenticated]
@@ -343,11 +460,19 @@ class PasswordEntryViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     ordering_fields = ['name', 'category', 'created_at']
     ordering = ['organization', 'name']
 
+    # Version history configuration
+    version_model = PasswordEntryVersion
+    version_serializer = PasswordEntryVersionSerializer
+    version_fields = ['name', 'username', 'password', 'url', 'notes', 'category', 'is_encrypted']
+    parent_field = 'password_entry'
+
     def get_queryset(self):
         return PasswordEntry.objects.select_related('organization')
 
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+        instance = serializer.save(created_by=self.request.user)
+        # Create initial version on create
+        self._create_version(instance, 'Initial version')
 
     @action(detail=False, methods=['get'])
     def by_organization(self, request):
@@ -359,7 +484,7 @@ class PasswordEntryViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
         return Response([], status=status.HTTP_400_BAD_REQUEST)
 
 
-class ConfigurationViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+class ConfigurationViewSet(VersionHistoryMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for Configuration CRUD operations."""
     serializer_class = ConfigurationSerializer
     permission_classes = [IsAuthenticated]
@@ -368,11 +493,19 @@ class ConfigurationViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     ordering_fields = ['name', 'config_type', 'created_at']
     ordering = ['organization', 'config_type', 'name']
 
+    # Version history configuration
+    version_model = ConfigurationVersion
+    version_serializer = ConfigurationVersionSerializer
+    version_fields = ['name', 'config_type', 'content', 'description', 'version', 'is_active']
+    parent_field = 'configuration'
+
     def get_queryset(self):
         return Configuration.objects.select_related('organization')
 
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+        instance = serializer.save(created_by=self.request.user)
+        # Create initial version on create
+        self._create_version(instance, 'Initial version')
 
     @action(detail=False, methods=['get'])
     def by_organization(self, request):

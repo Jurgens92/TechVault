@@ -4,9 +4,10 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { documentationAPI } from '../services/core';
-import { Documentation } from '../types/core';
+import { Documentation, DocumentationVersion } from '../types/core';
 import { ArrowLeft } from 'lucide-react';
 import { useOrganization } from '../contexts/OrganizationContext';
+import { VersionHistory } from '../components/VersionHistory';
 
 export const DocumentationForm: React.FC = () => {
   const navigate = useNavigate();
@@ -113,6 +114,42 @@ export const DocumentationForm: React.FC = () => {
           </div>
         </form>
       </Card>
+
+      {isEditMode && id && (
+        <Card className="p-6">
+          <VersionHistory<DocumentationVersion>
+            entryId={id}
+            getVersions={documentationAPI.getVersions}
+            restoreVersion={documentationAPI.restoreVersion}
+            onRestore={() => {
+              // Reload the form data after restore
+              documentationAPI.getById(id).then(r => setFormData(r.data));
+            }}
+            renderVersionDetails={(version) => (
+              <div className="space-y-2 text-sm">
+                <div>
+                  <span className="font-medium text-gray-400">Title:</span>
+                  <span className="ml-2 text-gray-300">{version.title}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-400">Category:</span>
+                  <span className="ml-2 text-gray-300">{version.category}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-400">Published:</span>
+                  <span className="ml-2 text-gray-300">{version.is_published ? 'Yes' : 'No'}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-400">Content:</span>
+                  <pre className="mt-1 p-2 bg-gray-800 rounded text-gray-300 whitespace-pre-wrap text-xs">
+                    {version.content}
+                  </pre>
+                </div>
+              </div>
+            )}
+          />
+        </Card>
+      )}
     </div>
   );
 };
