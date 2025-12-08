@@ -1,7 +1,8 @@
 from rest_framework import serializers
 from .models import (
     Organization, Location, Contact, Documentation,
-    PasswordEntry, Configuration, NetworkDevice, EndpointUser, Server, Peripheral, Software, SoftwareAssignment, Backup, VoIP, VoIPAssignment
+    PasswordEntry, Configuration, NetworkDevice, EndpointUser, Server, Peripheral, Software, SoftwareAssignment, Backup, VoIP, VoIPAssignment,
+    DocumentationVersion, PasswordEntryVersion, ConfigurationVersion
 )
 from users.serializers import UserSerializer
 
@@ -354,3 +355,44 @@ class VoIPSerializer(serializers.ModelSerializer):
                 )
 
         return instance
+
+
+# Version History Serializers
+
+class DocumentationVersionSerializer(serializers.ModelSerializer):
+    created_by = UserSerializer(read_only=True)
+
+    class Meta:
+        model = DocumentationVersion
+        fields = [
+            'id', 'documentation', 'version_number', 'title', 'content',
+            'category', 'tags', 'is_published', 'change_note',
+            'created_at', 'created_by'
+        ]
+        read_only_fields = ['id', 'created_at', 'created_by']
+
+
+class PasswordEntryVersionSerializer(serializers.ModelSerializer):
+    created_by = UserSerializer(read_only=True)
+
+    class Meta:
+        model = PasswordEntryVersion
+        fields = [
+            'id', 'password_entry', 'version_number', 'name', 'username',
+            'password', 'url', 'notes', 'category', 'is_encrypted',
+            'change_note', 'created_at', 'created_by'
+        ]
+        read_only_fields = ['id', 'created_at', 'created_by']
+
+
+class ConfigurationVersionSerializer(serializers.ModelSerializer):
+    created_by = UserSerializer(read_only=True)
+
+    class Meta:
+        model = ConfigurationVersion
+        fields = [
+            'id', 'configuration', 'version_number', 'name', 'config_type',
+            'content', 'description', 'version', 'is_active', 'change_note',
+            'created_at', 'created_by'
+        ]
+        read_only_fields = ['id', 'created_at', 'created_by']

@@ -4,9 +4,10 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { passwordAPI } from '../services/core';
-import { PasswordEntry } from '../types/core';
+import { PasswordEntry, PasswordEntryVersion } from '../types/core';
 import { ArrowLeft } from 'lucide-react';
 import { useOrganization } from '../contexts/OrganizationContext';
+import { VersionHistory } from '../components/VersionHistory';
 
 export const PasswordForm: React.FC = () => {
   const navigate = useNavigate();
@@ -117,6 +118,50 @@ export const PasswordForm: React.FC = () => {
           </div>
         </form>
       </Card>
+
+      {isEditMode && id && (
+        <Card className="p-6">
+          <VersionHistory<PasswordEntryVersion>
+            entryId={id}
+            getVersions={passwordAPI.getVersions}
+            restoreVersion={passwordAPI.restoreVersion}
+            onRestore={() => {
+              // Reload the form data after restore
+              passwordAPI.getById(id).then(r => setFormData(r.data));
+            }}
+            renderVersionDetails={(version) => (
+              <div className="space-y-2 text-sm">
+                <div>
+                  <span className="font-medium text-gray-400">Name:</span>
+                  <span className="ml-2 text-gray-300">{version.name}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-400">Username:</span>
+                  <span className="ml-2 text-gray-300">{version.username || '(none)'}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-400">Password:</span>
+                  <span className="ml-2 text-gray-300">{'•'.repeat(8)}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-400">URL:</span>
+                  <span className="ml-2 text-gray-300">{version.url || '(none)'}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-400">Category:</span>
+                  <span className="ml-2 text-gray-300">{version.category}</span>
+                </div>
+                {version.notes && (
+                  <div>
+                    <span className="font-medium text-gray-400">Notes:</span>
+                    <p className="mt-1 text-gray-300">{version.notes}</p>
+                  </div>
+                )}
+              </div>
+            )}
+          />
+        </Card>
+      )}
     </div>
   );
 };

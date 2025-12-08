@@ -2,7 +2,8 @@ import api from './api';
 import {
   Organization, Location, Contact, Documentation,
   PasswordEntry, Configuration, NetworkDevice, EndpointUser,
-  Server, Peripheral, Software, Backup, VoIP, DiagramData, PaginatedResponse
+  Server, Peripheral, Software, Backup, VoIP, DiagramData, PaginatedResponse,
+  DocumentationVersion, PasswordEntryVersion, ConfigurationVersion
 } from '../types/core';
 
 // Dashboard APIs
@@ -131,6 +132,13 @@ export const documentationAPI = {
     api.post(`/api/documentations/${id}/restore/`, {}),
   hardDelete: (id: string) =>
     api.delete(`/api/documentations/${id}/hard_delete/`),
+  // Version history
+  getVersions: (id: string) =>
+    api.get<DocumentationVersion[]>(`/api/documentations/${id}/versions/`),
+  getVersion: (id: string, versionNumber: number) =>
+    api.get<DocumentationVersion>(`/api/documentations/${id}/versions/${versionNumber}/`),
+  restoreVersion: (id: string, versionNumber: number) =>
+    api.post<{ detail: string; data: Documentation }>(`/api/documentations/${id}/restore-version/${versionNumber}/`, {}),
 };
 
 // Password Entry APIs
@@ -153,6 +161,13 @@ export const passwordAPI = {
     api.post(`/api/passwords/${id}/restore/`, {}),
   hardDelete: (id: string) =>
     api.delete(`/api/passwords/${id}/hard_delete/`),
+  // Version history
+  getVersions: (id: string) =>
+    api.get<PasswordEntryVersion[]>(`/api/passwords/${id}/versions/`),
+  getVersion: (id: string, versionNumber: number) =>
+    api.get<PasswordEntryVersion>(`/api/passwords/${id}/versions/${versionNumber}/`),
+  restoreVersion: (id: string, versionNumber: number) =>
+    api.post<{ detail: string; data: PasswordEntry }>(`/api/passwords/${id}/restore-version/${versionNumber}/`, {}),
 };
 
 // Configuration APIs
@@ -175,6 +190,13 @@ export const configurationAPI = {
     api.post(`/api/configurations/${id}/restore/`, {}),
   hardDelete: (id: string) =>
     api.delete(`/api/configurations/${id}/hard_delete/`),
+  // Version history
+  getVersions: (id: string) =>
+    api.get<ConfigurationVersion[]>(`/api/configurations/${id}/versions/`),
+  getVersion: (id: string, versionNumber: number) =>
+    api.get<ConfigurationVersion>(`/api/configurations/${id}/versions/${versionNumber}/`),
+  restoreVersion: (id: string, versionNumber: number) =>
+    api.post<{ detail: string; data: Configuration }>(`/api/configurations/${id}/restore-version/${versionNumber}/`, {}),
 };
 
 // Network Device APIs

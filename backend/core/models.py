@@ -602,3 +602,89 @@ class VoIPAssignment(BaseModel):
 
     def __str__(self):
         return f"{self.voip.name} -> {self.contact.full_name}"
+
+
+# Version History Models
+
+class DocumentationVersion(models.Model):
+    """Version history for Documentation entries."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    documentation = models.ForeignKey(Documentation, on_delete=models.CASCADE, related_name='versions')
+    version_number = models.IntegerField()
+
+    # Snapshot of Documentation fields
+    title = models.CharField(max_length=255)
+    content = models.TextField()
+    category = models.CharField(max_length=50)
+    tags = models.CharField(max_length=500, blank=True)
+    is_published = models.BooleanField(default=False)
+
+    # Metadata
+    change_note = models.TextField(blank=True, help_text='Optional description of what changed in this version')
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='documentation_versions_created')
+
+    class Meta:
+        ordering = ['-version_number']
+        db_table = 'documentation_versions'
+        unique_together = ('documentation', 'version_number')
+
+    def __str__(self):
+        return f"{self.documentation.title} - v{self.version_number}"
+
+
+class PasswordEntryVersion(models.Model):
+    """Version history for PasswordEntry entries."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    password_entry = models.ForeignKey(PasswordEntry, on_delete=models.CASCADE, related_name='versions')
+    version_number = models.IntegerField()
+
+    # Snapshot of PasswordEntry fields
+    name = models.CharField(max_length=255)
+    username = models.CharField(max_length=255, blank=True)
+    password = models.TextField()
+    url = models.URLField(blank=True)
+    notes = models.TextField(blank=True)
+    category = models.CharField(max_length=50)
+    is_encrypted = models.BooleanField(default=False)
+
+    # Metadata
+    change_note = models.TextField(blank=True, help_text='Optional description of what changed in this version')
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='password_versions_created')
+
+    class Meta:
+        ordering = ['-version_number']
+        db_table = 'password_entry_versions'
+        unique_together = ('password_entry', 'version_number')
+
+    def __str__(self):
+        return f"{self.password_entry.name} - v{self.version_number}"
+
+
+class ConfigurationVersion(models.Model):
+    """Version history for Configuration entries."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    configuration = models.ForeignKey(Configuration, on_delete=models.CASCADE, related_name='versions')
+    version_number = models.IntegerField()
+
+    # Snapshot of Configuration fields
+    name = models.CharField(max_length=255)
+    config_type = models.CharField(max_length=50)
+    content = models.TextField()
+    description = models.TextField(blank=True)
+    version = models.CharField(max_length=50, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    # Metadata
+    change_note = models.TextField(blank=True, help_text='Optional description of what changed in this version')
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='configuration_versions_created')
+
+    class Meta:
+        ordering = ['-version_number']
+        db_table = 'configuration_versions'
+        unique_together = ('configuration', 'version_number')
+
+    def __str__(self):
+        return f"{self.configuration.name} - v{self.version_number}"
