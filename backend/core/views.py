@@ -62,7 +62,12 @@ class VersionHistoryMixin:
         self._create_version(instance, change_note)
 
         # Save the update
-        serializer.save()
+        updated_instance = serializer.save()
+
+        # Increment version field if it exists (for Documentation and Configuration)
+        if hasattr(updated_instance, 'version') and isinstance(getattr(updated_instance, 'version'), int):
+            updated_instance.version += 1
+            updated_instance.save(update_fields=['version'])
 
     @action(detail=True, methods=['get'])
     def versions(self, request, pk=None):
