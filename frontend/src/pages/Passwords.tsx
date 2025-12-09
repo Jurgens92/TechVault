@@ -2,12 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { ListHeader } from '../components/ListHeader';
+import { PageHeader } from '../components/PageHeader';
 import { EmptyOrgState } from '../components/EmptyOrgState';
 import { useOrganization } from '../contexts/OrganizationContext';
 import { passwordAPI } from '../services/core';
 import { PasswordEntry } from '../types/core';
-import { Lock, Trash2, Edit, ChevronRight } from 'lucide-react';
+import { Lock, Trash2, Edit, ChevronRight, Plus } from 'lucide-react';
 
 export const Passwords: React.FC = () => {
   const navigate = useNavigate();
@@ -56,7 +56,18 @@ export const Passwords: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <ListHeader title="Password Vault" onAddClick={() => navigate('/passwords/new')} onSearch={() => {}} searchPlaceholder="Search passwords..." />
+      <PageHeader
+        title="Password Vault"
+        actionButton={{
+          label: 'Add New',
+          icon: Plus,
+          onClick: () => navigate('/passwords/new'),
+        }}
+        search={{
+          placeholder: 'Search passwords...',
+          onSearch: () => {},
+        }}
+      />
 
       {!selectedOrg ? (
         <EmptyOrgState />

@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { ListHeader } from '../components/ListHeader';
+import { PageHeader } from '../components/PageHeader';
 import { organizationAPI } from '../services/core';
 import { Organization } from '../types/core';
-import { Building2, MapPin, ChevronRight, Trash2, Edit } from 'lucide-react';
+import { Building2, MapPin, ChevronRight, Trash2, Edit, Plus } from 'lucide-react';
 
 export const Organizations: React.FC = () => {
   const navigate = useNavigate();
@@ -58,11 +58,17 @@ export const Organizations: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <ListHeader
+      <PageHeader
         title="Organizations"
-        onAddClick={() => navigate('/organizations/new')}
-        onSearch={handleSearch}
-        searchPlaceholder="Search organizations..."
+        actionButton={{
+          label: 'Add New',
+          icon: Plus,
+          onClick: () => navigate('/organizations/new'),
+        }}
+        search={{
+          placeholder: 'Search organizations...',
+          onSearch: handleSearch,
+        }}
       />
 
       {error && (
