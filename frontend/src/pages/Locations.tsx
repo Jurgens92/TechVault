@@ -2,12 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { ListHeader } from '../components/ListHeader';
+import { PageHeader } from '../components/PageHeader';
 import { EmptyOrgState } from '../components/EmptyOrgState';
 import { useOrganization } from '../contexts/OrganizationContext';
 import { locationAPI } from '../services/core';
 import { Location } from '../types/core';
-import { MapPin, Trash2, Edit, ChevronRight } from 'lucide-react';
+import { MapPin, Trash2, Edit, ChevronRight, Plus } from 'lucide-react';
 
 export const Locations: React.FC = () => {
   const navigate = useNavigate();
@@ -62,11 +62,17 @@ export const Locations: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <ListHeader
+      <PageHeader
         title="Locations"
-        onAddClick={() => navigate('/locations/new')}
-        onSearch={handleSearch}
-        searchPlaceholder="Search locations..."
+        actionButton={{
+          label: 'Add New',
+          icon: Plus,
+          onClick: () => navigate('/locations/new'),
+        }}
+        search={{
+          placeholder: 'Search locations...',
+          onSearch: handleSearch,
+        }}
       />
 
       {!selectedOrg ? (

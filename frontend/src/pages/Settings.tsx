@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
+import { PageHeader } from '@/components/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Settings as SettingsIcon, User, Mail, Shield, Users, Plus, Edit, Trash2, X, ShieldCheck, ShieldAlert } from 'lucide-react';
@@ -141,20 +142,11 @@ const Settings: React.FC = () => {
 
   return (
     <div className="p-8">
-      {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="bg-primary/10 p-3 rounded-xl border border-primary/20">
-            <SettingsIcon className="h-8 w-8 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold">Settings</h1>
-            <p className="text-muted-foreground">
-              Manage your account settings and preferences
-            </p>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        icon={SettingsIcon}
+        title="Settings"
+        subtitle="Manage your account settings and preferences"
+      />
 
       {/* Account Information */}
       <Card className="mb-6">

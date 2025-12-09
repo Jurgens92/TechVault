@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
+import { PageHeader } from '@/components/PageHeader';
 import { Shield, Building2, MapPin, Users, FileText, Lock, Wrench, TrendingUp, Network } from 'lucide-react';
 import { dashboardAPI } from '@/services/core';
 
@@ -58,20 +59,11 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="p-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="bg-primary/10 p-3 rounded-xl border border-primary/20">
-              <Shield className="h-8 w-8 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold">Welcome to TechVault</h1>
-              <p className="text-muted-foreground">
-                {user?.full_name ? `Hello, ${user.full_name}` : `Hello, ${user?.email}`}
-              </p>
-            </div>
-          </div>
-        </div>
+        <PageHeader
+          icon={Shield}
+          title="Welcome to TechVault"
+          subtitle={user?.full_name ? `Hello, ${user.full_name}` : `Hello, ${user?.email}`}
+        />
 
         {/* Welcome Card */}
         <Card className="mb-8 border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10">

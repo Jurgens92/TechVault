@@ -2,12 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { ListHeader } from '../components/ListHeader';
+import { PageHeader } from '../components/PageHeader';
 import { EmptyOrgState } from '../components/EmptyOrgState';
 import { useOrganization } from '../contexts/OrganizationContext';
 import { configurationAPI } from '../services/core';
 import { Configuration } from '../types/core';
-import { Settings, Trash2, Edit, ChevronRight } from 'lucide-react';
+import { Settings, Trash2, Edit, ChevronRight, Plus } from 'lucide-react';
 
 export const Configurations: React.FC = () => {
   const navigate = useNavigate();
@@ -56,7 +56,18 @@ export const Configurations: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <ListHeader title="Configurations" onAddClick={() => navigate('/configurations/new')} onSearch={() => {}} searchPlaceholder="Search configurations..." />
+      <PageHeader
+        title="Configurations"
+        actionButton={{
+          label: 'Add New',
+          icon: Plus,
+          onClick: () => navigate('/configurations/new'),
+        }}
+        search={{
+          placeholder: 'Search configurations...',
+          onSearch: () => {},
+        }}
+      />
 
       {!selectedOrg ? (
         <EmptyOrgState />

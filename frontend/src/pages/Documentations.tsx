@@ -2,12 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { ListHeader } from '../components/ListHeader';
+import { PageHeader } from '../components/PageHeader';
 import { EmptyOrgState } from '../components/EmptyOrgState';
 import { useOrganization } from '../contexts/OrganizationContext';
 import { documentationAPI } from '../services/core';
 import { Documentation } from '../types/core';
-import { FileText, Trash2, Edit, ChevronRight } from 'lucide-react';
+import { FileText, Trash2, Edit, ChevronRight, Plus } from 'lucide-react';
 
 export const Documentations: React.FC = () => {
   const navigate = useNavigate();
@@ -56,7 +56,18 @@ export const Documentations: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <ListHeader title="Documentation" onAddClick={() => navigate('/documentations/new')} onSearch={() => {}} searchPlaceholder="Search documentations..." />
+      <PageHeader
+        title="Documentation"
+        actionButton={{
+          label: 'Add New',
+          icon: Plus,
+          onClick: () => navigate('/documentations/new'),
+        }}
+        search={{
+          placeholder: 'Search documentations...',
+          onSearch: () => {},
+        }}
+      />
 
       {!selectedOrg ? (
         <EmptyOrgState />

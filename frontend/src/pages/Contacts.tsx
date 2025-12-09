@@ -2,12 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { ListHeader } from '../components/ListHeader';
+import { PageHeader } from '../components/PageHeader';
 import { EmptyOrgState } from '../components/EmptyOrgState';
 import { useOrganization } from '../contexts/OrganizationContext';
 import { contactAPI } from '../services/core';
 import { Contact } from '../types/core';
-import { Users, Trash2, Edit, ChevronRight, Upload, Download } from 'lucide-react';
+import { Users, Trash2, Edit, ChevronRight, Upload, Download, Plus } from 'lucide-react';
 
 export const Contacts: React.FC = () => {
   const navigate = useNavigate();
@@ -113,11 +113,17 @@ export const Contacts: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <ListHeader
+      <PageHeader
         title="Contacts"
-        onAddClick={() => navigate('/contacts/new')}
-        onSearch={() => {}}
-        searchPlaceholder="Search contacts..."
+        actionButton={{
+          label: 'Add New',
+          icon: Plus,
+          onClick: () => navigate('/contacts/new'),
+        }}
+        search={{
+          placeholder: 'Search contacts...',
+          onSearch: () => {},
+        }}
       />
 
       {!selectedOrg ? (

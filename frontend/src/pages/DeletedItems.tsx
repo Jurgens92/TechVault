@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { ListHeader } from '../components/ListHeader';
+import { PageHeader } from '../components/PageHeader';
 import { SearchableSelect } from '../components/ui/SearchableSelect';
 import { RotateCcw, Trash2, RefreshCw, Filter, X } from 'lucide-react';
 import {
@@ -185,10 +185,10 @@ const DeletedItems: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold">Deleted Items</h1>
-        <p className="text-muted-foreground mt-1">Restore or permanently delete items</p>
-      </div>
+      <PageHeader
+        title="Deleted Items"
+        subtitle="Restore or permanently delete items"
+      />
 
       {error && (
         <div className="p-4 bg-red-900/20 border border-red-700 rounded-lg text-red-200 flex justify-between items-center">
