@@ -442,8 +442,8 @@ class PDFExporter:
         elements.append(Paragraph(section_title, heading_style))
         elements.append(Spacer(1, 0.2*inch))
 
-        # Get headers (limit to first 6 for readability in PDF)
-        all_headers = list(section_data[0].keys())
+        # Get headers (exclude 'id' field and limit to first 6 for readability in PDF)
+        all_headers = [h for h in section_data[0].keys() if h.lower() != 'id']
         headers = all_headers[:6] if len(all_headers) > 6 else all_headers
 
         # Create a style for table cells with wrapping
