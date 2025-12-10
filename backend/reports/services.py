@@ -163,7 +163,7 @@ class ReportService:
             report['sections']['servers'] = [self._format_server(s) for s in servers]
 
         if 'endpoints' in include_sections:
-            endpoints = EndpointUser.objects.filter(location=location)
+            endpoints = EndpointUser.objects.filter(location=location).select_related('assigned_to')
             report['sections']['endpoints'] = [self._format_endpoint(e) for e in endpoints]
 
         if 'peripherals' in include_sections:
@@ -175,8 +175,8 @@ class ReportService:
             report['sections']['backups'] = [self._format_backup(b) for b in backups]
 
         if 'documentation' in include_sections:
-            docs = Documentation.objects.filter(location=location)
-            report['sections']['documentation'] = [self._format_documentation(d) for d in docs]
+            # Documentation doesn't have location field, skip for location report
+            report['sections']['documentation'] = []
 
         # Add summary statistics
         report['summary'] = self._generate_summary(report['sections'])
@@ -214,19 +214,19 @@ class ReportService:
         # Get all assets with the filters
         report['assets']['network_devices'] = [
             self._format_network_device(d)
-            for d in NetworkDevice.objects.filter(**filters)
+            for d in NetworkDevice.objects.filter(**filters).select_related('location')
         ]
         report['assets']['servers'] = [
             self._format_server(s)
-            for s in Server.objects.filter(**filters)
+            for s in Server.objects.filter(**filters).select_related('location')
         ]
         report['assets']['endpoints'] = [
             self._format_endpoint(e)
-            for e in EndpointUser.objects.filter(**filters)
+            for e in EndpointUser.objects.filter(**filters).select_related('location', 'assigned_to')
         ]
         report['assets']['peripherals'] = [
             self._format_peripheral(p)
-            for p in Peripheral.objects.filter(**filters)
+            for p in Peripheral.objects.filter(**filters).select_related('location')
         ]
 
         # Calculate totals
@@ -297,7 +297,7 @@ class ReportService:
             'expiring_soon': len([l for l in report['licenses'] if l['status'] == 'expiring_soon']),
             'expired': len([l for l in report['licenses'] if l['status'] == 'expired']),
             'active': len([l for l in report['licenses'] if l['status'] == 'active']),
-            'over_capacity': len([l for l in report['licenses'] if l.get('seats_available', 0) < 0]),
+            'over_capacity': len([l for l in report['licenses'] if l.get('seats_available', 0) and l['seats_available'] < 0]),
         }
 
         return report
@@ -353,10 +353,12 @@ class ReportService:
             'model': device.model,
             'ip_address': device.ip_address,
             'mac_address': device.mac_address,
+            'serial_number': device.serial_number,
+            'firmware_version': device.firmware_version,
             'location': device.location.name if device.location else None,
-            'status': device.status,
-            'internet_speed_down': device.internet_speed_down,
-            'internet_speed_up': device.internet_speed_up,
+            'is_active': device.is_active,
+            'internet_provider': device.internet_provider,
+            'internet_speed': device.internet_speed,
         }
 
     def _get_servers(self, org):
@@ -370,21 +372,24 @@ class ReportService:
             'id': str(server.id),
             'name': server.name,
             'server_type': server.server_type,
+            'role': server.role,
+            'manufacturer': server.manufacturer,
+            'model': server.model,
             'operating_system': server.operating_system,
-            'os_version': server.os_version,
-            'cpu_model': server.cpu_model,
-            'cpu_cores': server.cpu_cores,
-            'ram_gb': server.ram_gb,
-            'storage_gb': server.storage_gb,
+            'cpu': server.cpu,
+            'ram': server.ram,
+            'storage': server.storage,
             'ip_address': server.ip_address,
+            'mac_address': server.mac_address,
+            'hostname': server.hostname,
+            'serial_number': server.serial_number,
             'location': server.location.name if server.location else None,
-            'status': server.status,
-            'virtualization_platform': server.virtualization_platform,
+            'is_active': server.is_active,
         }
 
     def _get_endpoints(self, org):
         """Get all endpoints for an organization."""
-        endpoints = EndpointUser.objects.filter(organization=org).select_related('location', 'contact')
+        endpoints = EndpointUser.objects.filter(organization=org).select_related('location', 'assigned_to')
         return [self._format_endpoint(e) for e in endpoints]
 
     def _format_endpoint(self, endpoint):
@@ -396,19 +401,22 @@ class ReportService:
             'manufacturer': endpoint.manufacturer,
             'model': endpoint.model,
             'operating_system': endpoint.operating_system,
-            'os_version': endpoint.os_version,
-            'cpu_model': endpoint.cpu_model,
-            'ram_gb': endpoint.ram_gb,
-            'storage_gb': endpoint.storage_gb,
+            'cpu': endpoint.cpu,
+            'ram': endpoint.ram,
+            'storage': endpoint.storage,
+            'gpu': endpoint.gpu,
+            'hostname': endpoint.hostname,
+            'ip_address': endpoint.ip_address,
+            'mac_address': endpoint.mac_address,
             'serial_number': endpoint.serial_number,
             'location': endpoint.location.name if endpoint.location else None,
-            'assigned_to': endpoint.contact.full_name if endpoint.contact else None,
-            'status': endpoint.status,
+            'assigned_to': endpoint.assigned_to.full_name if endpoint.assigned_to else None,
+            'is_active': endpoint.is_active,
         }
 
     def _get_peripherals(self, org):
         """Get all peripherals for an organization."""
-        peripherals = Peripheral.objects.filter(organization=org).select_related('location', 'contact')
+        peripherals = Peripheral.objects.filter(organization=org).select_related('location')
         return [self._format_peripheral(p) for p in peripherals]
 
     def _format_peripheral(self, peripheral):
@@ -421,9 +429,9 @@ class ReportService:
             'model': peripheral.model,
             'serial_number': peripheral.serial_number,
             'ip_address': peripheral.ip_address,
+            'mac_address': peripheral.mac_address,
             'location': peripheral.location.name if peripheral.location else None,
-            'assigned_to': peripheral.contact.full_name if peripheral.contact else None,
-            'status': peripheral.status,
+            'is_active': peripheral.is_active,
         }
 
     def _get_software(self, org):
@@ -433,13 +441,16 @@ class ReportService:
             {
                 'id': str(software.id),
                 'name': software.name,
+                'software_type': software.software_type,
                 'vendor': software.vendor,
                 'version': software.version,
                 'license_type': software.license_type,
+                'license_key': software.license_key,
                 'expiry_date': software.expiry_date.isoformat() if software.expiry_date else None,
                 'seats_total': software.quantity,
                 'seats_used': software.software_assignments.count(),
                 'status': self._get_license_status(software),
+                'is_active': software.is_active,
             }
             for software in software_list
         ]
@@ -451,11 +462,16 @@ class ReportService:
             {
                 'id': str(voip.id),
                 'name': voip.name,
-                'vendor': voip.vendor,
                 'voip_type': voip.voip_type,
+                'vendor': voip.vendor,
                 'license_key': voip.license_key,
-                'extensions_total': voip.quantity,
+                'version': voip.version,
+                'license_type': voip.license_type,
+                'expiry_date': voip.expiry_date.isoformat() if voip.expiry_date else None,
+                'quantity': voip.quantity,
                 'extensions_used': voip.voip_assignments.count(),
+                'phone_numbers': voip.phone_numbers,
+                'is_active': voip.is_active,
             }
             for voip in voip_services
         ]
@@ -474,16 +490,19 @@ class ReportService:
             'vendor': backup.vendor,
             'target_systems': backup.target_systems,
             'storage_location': backup.storage_location,
+            'storage_capacity': backup.storage_capacity,
             'frequency': backup.frequency,
             'retention_period': backup.retention_period,
             'last_backup': backup.last_backup_date.isoformat() if backup.last_backup_date else None,
-            'status': backup.backup_status,
+            'next_backup': backup.next_backup_date.isoformat() if backup.next_backup_date else None,
+            'backup_status': backup.backup_status,
             'location': backup.location.name if backup.location else None,
+            'is_active': backup.is_active,
         }
 
     def _get_documentation(self, org):
         """Get all documentation for an organization."""
-        docs = Documentation.objects.filter(organization=org).select_related('location')
+        docs = Documentation.objects.filter(organization=org)
         return [self._format_documentation(d) for d in docs]
 
     def _format_documentation(self, doc):
@@ -492,21 +511,24 @@ class ReportService:
             'id': str(doc.id),
             'title': doc.title,
             'category': doc.category,
-            'location': doc.location.name if doc.location else None,
+            'tags': doc.tags,
             'is_published': doc.is_published,
+            'version': doc.version,
             'created_at': doc.created_at.isoformat(),
             'updated_at': doc.updated_at.isoformat(),
         }
 
     def _get_configurations(self, org):
         """Get all configurations for an organization."""
-        configs = Configuration.objects.filter(organization=org).select_related('location')
+        configs = Configuration.objects.filter(organization=org)
         return [
             {
                 'id': str(config.id),
                 'name': config.name,
                 'config_type': config.config_type,
-                'location': config.location.name if config.location else None,
+                'description': config.description,
+                'version': config.version,
+                'is_active': config.is_active,
                 'created_at': config.created_at.isoformat(),
                 'updated_at': config.updated_at.isoformat(),
             }
@@ -515,15 +537,14 @@ class ReportService:
 
     def _get_password_metadata(self, org):
         """Get password metadata (not actual passwords) for an organization."""
-        passwords = PasswordEntry.objects.filter(organization=org).select_related('location')
+        passwords = PasswordEntry.objects.filter(organization=org)
         return [
             {
                 'id': str(pwd.id),
-                'title': pwd.title,
+                'name': pwd.name,
                 'category': pwd.category,
                 'username': pwd.username,
                 'url': pwd.url,
-                'location': pwd.location.name if pwd.location else None,
                 'created_at': pwd.created_at.isoformat(),
                 'updated_at': pwd.updated_at.isoformat(),
             }

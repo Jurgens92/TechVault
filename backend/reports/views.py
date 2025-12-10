@@ -134,10 +134,15 @@ class ReportViewSet(viewsets.ViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
         except Exception as e:
-            return Response(
-                {'error': f'Error generating report: {str(e)}'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+                import traceback
+                print("=" * 50)
+                print("REPORT ERROR:")
+                print(traceback.format_exc())
+                print("=" * 50)
+                return Response(
+                    {'error': f'Error generating report: {str(e)}'},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
 
     @action(detail=False, methods=['post'], url_path='asset-inventory')
     def asset_inventory(self, request):
