@@ -1,11 +1,11 @@
+import csv
+import io
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.db.models import Q
 from django.http import HttpResponse
-import csv
-import io
 from .models import (
     Organization, Location, Contact, Documentation,
     PasswordEntry, Configuration, NetworkDevice, EndpointUser, Server, Peripheral, Software, Backup, VoIP,
@@ -210,6 +210,34 @@ class SoftDeleteViewSetMixin:
             )
 
 
+class OrganizationFilterMixin:
+    """Mixin to add organization and location filtering to ViewSets."""
+
+    @action(detail=False, methods=['get'])
+    def by_organization(self, request):
+        """Filter items by organization."""
+        org_id = request.query_params.get('organization_id')
+        if org_id:
+            queryset = self.get_queryset().filter(organization_id=org_id)
+            serializer = self.get_serializer(queryset, many=True)
+            return Response(serializer.data)
+        return Response([], status=status.HTTP_400_BAD_REQUEST)
+
+
+class LocationFilterMixin(OrganizationFilterMixin):
+    """Mixin for viewsets that also support location filtering."""
+
+    @action(detail=False, methods=['get'])
+    def by_location(self, request):
+        """Filter items by location."""
+        location_id = request.query_params.get('location_id')
+        if location_id:
+            queryset = self.get_queryset().filter(location_id=location_id)
+            serializer = self.get_serializer(queryset, many=True)
+            return Response(serializer.data)
+        return Response([], status=status.HTTP_400_BAD_REQUEST)
+
+
 class OrganizationViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for Organization CRUD operations."""
     serializer_class = OrganizationSerializer
@@ -251,7 +279,7 @@ class OrganizationViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
         })
 
 
-class LocationViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+class LocationViewSet(OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for Location CRUD operations."""
     serializer_class = LocationSerializer
     permission_classes = [IsAuthenticated]
@@ -266,17 +294,8 @@ class LocationViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
 
-    @action(detail=False, methods=['get'])
-    def by_organization(self, request):
-        org_id = request.query_params.get('organization_id')
-        if org_id:
-            locations = Location.objects.filter(organization_id=org_id)
-            serializer = self.get_serializer(locations, many=True)
-            return Response(serializer.data)
-        return Response([], status=status.HTTP_400_BAD_REQUEST)
 
-
-class ContactViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+class ContactViewSet(LocationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for Contact CRUD operations."""
     serializer_class = ContactSerializer
     permission_classes = [IsAuthenticated]
@@ -290,24 +309,6 @@ class ContactViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
-
-    @action(detail=False, methods=['get'])
-    def by_organization(self, request):
-        org_id = request.query_params.get('organization_id')
-        if org_id:
-            contacts = Contact.objects.filter(organization_id=org_id)
-            serializer = self.get_serializer(contacts, many=True)
-            return Response(serializer.data)
-        return Response([], status=status.HTTP_400_BAD_REQUEST)
-
-    @action(detail=False, methods=['get'])
-    def by_location(self, request):
-        location_id = request.query_params.get('location_id')
-        if location_id:
-            contacts = Contact.objects.filter(location_id=location_id)
-            serializer = self.get_serializer(contacts, many=True)
-            return Response(serializer.data)
-        return Response([], status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=False, methods=['get'])
     def download_example_csv(self, request):
@@ -409,7 +410,7 @@ class ContactViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
             )
 
 
-class DocumentationViewSet(VersionHistoryMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+class DocumentationViewSet(OrganizationFilterMixin, VersionHistoryMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for Documentation CRUD operations."""
     serializer_class = DocumentationSerializer
     permission_classes = [IsAuthenticated]
@@ -446,17 +447,8 @@ class DocumentationViewSet(VersionHistoryMixin, SoftDeleteViewSetMixin, viewsets
         documentation.save()
         return Response({'status': 'documentation unpublished'})
 
-    @action(detail=False, methods=['get'])
-    def by_organization(self, request):
-        org_id = request.query_params.get('organization_id')
-        if org_id:
-            documentations = Documentation.objects.filter(organization_id=org_id)
-            serializer = self.get_serializer(documentations, many=True)
-            return Response(serializer.data)
-        return Response([], status=status.HTTP_400_BAD_REQUEST)
 
-
-class PasswordEntryViewSet(VersionHistoryMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+class PasswordEntryViewSet(OrganizationFilterMixin, VersionHistoryMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for PasswordEntry CRUD operations."""
     serializer_class = PasswordEntrySerializer
     permission_classes = [IsAuthenticated]
@@ -479,17 +471,8 @@ class PasswordEntryViewSet(VersionHistoryMixin, SoftDeleteViewSetMixin, viewsets
         # Create initial version on create
         self._create_version(instance, 'Initial version')
 
-    @action(detail=False, methods=['get'])
-    def by_organization(self, request):
-        org_id = request.query_params.get('organization_id')
-        if org_id:
-            passwords = PasswordEntry.objects.filter(organization_id=org_id)
-            serializer = self.get_serializer(passwords, many=True)
-            return Response(serializer.data)
-        return Response([], status=status.HTTP_400_BAD_REQUEST)
 
-
-class ConfigurationViewSet(VersionHistoryMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+class ConfigurationViewSet(OrganizationFilterMixin, VersionHistoryMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for Configuration CRUD operations."""
     serializer_class = ConfigurationSerializer
     permission_classes = [IsAuthenticated]
@@ -512,17 +495,8 @@ class ConfigurationViewSet(VersionHistoryMixin, SoftDeleteViewSetMixin, viewsets
         # Create initial version on create
         self._create_version(instance, 'Initial version')
 
-    @action(detail=False, methods=['get'])
-    def by_organization(self, request):
-        org_id = request.query_params.get('organization_id')
-        if org_id:
-            configurations = Configuration.objects.filter(organization_id=org_id)
-            serializer = self.get_serializer(configurations, many=True)
-            return Response(serializer.data)
-        return Response([], status=status.HTTP_400_BAD_REQUEST)
 
-
-class NetworkDeviceViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+class NetworkDeviceViewSet(OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for NetworkDevice CRUD operations."""
     serializer_class = NetworkDeviceSerializer
     permission_classes = [IsAuthenticated]
@@ -537,17 +511,8 @@ class NetworkDeviceViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
 
-    @action(detail=False, methods=['get'])
-    def by_organization(self, request):
-        org_id = request.query_params.get('organization_id')
-        if org_id:
-            devices = NetworkDevice.objects.filter(organization_id=org_id)
-            serializer = self.get_serializer(devices, many=True)
-            return Response(serializer.data)
-        return Response([], status=status.HTTP_400_BAD_REQUEST)
 
-
-class EndpointUserViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+class EndpointUserViewSet(OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for EndpointUser CRUD operations."""
     serializer_class = EndpointUserSerializer
     permission_classes = [IsAuthenticated]
@@ -562,17 +527,8 @@ class EndpointUserViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
 
-    @action(detail=False, methods=['get'])
-    def by_organization(self, request):
-        org_id = request.query_params.get('organization_id')
-        if org_id:
-            endpoints = EndpointUser.objects.filter(organization_id=org_id)
-            serializer = self.get_serializer(endpoints, many=True)
-            return Response(serializer.data)
-        return Response([], status=status.HTTP_400_BAD_REQUEST)
 
-
-class ServerViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+class ServerViewSet(OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for Server CRUD operations."""
     serializer_class = ServerSerializer
     permission_classes = [IsAuthenticated]
@@ -587,17 +543,8 @@ class ServerViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
 
-    @action(detail=False, methods=['get'])
-    def by_organization(self, request):
-        org_id = request.query_params.get('organization_id')
-        if org_id:
-            servers = Server.objects.filter(organization_id=org_id)
-            serializer = self.get_serializer(servers, many=True)
-            return Response(serializer.data)
-        return Response([], status=status.HTTP_400_BAD_REQUEST)
 
-
-class PeripheralViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+class PeripheralViewSet(OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for Peripheral CRUD operations."""
     serializer_class = PeripheralSerializer
     permission_classes = [IsAuthenticated]
@@ -612,17 +559,8 @@ class PeripheralViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
 
-    @action(detail=False, methods=['get'])
-    def by_organization(self, request):
-        org_id = request.query_params.get('organization_id')
-        if org_id:
-            peripherals = Peripheral.objects.filter(organization_id=org_id)
-            serializer = self.get_serializer(peripherals, many=True)
-            return Response(serializer.data)
-        return Response([], status=status.HTTP_400_BAD_REQUEST)
 
-
-class SoftwareViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+class SoftwareViewSet(OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for Software CRUD operations."""
     serializer_class = SoftwareSerializer
     permission_classes = [IsAuthenticated]
@@ -640,22 +578,8 @@ class SoftwareViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
 
-    @action(detail=False, methods=['get'])
-    def by_organization(self, request):
-        org_id = request.query_params.get('organization_id')
-        if org_id:
-            software = Software.objects.filter(organization_id=org_id).select_related(
-                'organization'
-            ).prefetch_related(
-                'software_assignments__contact',
-                'software_assignments__created_by'
-            )
-            serializer = self.get_serializer(software, many=True)
-            return Response(serializer.data)
-        return Response([], status=status.HTTP_400_BAD_REQUEST)
 
-
-class BackupViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+class BackupViewSet(OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for Backup CRUD operations."""
     serializer_class = BackupSerializer
     permission_classes = [IsAuthenticated]
@@ -670,17 +594,8 @@ class BackupViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
 
-    @action(detail=False, methods=['get'])
-    def by_organization(self, request):
-        org_id = request.query_params.get('organization_id')
-        if org_id:
-            backups = Backup.objects.filter(organization_id=org_id)
-            serializer = self.get_serializer(backups, many=True)
-            return Response(serializer.data)
-        return Response([], status=status.HTTP_400_BAD_REQUEST)
 
-
-class VoIPViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+class VoIPViewSet(OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for VoIP CRUD operations."""
     serializer_class = VoIPSerializer
     permission_classes = [IsAuthenticated]
@@ -697,17 +612,3 @@ class VoIPViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
-
-    @action(detail=False, methods=['get'])
-    def by_organization(self, request):
-        org_id = request.query_params.get('organization_id')
-        if org_id:
-            voip = VoIP.objects.filter(organization_id=org_id).select_related(
-                'organization'
-            ).prefetch_related(
-                'voip_assignments__contact',
-                'voip_assignments__created_by'
-            )
-            serializer = self.get_serializer(voip, many=True)
-            return Response(serializer.data)
-        return Response([], status=status.HTTP_400_BAD_REQUEST)
