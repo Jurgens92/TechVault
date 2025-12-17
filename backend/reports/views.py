@@ -2,6 +2,7 @@
 API views for report generation and export.
 """
 import json
+import logging
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -11,6 +12,8 @@ from django.http import HttpResponse
 from .services import ReportService
 from .exporters import ExcelExporter, CSVExporter, PDFExporter
 from .export_import_service import OrganizationExportImportService
+
+logger = logging.getLogger(__name__)
 
 
 class ReportViewSet(viewsets.ViewSet):
@@ -134,15 +137,11 @@ class ReportViewSet(viewsets.ViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
         except Exception as e:
-                import traceback
-                print("=" * 50)
-                print("REPORT ERROR:")
-                print(traceback.format_exc())
-                print("=" * 50)
-                return Response(
-                    {'error': f'Error generating report: {str(e)}'},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
+            logger.exception("Error generating location report")
+            return Response(
+                {'error': f'Error generating report: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     @action(detail=False, methods=['post'], url_path='asset-inventory')
     def asset_inventory(self, request):
