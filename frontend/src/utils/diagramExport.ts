@@ -88,17 +88,21 @@ export function exportAsSVG(data: DiagramData, orgName: string): void {
 /**
  * Export diagram as professional PDF document
  * Matches the layout of Diagram.tsx for print with a light, printable theme
+ * Uses a single continuous page (no pagination) for cleaner output
  */
 export async function exportAsPDF(
   data: DiagramData,
   orgName: string,
   elementId?: string
 ): Promise<void> {
-  // Create PDF in landscape A4
+  // Calculate total height needed for content
+  const estimatedHeight = calculateTotalHeight(data);
+
+  // Create PDF with custom height to fit all content on one page
   const pdf = new jsPDF({
     orientation: 'landscape',
     unit: 'mm',
-    format: 'a4',
+    format: [297, Math.max(210, estimatedHeight + 40)], // A4 width, dynamic height
   });
 
   const pageWidth = pdf.internal.pageSize.getWidth();
@@ -127,61 +131,82 @@ export async function exportAsPDF(
   const yellowColor: [number, number, number] = [234, 179, 8]; // Yellow-500
   const yellowBgColor: [number, number, number] = [254, 252, 232]; // Yellow-50
 
-  // Helper function to add a new page if needed
-  const checkPageBreak = (requiredSpace: number): void => {
-    if (yPosition + requiredSpace > pageHeight - margin - 12) {
-      pdf.addPage();
-      addHeader(); // Add header to new page
-    }
-  };
+  // Helper to estimate total document height
+  function calculateTotalHeight(data: DiagramData): number {
+    let height = 50; // Title section
 
-  // Helper function to add header on each page
-  const addHeader = (): void => {
-    // Clean minimal header
-    pdf.setFillColor(...cardBgColor);
-    pdf.rect(0, 0, pageWidth, 12, 'F');
-    // Bottom border line
+    // Network section
+    if (data.network_devices.length > 0) {
+      height += 50; // Internet node + section header
+      const firewalls = data.network_devices.filter(d => d.device_type === 'firewall' || d.device_type === 'firewall_router' || d.device_type === 'router');
+      const switches = data.network_devices.filter(d => d.device_type === 'switch');
+      const wifiDevices = data.network_devices.filter(d => d.device_type === 'wifi');
+      if (firewalls.length > 0) height += 60;
+      if (switches.length > 0) height += 50;
+      if (wifiDevices.length > 0) height += 40;
+    }
+
+    // Endpoints section
+    if (data.endpoint_users.length > 0) {
+      const maxRows = Math.max(
+        data.endpoint_users.filter(e => e.device_type === 'desktop').length,
+        data.endpoint_users.filter(e => e.device_type === 'laptop').length,
+        data.endpoint_users.filter(e => e.device_type === 'workstation').length
+      );
+      height += 30 + (maxRows * 40);
+    }
+
+    // Servers section
+    if (data.servers.length > 0) {
+      const rows = Math.ceil(data.servers.length / 3);
+      height += 30 + (rows * 55);
+    }
+
+    // Peripherals section
+    if (data.peripherals.length > 0) {
+      const rows = Math.ceil(data.peripherals.length / 4);
+      height += 30 + (rows * 40);
+    }
+
+    // Backups section
+    if (data.backups.length > 0) {
+      const rows = Math.ceil(data.backups.length / 2);
+      height += 30 + (rows * 60);
+    }
+
+    // Software section
+    if (data.software.length > 0) {
+      const rows = Math.ceil(data.software.length / 3);
+      height += 30 + (rows * 45);
+    }
+
+    // VoIP section
+    if (data.voip.length > 0) {
+      const rows = Math.ceil(data.voip.length / 3);
+      height += 30 + (rows * 45);
+    }
+
+    return height;
+  }
+
+  // Helper function to add footer at the end
+  const addFooter = (): void => {
     pdf.setDrawColor(...borderColor);
     pdf.setLineWidth(0.3);
-    pdf.line(0, 12, pageWidth, 12);
+    pdf.line(margin, yPosition + 10, pageWidth - margin, yPosition + 10);
 
-    pdf.setTextColor(...primaryColor);
-    pdf.setFontSize(10);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('TechVault', margin, 8);
-
+    pdf.setFontSize(7);
     pdf.setTextColor(...mutedColor);
-    pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(9);
-    pdf.text(`${orgName} • IT Infrastructure Diagram`, pageWidth - margin, 8, { align: 'right' });
-    yPosition = 18;
-  };
-
-  // Helper function to add footer
-  const addFooter = (): void => {
-    const pageCount = pdf.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      pdf.setPage(i);
-      // Top border line for footer
-      pdf.setDrawColor(...borderColor);
-      pdf.setLineWidth(0.3);
-      pdf.line(margin, pageHeight - 10, pageWidth - margin, pageHeight - 10);
-
-      pdf.setFontSize(7);
-      pdf.setTextColor(...mutedColor);
-      pdf.text(
-        `Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}`,
-        margin,
-        pageHeight - 5
-      );
-      pdf.text(`Page ${i} of ${pageCount}`, pageWidth - margin, pageHeight - 5, { align: 'right' });
-    }
+    pdf.text(
+      `Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}`,
+      margin,
+      yPosition + 16
+    );
+    pdf.text('TechVault • IT Infrastructure Diagram', pageWidth - margin, yPosition + 16, { align: 'right' });
   };
 
   // Helper to draw section header matching web view style
   const drawSectionHeader = (title: string, iconColor: [number, number, number], iconBgColor: [number, number, number]): void => {
-    checkPageBreak(24);
-
     // Section container with border (like web view cards)
     pdf.setDrawColor(...borderColor);
     pdf.setLineWidth(0.4);
@@ -276,10 +301,6 @@ export async function exportAsPDF(
   // ==================== NETWORK INFRASTRUCTURE ====================
   // Matches the hierarchical layout in Diagram.tsx with light theme
   if (data.network_devices.length > 0) {
-    // Draw section container box (like web view)
-    const networkSectionHeight = calculateNetworkSectionHeight(data.network_devices);
-    checkPageBreak(networkSectionHeight + 20);
-
     // Section header with icon
     drawSectionHeader('Network Infrastructure', primaryColor, blueBgColor);
 
@@ -532,7 +553,6 @@ export async function exportAsPDF(
   // ==================== USER ENDPOINTS ====================
   // 3 columns: Desktops, Laptops, Workstations (matching web view)
   if (data.endpoint_users.length > 0) {
-    checkPageBreak(70);
     drawSectionHeader('User Endpoints', mutedColor, accentBgColor);
 
     const desktops = data.endpoint_users.filter(e => e.device_type === 'desktop');
@@ -620,8 +640,6 @@ export async function exportAsPDF(
     };
 
     for (let row = 0; row < maxRows; row++) {
-      checkPageBreak(cardHeight + cardGap);
-
       if (desktops[row]) {
         drawEndpointCard(desktops[row], col1X, yPosition, colWidth);
       }
@@ -640,7 +658,6 @@ export async function exportAsPDF(
 
   // ==================== SERVERS ====================
   if (data.servers.length > 0) {
-    checkPageBreak(55);
     drawSectionHeader('Servers', mutedColor, accentBgColor);
 
     const cardsPerRow = 3;
@@ -653,7 +670,6 @@ export async function exportAsPDF(
 
       if (col === 0 && index > 0) {
         yPosition += cardHeight + cardGap;
-        checkPageBreak(cardHeight + cardGap);
       }
 
       const x = margin + col * (cardWidth + cardGap);
@@ -732,7 +748,6 @@ export async function exportAsPDF(
 
   // ==================== PERIPHERALS ====================
   if (data.peripherals.length > 0) {
-    checkPageBreak(45);
     drawSectionHeader('Peripherals', mutedColor, accentBgColor);
 
     const cardsPerRow = 4;
@@ -745,7 +760,6 @@ export async function exportAsPDF(
 
       if (col === 0 && index > 0) {
         yPosition += cardHeight + cardGap;
-        checkPageBreak(cardHeight + cardGap);
       }
 
       const x = margin + col * (cardWidth + cardGap);
@@ -796,7 +810,6 @@ export async function exportAsPDF(
 
   // ==================== BACKUPS ====================
   if (data.backups.length > 0) {
-    checkPageBreak(55);
     drawSectionHeader('Backups', mutedColor, accentBgColor);
 
     const cardsPerRow = 2;
@@ -809,7 +822,6 @@ export async function exportAsPDF(
 
       if (col === 0 && index > 0) {
         yPosition += cardHeight + cardGap;
-        checkPageBreak(cardHeight + cardGap);
       }
 
       const x = margin + col * (cardWidth + cardGap);
@@ -907,7 +919,6 @@ export async function exportAsPDF(
 
   // ==================== SOFTWARE ====================
   if (data.software.length > 0) {
-    checkPageBreak(45);
     drawSectionHeader('Software', mutedColor, accentBgColor);
 
     const cardsPerRow = 3;
@@ -920,7 +931,6 @@ export async function exportAsPDF(
 
       if (col === 0 && index > 0) {
         yPosition += cardHeight + cardGap;
-        checkPageBreak(cardHeight + cardGap);
       }
 
       const x = margin + col * (cardWidth + cardGap);
@@ -978,7 +988,6 @@ export async function exportAsPDF(
 
   // ==================== VOIP ====================
   if (data.voip.length > 0) {
-    checkPageBreak(45);
     drawSectionHeader('VoIP Services', mutedColor, accentBgColor);
 
     const cardsPerRow = 3;
@@ -991,7 +1000,6 @@ export async function exportAsPDF(
 
       if (col === 0 && index > 0) {
         yPosition += cardHeight + cardGap;
-        checkPageBreak(cardHeight + cardGap);
       }
 
       const x = margin + col * (cardWidth + cardGap);
