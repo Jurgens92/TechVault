@@ -131,7 +131,7 @@ export async function exportAsPDF(
   const checkPageBreak = (requiredSpace: number): void => {
     if (yPosition + requiredSpace > pageHeight - margin - 12) {
       pdf.addPage();
-      yPosition = margin + 8;
+      addHeader(); // Add header to new page
     }
   };
 
@@ -581,12 +581,12 @@ export async function exportAsPDF(
       pdf.setFont('helvetica', 'bold');
       pdf.text(truncateText(endpoint.name, width - 20), x + 17, y + 8);
 
-      // User
+      // User (using text instead of emoji since jsPDF doesn't support emojis)
       if (endpoint.assigned_to_name) {
         pdf.setFont('helvetica', 'normal');
         pdf.setFontSize(6);
         pdf.setTextColor(...mutedColor);
-        pdf.text(truncateText(`👤 ${endpoint.assigned_to_name}`, width - 20), x + 17, y + 12);
+        pdf.text(truncateText(`User: ${endpoint.assigned_to_name}`, width - 20), x + 17, y + 12);
       }
 
       // Details
