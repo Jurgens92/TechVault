@@ -87,7 +87,7 @@ export function exportAsSVG(data: DiagramData, orgName: string): void {
 
 /**
  * Export diagram as professional PDF document
- * Matches the layout of Diagram.tsx for print
+ * Matches the layout of Diagram.tsx for print with a light, printable theme
  */
 export async function exportAsPDF(
   data: DiagramData,
@@ -103,39 +103,58 @@ export async function exportAsPDF(
 
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
-  const margin = 12;
+  const margin = 15;
   const contentWidth = pageWidth - margin * 2;
   let yPosition = margin;
 
-  // Colors
-  const primaryColor: [number, number, number] = [59, 130, 246]; // Blue
-  const darkColor: [number, number, number] = [30, 41, 59]; // Slate-800
-  const grayColor: [number, number, number] = [100, 116, 139]; // Slate-500
-  const lightGray: [number, number, number] = [241, 245, 249]; // Slate-100
-  const greenColor: [number, number, number] = [34, 197, 94]; // Green-500
+  // Colors - Light theme matching web view
+  const primaryColor: [number, number, number] = [59, 130, 246]; // Blue-500
+  const darkColor: [number, number, number] = [15, 23, 42]; // Slate-900
+  const textColor: [number, number, number] = [30, 41, 59]; // Slate-800
+  const mutedColor: [number, number, number] = [100, 116, 139]; // Slate-500
+  const borderColor: [number, number, number] = [226, 232, 240]; // Slate-200
+  const cardBgColor: [number, number, number] = [255, 255, 255]; // White
+  const accentBgColor: [number, number, number] = [248, 250, 252]; // Slate-50
+
+  // Semantic colors
   const redColor: [number, number, number] = [239, 68, 68]; // Red-500
+  const redBgColor: [number, number, number] = [254, 242, 242]; // Red-50
+  const greenColor: [number, number, number] = [34, 197, 94]; // Green-500
+  const greenBgColor: [number, number, number] = [240, 253, 244]; // Green-50
   const purpleColor: [number, number, number] = [168, 85, 247]; // Purple-500
-  const blueColor: [number, number, number] = [59, 130, 246]; // Blue-500
+  const purpleBgColor: [number, number, number] = [250, 245, 255]; // Purple-50
+  const blueBgColor: [number, number, number] = [239, 246, 255]; // Blue-50
+  const yellowColor: [number, number, number] = [234, 179, 8]; // Yellow-500
+  const yellowBgColor: [number, number, number] = [254, 252, 232]; // Yellow-50
 
   // Helper function to add a new page if needed
   const checkPageBreak = (requiredSpace: number): void => {
-    if (yPosition + requiredSpace > pageHeight - margin - 10) {
+    if (yPosition + requiredSpace > pageHeight - margin - 12) {
       pdf.addPage();
-      yPosition = margin;
+      yPosition = margin + 8;
     }
   };
 
   // Helper function to add header on each page
   const addHeader = (): void => {
-    pdf.setFillColor(...primaryColor);
-    pdf.rect(0, 0, pageWidth, 10, 'F');
-    pdf.setTextColor(255, 255, 255);
-    pdf.setFontSize(9);
+    // Clean minimal header
+    pdf.setFillColor(...cardBgColor);
+    pdf.rect(0, 0, pageWidth, 12, 'F');
+    // Bottom border line
+    pdf.setDrawColor(...borderColor);
+    pdf.setLineWidth(0.3);
+    pdf.line(0, 12, pageWidth, 12);
+
+    pdf.setTextColor(...primaryColor);
+    pdf.setFontSize(10);
     pdf.setFont('helvetica', 'bold');
-    pdf.text('TechVault', margin, 7);
+    pdf.text('TechVault', margin, 8);
+
+    pdf.setTextColor(...mutedColor);
     pdf.setFont('helvetica', 'normal');
-    pdf.text(`${orgName} - IT Infrastructure Diagram`, pageWidth - margin, 7, { align: 'right' });
-    yPosition = 16;
+    pdf.setFontSize(9);
+    pdf.text(`${orgName} • IT Infrastructure Diagram`, pageWidth - margin, 8, { align: 'right' });
+    yPosition = 18;
   };
 
   // Helper function to add footer
@@ -143,41 +162,60 @@ export async function exportAsPDF(
     const pageCount = pdf.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
       pdf.setPage(i);
+      // Top border line for footer
+      pdf.setDrawColor(...borderColor);
+      pdf.setLineWidth(0.3);
+      pdf.line(margin, pageHeight - 10, pageWidth - margin, pageHeight - 10);
+
       pdf.setFontSize(7);
-      pdf.setTextColor(...grayColor);
+      pdf.setTextColor(...mutedColor);
       pdf.text(
         `Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}`,
         margin,
-        pageHeight - 6
+        pageHeight - 5
       );
-      pdf.text(`Page ${i} of ${pageCount}`, pageWidth - margin, pageHeight - 6, { align: 'right' });
+      pdf.text(`Page ${i} of ${pageCount}`, pageWidth - margin, pageHeight - 5, { align: 'right' });
     }
   };
 
-  // Helper to draw section box with title and icon
-  const drawSectionBox = (title: string, iconType: string): void => {
-    checkPageBreak(20);
-    pdf.setDrawColor(200, 200, 200);
-    pdf.setLineWidth(0.3);
-    // Section title background
-    pdf.setFillColor(...primaryColor);
-    pdf.roundedRect(margin, yPosition, contentWidth, 9, 1.5, 1.5, 'F');
-    pdf.setTextColor(255, 255, 255);
-    pdf.setFontSize(10);
+  // Helper to draw section header matching web view style
+  const drawSectionHeader = (title: string, iconColor: [number, number, number], iconBgColor: [number, number, number]): void => {
+    checkPageBreak(24);
+
+    // Section container with border (like web view cards)
+    pdf.setDrawColor(...borderColor);
+    pdf.setLineWidth(0.4);
+    pdf.setFillColor(...cardBgColor);
+
+    // Icon background circle
+    const iconSize = 8;
+    pdf.setFillColor(...iconBgColor);
+    pdf.roundedRect(margin, yPosition, iconSize + 4, iconSize + 4, 2, 2, 'F');
+
+    // Draw a simple icon indicator (circle)
+    pdf.setFillColor(...iconColor);
+    pdf.circle(margin + (iconSize + 4) / 2, yPosition + (iconSize + 4) / 2, 2, 'F');
+
+    // Section title
+    pdf.setTextColor(...darkColor);
+    pdf.setFontSize(12);
     pdf.setFont('helvetica', 'bold');
-    pdf.text(title, margin + 4, yPosition + 6.5);
-    yPosition += 13;
+    pdf.text(title, margin + iconSize + 8, yPosition + 8);
+
+    yPosition += 16;
   };
 
-  // Helper to draw a small badge
-  const drawBadge = (x: number, y: number, text: string, color: [number, number, number]): void => {
-    const badgeWidth = pdf.getTextWidth(text) + 4;
-    pdf.setFillColor(color[0], color[1], color[2], 0.15);
-    pdf.roundedRect(x, y - 3, badgeWidth, 4.5, 1, 1, 'F');
-    pdf.setTextColor(...color);
+  // Helper to draw a badge (like web view)
+  const drawBadge = (x: number, y: number, text: string, bgColor: [number, number, number], textColorArr: [number, number, number]): void => {
     pdf.setFontSize(6);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text(text, x + 2, y);
+    const badgeWidth = pdf.getTextWidth(text) + 6;
+    const badgeHeight = 5;
+
+    pdf.setFillColor(...bgColor);
+    pdf.roundedRect(x, y - badgeHeight + 1, badgeWidth, badgeHeight, 1.5, 1.5, 'F');
+    pdf.setTextColor(...textColorArr);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(text, x + 3, y - 0.5);
   };
 
   // Helper to truncate text
@@ -190,28 +228,62 @@ export async function exportAsPDF(
     return text + '...';
   };
 
+  // Helper to draw a card with icon (matching web view style)
+  const drawCard = (
+    x: number,
+    y: number,
+    width: number,
+    height: number
+  ): void => {
+    // Card shadow effect (subtle)
+    pdf.setFillColor(240, 240, 240);
+    pdf.roundedRect(x + 0.5, y + 0.5, width, height, 3, 3, 'F');
+
+    // Card background
+    pdf.setFillColor(...cardBgColor);
+    pdf.setDrawColor(...borderColor);
+    pdf.setLineWidth(0.4);
+    pdf.roundedRect(x, y, width, height, 3, 3, 'FD');
+  };
+
+  // Helper to draw icon background (like web view bg-color/10)
+  const drawIconBg = (
+    x: number,
+    y: number,
+    size: number,
+    bgColor: [number, number, number]
+  ): void => {
+    pdf.setFillColor(...bgColor);
+    pdf.roundedRect(x, y, size, size, 2, 2, 'F');
+  };
+
   // Add first page header
   addHeader();
 
   // Title Section
   pdf.setTextColor(...darkColor);
-  pdf.setFontSize(18);
+  pdf.setFontSize(20);
   pdf.setFont('helvetica', 'bold');
-  pdf.text(orgName, margin, yPosition + 5);
-  yPosition += 8;
-
-  pdf.setFontSize(10);
-  pdf.setTextColor(...grayColor);
-  pdf.setFont('helvetica', 'normal');
-  pdf.text('IT Infrastructure Diagram', margin, yPosition + 3);
+  pdf.text(orgName, margin, yPosition + 6);
   yPosition += 10;
 
-  // ==================== NETWORK INFRASTRUCTURE ====================
-  // Matches the hierarchical layout in Diagram.tsx
-  if (data.network_devices.length > 0) {
-    drawSectionBox('Network Infrastructure', 'network');
+  pdf.setFontSize(11);
+  pdf.setTextColor(...mutedColor);
+  pdf.setFont('helvetica', 'normal');
+  pdf.text('IT Infrastructure Diagram', margin, yPosition + 3);
+  yPosition += 12;
 
-    const firewalls = data.network_devices.filter(d => 
+  // ==================== NETWORK INFRASTRUCTURE ====================
+  // Matches the hierarchical layout in Diagram.tsx with light theme
+  if (data.network_devices.length > 0) {
+    // Draw section container box (like web view)
+    const networkSectionHeight = calculateNetworkSectionHeight(data.network_devices);
+    checkPageBreak(networkSectionHeight + 20);
+
+    // Section header with icon
+    drawSectionHeader('Network Infrastructure', primaryColor, blueBgColor);
+
+    const firewalls = data.network_devices.filter(d =>
       d.device_type === 'firewall' || d.device_type === 'firewall_router' || d.device_type === 'router'
     );
     const switches = data.network_devices.filter(d => d.device_type === 'switch');
@@ -219,291 +291,337 @@ export async function exportAsPDF(
 
     const centerX = pageWidth / 2;
 
-    // Internet circle with globe icon (drawn as circle with crosshairs)
-    pdf.setFillColor(...blueColor);
-    pdf.circle(centerX, yPosition + 8, 8, 'F');
+    // Internet node - gradient-like circle (matching web view)
+    const internetRadius = 12;
+    // Outer gradient effect
+    pdf.setFillColor(147, 197, 253); // Blue-300
+    pdf.circle(centerX, yPosition + internetRadius, internetRadius, 'F');
+    // Inner circle
+    pdf.setFillColor(...primaryColor);
+    pdf.circle(centerX, yPosition + internetRadius, internetRadius - 2, 'F');
+    // Globe icon (simplified)
     pdf.setDrawColor(255, 255, 255);
     pdf.setLineWidth(0.8);
-    pdf.circle(centerX, yPosition + 8, 4, 'S');
-    pdf.line(centerX - 6, yPosition + 8, centerX + 6, yPosition + 8);
-    pdf.line(centerX, yPosition + 2, centerX, yPosition + 14);
-    pdf.setTextColor(...darkColor);
-    pdf.setFontSize(8);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text('Internet', centerX, yPosition + 20, { align: 'center' });
-    yPosition += 24;
+    pdf.circle(centerX, yPosition + internetRadius, 5, 'S');
+    pdf.line(centerX - 6, yPosition + internetRadius, centerX + 6, yPosition + internetRadius);
+    pdf.line(centerX, yPosition + internetRadius - 6, centerX, yPosition + internetRadius + 6);
+    // Curved lines for globe
+    pdf.ellipse(centerX, yPosition + internetRadius, 3, 6, 'S');
+
+    pdf.setTextColor(...textColor);
+    pdf.setFontSize(9);
+    pdf.setFont('helvetica', 'medium');
+    pdf.text('Internet', centerX, yPosition + internetRadius * 2 + 5, { align: 'center' });
+    yPosition += internetRadius * 2 + 10;
 
     // Connection line
-    pdf.setDrawColor(...grayColor);
-    pdf.setLineWidth(0.5);
-    pdf.line(centerX, yPosition, centerX, yPosition + 6);
-    yPosition += 8;
+    pdf.setDrawColor(...borderColor);
+    pdf.setLineWidth(0.8);
+    pdf.line(centerX, yPosition, centerX, yPosition + 8);
+    yPosition += 10;
 
     // Firewalls/Routers
     if (firewalls.length > 0) {
-      const fwCardWidth = 55;
-      const fwCardHeight = 32;
-      const fwGap = 8;
-      const totalFwWidth = firewalls.length * fwCardWidth + (firewalls.length - 1) * fwGap;
+      const fwCardWidth = 65;
+      const fwCardHeight = 42;
+      const fwGap = 10;
+      const totalFwWidth = Math.min(firewalls.length, 4) * fwCardWidth + (Math.min(firewalls.length, 4) - 1) * fwGap;
       let fwStartX = centerX - totalFwWidth / 2;
 
       firewalls.forEach((fw, idx) => {
+        if (idx >= 4) return; // Limit to 4 per row
         const x = fwStartX + idx * (fwCardWidth + fwGap);
-        
-        // Card
-        pdf.setFillColor(255, 255, 255);
-        pdf.setDrawColor(200, 200, 200);
-        pdf.setLineWidth(0.3);
-        pdf.roundedRect(x, yPosition, fwCardWidth, fwCardHeight, 2, 2, 'FD');
-        
-        // Shield icon (drawn as shape)
-        pdf.setFillColor(254, 226, 226); // Red light
-        pdf.roundedRect(x + fwCardWidth/2 - 6, yPosition + 2, 12, 11, 1, 1, 'F');
+
+        // Card with shadow
+        drawCard(x, yPosition, fwCardWidth, fwCardHeight);
+
+        // Icon background (red/10)
+        const iconSize = 14;
+        drawIconBg(x + (fwCardWidth - iconSize) / 2, yPosition + 4, iconSize, redBgColor);
+
+        // Shield icon
         pdf.setFillColor(...redColor);
+        const shieldX = x + fwCardWidth / 2;
+        const shieldY = yPosition + 11;
         // Draw shield shape
         pdf.setDrawColor(...redColor);
-        pdf.setLineWidth(0.6);
-        const shieldX = x + fwCardWidth/2;
-        const shieldY = yPosition + 7;
-        pdf.line(shieldX - 3, shieldY - 2, shieldX, shieldY - 4);
-        pdf.line(shieldX, shieldY - 4, shieldX + 3, shieldY - 2);
-        pdf.line(shieldX + 3, shieldY - 2, shieldX + 3, shieldY + 1);
-        pdf.line(shieldX + 3, shieldY + 1, shieldX, shieldY + 4);
-        pdf.line(shieldX, shieldY + 4, shieldX - 3, shieldY + 1);
-        pdf.line(shieldX - 3, shieldY + 1, shieldX - 3, shieldY - 2);
-        
+        pdf.setLineWidth(1);
+        pdf.line(shieldX - 4, shieldY - 3, shieldX, shieldY - 5);
+        pdf.line(shieldX, shieldY - 5, shieldX + 4, shieldY - 3);
+        pdf.line(shieldX + 4, shieldY - 3, shieldX + 4, shieldY + 1);
+        pdf.line(shieldX + 4, shieldY + 1, shieldX, shieldY + 5);
+        pdf.line(shieldX, shieldY + 5, shieldX - 4, shieldY + 1);
+        pdf.line(shieldX - 4, shieldY + 1, shieldX - 4, shieldY - 3);
+
         // Name
-        pdf.setTextColor(...darkColor);
-        pdf.setFontSize(7);
+        pdf.setTextColor(...textColor);
+        pdf.setFontSize(8);
         pdf.setFont('helvetica', 'bold');
-        const fwName = truncateText(fw.name, fwCardWidth - 6);
-        pdf.text(fwName, x + fwCardWidth/2, yPosition + 17, { align: 'center' });
-        
-        // Details
+        const fwName = truncateText(fw.name, fwCardWidth - 8);
+        pdf.text(fwName, x + fwCardWidth / 2, yPosition + 22, { align: 'center' });
+
+        // Manufacturer
         pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(6);
-        pdf.setTextColor(...grayColor);
+        pdf.setFontSize(6.5);
+        pdf.setTextColor(...mutedColor);
         if (fw.manufacturer) {
-          pdf.text(truncateText(fw.manufacturer, fwCardWidth - 6), x + fwCardWidth/2, yPosition + 21, { align: 'center' });
+          pdf.text(truncateText(`${fw.manufacturer} ${fw.model || ''}`, fwCardWidth - 8), x + fwCardWidth / 2, yPosition + 27, { align: 'center' });
         }
+
+        // Internet speed (highlighted)
         if (fw.internet_speed) {
-          pdf.setTextColor(...blueColor);
-          pdf.text(truncateText(fw.internet_speed, fwCardWidth - 6), x + fwCardWidth/2, yPosition + 25, { align: 'center' });
+          pdf.setTextColor(...primaryColor);
+          pdf.setFont('helvetica', 'bold');
+          pdf.setFontSize(7);
+          pdf.text(truncateText(fw.internet_speed, fwCardWidth - 8), x + fwCardWidth / 2, yPosition + 32, { align: 'center' });
         }
+
+        // IP Address
         if (fw.ip_address) {
-          pdf.setTextColor(...grayColor);
+          pdf.setTextColor(...mutedColor);
           pdf.setFont('courier', 'normal');
-          pdf.setFontSize(5);
-          pdf.text(fw.ip_address, x + fwCardWidth/2, yPosition + 29, { align: 'center' });
+          pdf.setFontSize(5.5);
+          pdf.text(fw.ip_address, x + fwCardWidth / 2, yPosition + 38, { align: 'center' });
         }
       });
-      
-      yPosition += fwCardHeight + 4;
-      
+
+      yPosition += fwCardHeight + 6;
+
       // Connection line
-      pdf.setDrawColor(...grayColor);
-      pdf.setLineWidth(0.5);
-      pdf.line(centerX, yPosition, centerX, yPosition + 6);
-      yPosition += 8;
+      pdf.setDrawColor(...borderColor);
+      pdf.setLineWidth(0.8);
+      pdf.line(centerX, yPosition, centerX, yPosition + 8);
+      yPosition += 10;
     }
 
     // Switches
     if (switches.length > 0) {
-      const swCardWidth = 50;
-      const swCardHeight = 26;
-      const swGap = 8;
-      const totalSwWidth = switches.length * swCardWidth + (switches.length - 1) * swGap;
+      const swCardWidth = 58;
+      const swCardHeight = 36;
+      const swGap = 10;
+      const totalSwWidth = Math.min(switches.length, 4) * swCardWidth + (Math.min(switches.length, 4) - 1) * swGap;
       let swStartX = centerX - totalSwWidth / 2;
 
       switches.forEach((sw, idx) => {
+        if (idx >= 4) return;
         const x = swStartX + idx * (swCardWidth + swGap);
-        
+
         // Card
-        pdf.setFillColor(255, 255, 255);
-        pdf.setDrawColor(200, 200, 200);
-        pdf.setLineWidth(0.3);
-        pdf.roundedRect(x, yPosition, swCardWidth, swCardHeight, 2, 2, 'FD');
-        
-        // Switch icon (network symbol - box with dots)
-        pdf.setFillColor(220, 252, 231); // Green light
-        pdf.roundedRect(x + swCardWidth/2 - 6, yPosition + 2, 12, 9, 1, 1, 'F');
+        drawCard(x, yPosition, swCardWidth, swCardHeight);
+
+        // Icon background (green/10)
+        const iconSize = 14;
+        drawIconBg(x + (swCardWidth - iconSize) / 2, yPosition + 3, iconSize, greenBgColor);
+
+        // Switch icon (network dots)
         pdf.setFillColor(...greenColor);
-        pdf.circle(x + swCardWidth/2 - 3, yPosition + 6.5, 1, 'F');
-        pdf.circle(x + swCardWidth/2, yPosition + 6.5, 1, 'F');
-        pdf.circle(x + swCardWidth/2 + 3, yPosition + 6.5, 1, 'F');
-        
+        const dotY = yPosition + 10;
+        pdf.circle(x + swCardWidth / 2 - 4, dotY, 1.5, 'F');
+        pdf.circle(x + swCardWidth / 2, dotY, 1.5, 'F');
+        pdf.circle(x + swCardWidth / 2 + 4, dotY, 1.5, 'F');
+
         // Name
-        pdf.setTextColor(...darkColor);
-        pdf.setFontSize(7);
+        pdf.setTextColor(...textColor);
+        pdf.setFontSize(7.5);
         pdf.setFont('helvetica', 'bold');
-        pdf.text(truncateText(sw.name, swCardWidth - 4), x + swCardWidth/2, yPosition + 15, { align: 'center' });
-        
-        // Details
+        pdf.text(truncateText(sw.name, swCardWidth - 6), x + swCardWidth / 2, yPosition + 22, { align: 'center' });
+
+        // Manufacturer
         pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(5);
-        pdf.setTextColor(...grayColor);
+        pdf.setFontSize(6);
+        pdf.setTextColor(...mutedColor);
         if (sw.manufacturer) {
-          pdf.text(truncateText(sw.manufacturer, swCardWidth - 4), x + swCardWidth/2, yPosition + 19, { align: 'center' });
+          pdf.text(truncateText(sw.manufacturer, swCardWidth - 6), x + swCardWidth / 2, yPosition + 27, { align: 'center' });
         }
+
+        // IP
         if (sw.ip_address) {
           pdf.setFont('courier', 'normal');
-          pdf.text(sw.ip_address, x + swCardWidth/2, yPosition + 23, { align: 'center' });
+          pdf.setFontSize(5.5);
+          pdf.text(sw.ip_address, x + swCardWidth / 2, yPosition + 32, { align: 'center' });
         }
       });
-      
-      yPosition += swCardHeight + 6;
+
+      yPosition += swCardHeight + 8;
     }
 
     // WiFi Devices
     if (wifiDevices.length > 0) {
-      const wifiCardWidth = 60;
-      const wifiCardHeight = 20;
-      const wifiGap = 6;
-      const totalWifiWidth = wifiDevices.length * wifiCardWidth + (wifiDevices.length - 1) * wifiGap;
+      const wifiCardWidth = 70;
+      const wifiCardHeight = 26;
+      const wifiGap = 8;
+      const maxPerRow = Math.floor((contentWidth + wifiGap) / (wifiCardWidth + wifiGap));
+      const visibleWifi = wifiDevices.slice(0, maxPerRow);
+      const totalWifiWidth = visibleWifi.length * wifiCardWidth + (visibleWifi.length - 1) * wifiGap;
       let wifiStartX = centerX - totalWifiWidth / 2;
 
-      wifiDevices.forEach((wifi, idx) => {
+      visibleWifi.forEach((wifi, idx) => {
         const x = wifiStartX + idx * (wifiCardWidth + wifiGap);
-        
+
         // Card - horizontal layout
-        pdf.setFillColor(255, 255, 255);
-        pdf.setDrawColor(200, 200, 200);
-        pdf.setLineWidth(0.3);
-        pdf.roundedRect(x, yPosition, wifiCardWidth, wifiCardHeight, 2, 2, 'FD');
-        
-        // WiFi icon (arcs)
-        pdf.setFillColor(243, 232, 255); // Purple light
-        pdf.roundedRect(x + 2, yPosition + 3, 14, 14, 1, 1, 'F');
+        drawCard(x, yPosition, wifiCardWidth, wifiCardHeight);
+
+        // Icon background (purple/10)
+        const iconSize = 12;
+        drawIconBg(x + 4, yPosition + (wifiCardHeight - iconSize) / 2, iconSize, purpleBgColor);
+
+        // WiFi icon
+        pdf.setFillColor(...purpleColor);
+        const wifiX = x + 10;
+        const wifiY = yPosition + wifiCardHeight / 2 + 3;
+        pdf.circle(wifiX, wifiY, 1.2, 'F');
+
+        // WiFi arcs
         pdf.setDrawColor(...purpleColor);
-        pdf.setLineWidth(0.5);
-        // Draw wifi arcs
-        const wifiX = x + 9;
-        const wifiY = yPosition + 13;
-        pdf.circle(wifiX, wifiY, 1, 'F');
-        // Arc 1 (approximate with lines)
+        pdf.setLineWidth(0.6);
         drawArc(pdf, wifiX, wifiY, 3, 220, 320);
-        // Arc 2 (approximate with lines)
         drawArc(pdf, wifiX, wifiY, 5, 220, 320);
 
-    // Helper to draw an arc using lines (jsPDF does not support arc natively)
-    function drawArc(pdf: any, cx: number, cy: number, r: number, startAngle: number, endAngle: number) {
-      const segments = 20;
-      const points = [];
-      for (let i = 0; i <= segments; i++) {
-        const angle = (startAngle + (endAngle - startAngle) * (i / segments)) * Math.PI / 180;
-        points.push([
-          cx + r * Math.cos(angle),
-          cy + r * Math.sin(angle)
-        ]);
-      }
-      for (let i = 0; i < points.length - 1; i++) {
-        pdf.line(points[i][0], points[i][1], points[i + 1][0], points[i + 1][1]);
-      }
-    }
-        
         // Name and details
-        pdf.setTextColor(...darkColor);
-        pdf.setFontSize(6);
+        pdf.setTextColor(...textColor);
+        pdf.setFontSize(7);
         pdf.setFont('helvetica', 'bold');
-        pdf.text(truncateText(wifi.name, wifiCardWidth - 20), x + 18, yPosition + 6);
-        
+        pdf.text(truncateText(wifi.name, wifiCardWidth - 22), x + 20, yPosition + 8);
+
         pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(5);
-        pdf.setTextColor(...grayColor);
+        pdf.setFontSize(5.5);
+        pdf.setTextColor(...mutedColor);
         if (wifi.manufacturer) {
-          pdf.text(truncateText(`${wifi.manufacturer} ${wifi.model || ''}`, wifiCardWidth - 20), x + 18, yPosition + 10);
+          pdf.text(truncateText(`${wifi.manufacturer} ${wifi.model || ''}`, wifiCardWidth - 22), x + 20, yPosition + 13);
         }
         if (wifi.ip_address) {
           pdf.setFont('courier', 'normal');
-          pdf.text(wifi.ip_address, x + 18, yPosition + 14);
+          pdf.text(wifi.ip_address, x + 20, yPosition + 18);
         }
       });
-      
-      yPosition += wifiCardHeight + 6;
+
+      yPosition += wifiCardHeight + 8;
     }
 
-    yPosition += 8;
+    yPosition += 10;
+  }
+
+  // Helper to draw an arc using lines (jsPDF does not support arc natively)
+  function drawArc(pdf: jsPDF, cx: number, cy: number, r: number, startAngle: number, endAngle: number) {
+    const segments = 20;
+    const points: number[][] = [];
+    for (let i = 0; i <= segments; i++) {
+      const angle = (startAngle + (endAngle - startAngle) * (i / segments)) * Math.PI / 180;
+      points.push([
+        cx + r * Math.cos(angle),
+        cy + r * Math.sin(angle)
+      ]);
+    }
+    for (let i = 0; i < points.length - 1; i++) {
+      pdf.line(points[i][0], points[i][1], points[i + 1][0], points[i + 1][1]);
+    }
+  }
+
+  // Helper to calculate network section height
+  function calculateNetworkSectionHeight(devices: DiagramData['network_devices']): number {
+    let height = 50; // Base for internet node
+    const firewalls = devices.filter(d => d.device_type === 'firewall' || d.device_type === 'firewall_router' || d.device_type === 'router');
+    const switches = devices.filter(d => d.device_type === 'switch');
+    const wifiDevices = devices.filter(d => d.device_type === 'wifi');
+    if (firewalls.length > 0) height += 60;
+    if (switches.length > 0) height += 50;
+    if (wifiDevices.length > 0) height += 40;
+    return height;
   }
 
   // ==================== USER ENDPOINTS ====================
-  // 3 columns: Desktops, Laptops, Workstations
+  // 3 columns: Desktops, Laptops, Workstations (matching web view)
   if (data.endpoint_users.length > 0) {
-    checkPageBreak(60);
-    drawSectionBox('User Endpoints', 'endpoints');
+    checkPageBreak(70);
+    drawSectionHeader('User Endpoints', mutedColor, accentBgColor);
 
     const desktops = data.endpoint_users.filter(e => e.device_type === 'desktop');
     const laptops = data.endpoint_users.filter(e => e.device_type === 'laptop');
     const workstations = data.endpoint_users.filter(e => e.device_type === 'workstation');
 
-    const colWidth = (contentWidth - 8) / 3;
-    const cardHeight = 28;
-    const cardGap = 3;
+    const colGap = 8;
+    const colWidth = (contentWidth - colGap * 2) / 3;
+    const cardHeight = 34;
+    const cardGap = 4;
 
-    // Column headers
-    pdf.setTextColor(...darkColor);
-    pdf.setFontSize(8);
-    pdf.setFont('helvetica', 'bold');
-    
     const col1X = margin;
-    const col2X = margin + colWidth + 4;
-    const col3X = margin + (colWidth + 4) * 2;
+    const col2X = margin + colWidth + colGap;
+    const col3X = margin + (colWidth + colGap) * 2;
 
-    pdf.text(`Desktops (${desktops.length})`, col1X, yPosition);
-    pdf.text(`Laptops (${laptops.length})`, col2X, yPosition);
-    pdf.text(`Workstations (${workstations.length})`, col3X, yPosition);
-    yPosition += 5;
+    // Column headers (like web view h3)
+    pdf.setTextColor(...textColor);
+    pdf.setFontSize(9);
+    pdf.setFont('helvetica', 'bold');
+
+    if (desktops.length > 0) pdf.text(`Desktops (${desktops.length})`, col1X, yPosition);
+    if (laptops.length > 0) pdf.text(`Laptops (${laptops.length})`, col2X, yPosition);
+    if (workstations.length > 0) pdf.text(`Workstations (${workstations.length})`, col3X, yPosition);
+    yPosition += 6;
 
     // Draw endpoint cards in columns
     const maxRows = Math.max(desktops.length, laptops.length, workstations.length);
-    
+
     const drawEndpointCard = (endpoint: typeof data.endpoint_users[0], x: number, y: number, width: number) => {
-      // Card
-      pdf.setFillColor(255, 255, 255);
-      pdf.setDrawColor(200, 200, 200);
-      pdf.setLineWidth(0.3);
-      pdf.roundedRect(x, y, width, cardHeight, 1.5, 1.5, 'FD');
-      
+      // Card with shadow
+      drawCard(x, y, width, cardHeight);
+
+      // Icon + Name row
+      const iconSize = 10;
+      drawIconBg(x + 4, y + 4, iconSize, accentBgColor);
+
+      // Monitor icon (simple rectangle)
+      pdf.setDrawColor(...mutedColor);
+      pdf.setLineWidth(0.5);
+      pdf.rect(x + 6, y + 6, 6, 5, 'S');
+      pdf.line(x + 9, y + 11, x + 9, y + 12);
+
       // Name
-      pdf.setTextColor(...darkColor);
-      pdf.setFontSize(7);
+      pdf.setTextColor(...textColor);
+      pdf.setFontSize(7.5);
       pdf.setFont('helvetica', 'bold');
-      pdf.text(truncateText(endpoint.name, width - 4), x + 2, y + 5);
-      
+      pdf.text(truncateText(endpoint.name, width - 20), x + 17, y + 8);
+
       // User
       if (endpoint.assigned_to_name) {
         pdf.setFont('helvetica', 'normal');
         pdf.setFontSize(6);
-        pdf.setTextColor(...grayColor);
-        pdf.text(truncateText(endpoint.assigned_to_name, width - 8), x + 2, y + 9);
+        pdf.setTextColor(...mutedColor);
+        pdf.text(truncateText(`👤 ${endpoint.assigned_to_name}`, width - 20), x + 17, y + 12);
       }
-      
+
       // Details
-      let detailY = y + 13;
-      pdf.setFontSize(5);
-      
+      let detailY = y + 18;
+      pdf.setFontSize(5.5);
+
       if (endpoint.operating_system) {
-        pdf.setTextColor(...darkColor);
-        pdf.text(`OS: ${truncateText(endpoint.operating_system, width - 8)}`, x + 2, detailY);
-        detailY += 3.5;
+        pdf.setTextColor(...mutedColor);
+        pdf.text('OS:', x + 4, detailY);
+        pdf.setTextColor(...textColor);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(truncateText(endpoint.operating_system, width - 18), x + 12, detailY);
+        detailY += 4;
       }
+
+      pdf.setFont('helvetica', 'normal');
       if (endpoint.cpu) {
-        pdf.setTextColor(...grayColor);
-        pdf.text(`CPU: ${truncateText(endpoint.cpu, width - 8)}`, x + 2, detailY);
-        detailY += 3.5;
+        pdf.setTextColor(...mutedColor);
+        pdf.text(truncateText(`CPU: ${endpoint.cpu}`, width - 8), x + 4, detailY);
+        detailY += 4;
       }
       if (endpoint.ram) {
-        pdf.text(`RAM: ${endpoint.ram}`, x + 2, detailY);
-        detailY += 3.5;
+        pdf.text(truncateText(`RAM: ${endpoint.ram}`, width - 8), x + 4, detailY);
+        detailY += 4;
       }
       if (endpoint.ip_address) {
+        pdf.text('IP:', x + 4, detailY);
         pdf.setFont('courier', 'normal');
-        pdf.text(`IP: ${endpoint.ip_address}`, x + 2, detailY);
+        pdf.text(endpoint.ip_address, x + 12, detailY);
       }
     };
 
     for (let row = 0; row < maxRows; row++) {
       checkPageBreak(cardHeight + cardGap);
-      
+
       if (desktops[row]) {
         drawEndpointCard(desktops[row], col1X, yPosition, colWidth);
       }
@@ -513,22 +631,22 @@ export async function exportAsPDF(
       if (workstations[row]) {
         drawEndpointCard(workstations[row], col3X, yPosition, colWidth);
       }
-      
+
       yPosition += cardHeight + cardGap;
     }
 
-    yPosition += 6;
+    yPosition += 8;
   }
 
   // ==================== SERVERS ====================
   if (data.servers.length > 0) {
-    checkPageBreak(50);
-    drawSectionBox('Servers', 'servers');
+    checkPageBreak(55);
+    drawSectionHeader('Servers', mutedColor, accentBgColor);
 
     const cardsPerRow = 3;
-    const cardWidth = (contentWidth - 8) / cardsPerRow;
-    const cardHeight = 38;
-    const cardGap = 4;
+    const cardGap = 6;
+    const cardWidth = (contentWidth - cardGap * (cardsPerRow - 1)) / cardsPerRow;
+    const cardHeight = 44;
 
     data.servers.forEach((server, index) => {
       const col = index % cardsPerRow;
@@ -541,76 +659,86 @@ export async function exportAsPDF(
       const x = margin + col * (cardWidth + cardGap);
       const y = yPosition;
 
-      // Card
-      pdf.setFillColor(255, 255, 255);
-      pdf.setDrawColor(200, 200, 200);
-      pdf.setLineWidth(0.3);
-      pdf.roundedRect(x, y, cardWidth, cardHeight, 2, 2, 'FD');
+      // Card with shadow
+      drawCard(x, y, cardWidth, cardHeight);
 
-      // Server icon (simple box with lines)
-      pdf.setFillColor(240, 240, 240);
-      pdf.roundedRect(x + 3, y + 3, 10, 10, 1, 1, 'F');
-      pdf.setDrawColor(...grayColor);
-      pdf.setLineWidth(0.3);
-      pdf.rect(x + 4.5, y + 4.5, 7, 7, 'S');
-      pdf.line(x + 4.5, y + 7, x + 11.5, y + 7);
-      pdf.line(x + 4.5, y + 9.5, x + 11.5, y + 9.5);
+      // Icon background
+      const iconSize = 14;
+      drawIconBg(x + 5, y + 5, iconSize, accentBgColor);
 
-      pdf.setTextColor(...darkColor);
+      // Server icon (simple stacked boxes)
+      pdf.setDrawColor(...mutedColor);
+      pdf.setLineWidth(0.5);
+      pdf.rect(x + 7.5, y + 7, 9, 4, 'S');
+      pdf.rect(x + 7.5, y + 11.5, 9, 4, 'S');
+      // Indicator dots
+      pdf.setFillColor(...greenColor);
+      pdf.circle(x + 9, y + 9, 0.7, 'F');
+      pdf.circle(x + 9, y + 13.5, 0.7, 'F');
+
+      // Name
+      pdf.setTextColor(...textColor);
       pdf.setFontSize(8);
       pdf.setFont('helvetica', 'bold');
-      pdf.text(truncateText(server.name, cardWidth - 20), x + 16, y + 8);
+      pdf.text(truncateText(server.name, cardWidth - 45), x + 22, y + 10);
 
       // Role subtitle
       if (server.role) {
         pdf.setFont('helvetica', 'normal');
         pdf.setFontSize(6);
-        pdf.setTextColor(...grayColor);
-        pdf.text(truncateText(server.role, cardWidth - 50), x + 16, y + 12);
+        pdf.setTextColor(...mutedColor);
+        pdf.text(truncateText(server.role, cardWidth - 45), x + 22, y + 15);
       }
 
       // Badge (physical/virtual)
       const badgeText = server.server_type;
-      const badgeColor = server.server_type === 'physical' ? blueColor : purpleColor;
-      drawBadge(x + cardWidth - 22, y + 9, badgeText, badgeColor);
+      const badgeColor = server.server_type === 'physical' ? primaryColor : purpleColor;
+      const badgeBgColor = server.server_type === 'physical' ? blueBgColor : purpleBgColor;
+      drawBadge(x + cardWidth - 24, y + 10, badgeText, badgeBgColor, badgeColor);
 
       // Details
-      let detailY = y + 18;
-      pdf.setFontSize(5.5);
+      let detailY = y + 22;
+      pdf.setFontSize(6);
       pdf.setFont('helvetica', 'normal');
 
       if (server.operating_system) {
-        pdf.setTextColor(...darkColor);
-        pdf.text(`OS: ${truncateText(server.operating_system, cardWidth - 8)}`, x + 3, detailY);
-        detailY += 4;
+        pdf.setTextColor(...mutedColor);
+        pdf.text('OS:', x + 5, detailY);
+        pdf.setTextColor(...textColor);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(truncateText(server.operating_system, cardWidth - 18), x + 13, detailY);
+        detailY += 4.5;
       }
+
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(...mutedColor);
       if (server.cpu) {
-        pdf.setTextColor(...grayColor);
-        pdf.text(`CPU: ${truncateText(server.cpu, cardWidth - 8)}`, x + 3, detailY);
+        pdf.text(truncateText(`CPU: ${server.cpu}`, cardWidth - 10), x + 5, detailY);
         detailY += 4;
       }
       if (server.ram) {
-        pdf.text(`RAM: ${server.ram}`, x + 3, detailY);
+        pdf.text(`RAM: ${server.ram}`, x + 5, detailY);
         detailY += 4;
       }
       if (server.ip_address) {
+        pdf.text('IP:', x + 5, detailY);
         pdf.setFont('courier', 'normal');
-        pdf.text(`IP: ${server.ip_address}`, x + 3, detailY);
+        pdf.text(server.ip_address, x + 13, detailY);
       }
     });
 
-    yPosition += cardHeight + 10;
+    yPosition += cardHeight + 12;
   }
 
   // ==================== PERIPHERALS ====================
   if (data.peripherals.length > 0) {
-    checkPageBreak(40);
-    drawSectionBox('Peripherals', 'peripherals');
+    checkPageBreak(45);
+    drawSectionHeader('Peripherals', mutedColor, accentBgColor);
 
     const cardsPerRow = 4;
-    const cardWidth = (contentWidth - 12) / cardsPerRow;
-    const cardHeight = 24;
-    const cardGap = 4;
+    const cardGap = 5;
+    const cardWidth = (contentWidth - cardGap * (cardsPerRow - 1)) / cardsPerRow;
+    const cardHeight = 30;
 
     data.peripherals.forEach((peripheral, index) => {
       const col = index % cardsPerRow;
@@ -622,54 +750,59 @@ export async function exportAsPDF(
 
       const x = margin + col * (cardWidth + cardGap);
 
-      // Card - horizontal layout
-      pdf.setFillColor(255, 255, 255);
-      pdf.setDrawColor(200, 200, 200);
-      pdf.setLineWidth(0.3);
-      pdf.roundedRect(x, yPosition, cardWidth, cardHeight, 2, 2, 'FD');
+      // Card with shadow
+      drawCard(x, yPosition, cardWidth, cardHeight);
 
-      // Icon (simple shape based on type)
-      pdf.setFillColor(240, 240, 240);
-      pdf.roundedRect(x + 2, yPosition + 2, 12, 12, 1, 1, 'F');
-      pdf.setDrawColor(...grayColor);
-      pdf.setLineWidth(0.3);
-      // Draw a simple printer/device icon
-      pdf.rect(x + 4, yPosition + 5, 8, 6, 'S');
-      pdf.line(x + 5, yPosition + 8, x + 11, yPosition + 8);
+      // Icon background
+      const iconSize = 12;
+      drawIconBg(x + 4, yPosition + 4, iconSize, accentBgColor);
+
+      // Printer icon
+      pdf.setDrawColor(...mutedColor);
+      pdf.setLineWidth(0.5);
+      pdf.rect(x + 6, yPosition + 7, 8, 5, 'S');
+      pdf.line(x + 7, yPosition + 9.5, x + 13, yPosition + 9.5);
+      // Paper tray
+      pdf.rect(x + 7, yPosition + 12, 6, 2, 'S');
 
       // Name
-      pdf.setTextColor(...darkColor);
-      pdf.setFontSize(6.5);
+      pdf.setTextColor(...textColor);
+      pdf.setFontSize(7);
       pdf.setFont('helvetica', 'bold');
-      pdf.text(truncateText(peripheral.name, cardWidth - 18), x + 16, yPosition + 6);
+      pdf.text(truncateText(peripheral.name, cardWidth - 20), x + 18, yPosition + 8);
 
-      // Type and details
+      // Type
       pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(5);
-      pdf.setTextColor(...grayColor);
-      pdf.text(peripheral.device_type, x + 16, yPosition + 10);
-      
-      if (peripheral.manufacturer && peripheral.model) {
-        pdf.text(truncateText(`${peripheral.manufacturer} ${peripheral.model}`, cardWidth - 18), x + 16, yPosition + 14);
+      pdf.setFontSize(5.5);
+      pdf.setTextColor(...mutedColor);
+      pdf.text(peripheral.device_type, x + 18, yPosition + 12);
+
+      // Manufacturer/Model
+      if (peripheral.manufacturer || peripheral.model) {
+        const details = [peripheral.manufacturer, peripheral.model].filter(Boolean).join(' ');
+        pdf.text(truncateText(details, cardWidth - 20), x + 18, yPosition + 17);
       }
+
+      // Serial number
       if (peripheral.serial_number) {
         pdf.setFont('courier', 'normal');
-        pdf.text(`S/N: ${truncateText(peripheral.serial_number, cardWidth - 22)}`, x + 16, yPosition + 18);
+        pdf.setFontSize(5);
+        pdf.text(`S/N: ${truncateText(peripheral.serial_number, cardWidth - 24)}`, x + 18, yPosition + 22);
       }
     });
 
-    yPosition += cardHeight + 10;
+    yPosition += cardHeight + 12;
   }
 
   // ==================== BACKUPS ====================
   if (data.backups.length > 0) {
-    checkPageBreak(50);
-    drawSectionBox('Backups', 'backups');
+    checkPageBreak(55);
+    drawSectionHeader('Backups', mutedColor, accentBgColor);
 
     const cardsPerRow = 2;
-    const cardWidth = (contentWidth - 4) / cardsPerRow;
-    const cardHeight = 42;
-    const cardGap = 4;
+    const cardGap = 8;
+    const cardWidth = (contentWidth - cardGap) / cardsPerRow;
+    const cardHeight = 50;
 
     data.backups.forEach((backup, index) => {
       const col = index % cardsPerRow;
@@ -681,72 +814,106 @@ export async function exportAsPDF(
 
       const x = margin + col * (cardWidth + cardGap);
 
-      // Card
-      pdf.setFillColor(255, 255, 255);
-      pdf.setDrawColor(200, 200, 200);
-      pdf.setLineWidth(0.3);
-      pdf.roundedRect(x, yPosition, cardWidth, cardHeight, 2, 2, 'FD');
+      // Card with shadow
+      drawCard(x, yPosition, cardWidth, cardHeight);
 
-      // Icon (database/disk shape)
-      pdf.setFillColor(240, 240, 240);
-      pdf.roundedRect(x + 3, yPosition + 3, 12, 12, 1, 1, 'F');
-      pdf.setDrawColor(...grayColor);
-      pdf.setLineWidth(0.3);
-      // Draw disk/cylinder shape
-      pdf.ellipse(x + 9, yPosition + 6, 4, 1.5, 'S');
-      pdf.line(x + 5, yPosition + 6, x + 5, yPosition + 12);
-      pdf.line(x + 13, yPosition + 6, x + 13, yPosition + 12);
-      pdf.ellipse(x + 9, yPosition + 12, 4, 1.5, 'S');
+      // Icon background
+      const iconSize = 14;
+      drawIconBg(x + 5, yPosition + 5, iconSize, accentBgColor);
+
+      // Database/disk icon
+      pdf.setDrawColor(...mutedColor);
+      pdf.setLineWidth(0.5);
+      // Cylinder shape
+      pdf.ellipse(x + 12, yPosition + 8, 5, 2, 'S');
+      pdf.line(x + 7, yPosition + 8, x + 7, yPosition + 14);
+      pdf.line(x + 17, yPosition + 8, x + 17, yPosition + 14);
+      pdf.ellipse(x + 12, yPosition + 14, 5, 2, 'S');
 
       // Name
-      pdf.setTextColor(...darkColor);
-      pdf.setFontSize(7);
+      pdf.setTextColor(...textColor);
+      pdf.setFontSize(8);
       pdf.setFont('helvetica', 'bold');
-      pdf.text(truncateText(backup.name, cardWidth - 35), x + 18, yPosition + 8);
+      pdf.text(truncateText(backup.name, cardWidth - 55), x + 24, yPosition + 10);
 
       // Status badge
       if (backup.backup_status) {
-        const statusColor = backup.backup_status === 'active' ? greenColor : grayColor;
-        drawBadge(x + cardWidth - 18, yPosition + 6, backup.backup_status, statusColor);
+        let statusBgColor: [number, number, number] = accentBgColor;
+        let statusTextColor: [number, number, number] = mutedColor;
+        if (backup.backup_status === 'active') {
+          statusBgColor = greenBgColor;
+          statusTextColor = greenColor;
+        } else if (backup.backup_status === 'failed') {
+          statusBgColor = redBgColor;
+          statusTextColor = redColor;
+        } else if (backup.backup_status === 'warning') {
+          statusBgColor = yellowBgColor;
+          statusTextColor = yellowColor;
+        }
+        drawBadge(x + cardWidth - 22, yPosition + 10, backup.backup_status, statusBgColor, statusTextColor);
       }
 
-      // Type
+      // Type subtitle
       pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(5.5);
-      pdf.setTextColor(...grayColor);
-      pdf.text(`Type: ${backup.backup_type}`, x + 18, yPosition + 13);
+      pdf.setFontSize(6);
+      pdf.setTextColor(...mutedColor);
+      pdf.text(`Type: ${backup.backup_type.replace(/_/g, ' ')}`, x + 24, yPosition + 16);
 
-      // Details
-      let detailY = yPosition + 18;
+      // Details in two columns
+      let detailY = yPosition + 24;
+      const detailCol1X = x + 5;
+      const detailCol2X = x + cardWidth / 2;
+      pdf.setFontSize(5.5);
+
       if (backup.vendor) {
-        pdf.text(`Vendor: ${truncateText(backup.vendor, cardWidth - 22)}`, x + 3, detailY);
-        detailY += 4;
+        pdf.setTextColor(...mutedColor);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Vendor:', detailCol1X, detailY);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(truncateText(backup.vendor, cardWidth / 2 - 20), detailCol1X + 15, detailY);
       }
       if (backup.frequency) {
-        pdf.text(`Frequency: ${truncateText(backup.frequency, cardWidth - 22)}`, x + 3, detailY);
-        detailY += 4;
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Frequency:', detailCol2X, detailY);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(truncateText(backup.frequency, cardWidth / 2 - 22), detailCol2X + 18, detailY);
       }
+      detailY += 5;
+
       if (backup.storage_location) {
-        pdf.text(`Storage: ${truncateText(backup.storage_location, cardWidth - 22)}`, x + 3, detailY);
-        detailY += 4;
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Storage:', detailCol1X, detailY);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(truncateText(backup.storage_location, cardWidth / 2 - 20), detailCol1X + 15, detailY);
       }
+      if (backup.retention_period) {
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Retention:', detailCol2X, detailY);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(truncateText(backup.retention_period, cardWidth / 2 - 22), detailCol2X + 18, detailY);
+      }
+      detailY += 5;
+
       if (backup.target_systems) {
-        pdf.text(`Targets: ${truncateText(backup.target_systems, cardWidth - 22)}`, x + 3, detailY);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Targets:', detailCol1X, detailY);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(truncateText(backup.target_systems, cardWidth - 25), detailCol1X + 15, detailY);
       }
     });
 
-    yPosition += cardHeight + 10;
+    yPosition += cardHeight + 12;
   }
 
   // ==================== SOFTWARE ====================
   if (data.software.length > 0) {
-    checkPageBreak(40);
-    drawSectionBox('Software', 'software');
+    checkPageBreak(45);
+    drawSectionHeader('Software', mutedColor, accentBgColor);
 
     const cardsPerRow = 3;
-    const cardWidth = (contentWidth - 8) / cardsPerRow;
-    const cardHeight = 30;
-    const cardGap = 4;
+    const cardGap = 6;
+    const cardWidth = (contentWidth - cardGap * (cardsPerRow - 1)) / cardsPerRow;
+    const cardHeight = 36;
 
     data.software.forEach((software, index) => {
       const col = index % cardsPerRow;
@@ -758,63 +925,66 @@ export async function exportAsPDF(
 
       const x = margin + col * (cardWidth + cardGap);
 
-      // Card
-      pdf.setFillColor(255, 255, 255);
-      pdf.setDrawColor(200, 200, 200);
-      pdf.setLineWidth(0.3);
-      pdf.roundedRect(x, yPosition, cardWidth, cardHeight, 2, 2, 'FD');
+      // Card with shadow
+      drawCard(x, yPosition, cardWidth, cardHeight);
 
-      // Icon (box/package shape)
-      pdf.setFillColor(240, 240, 240);
-      pdf.roundedRect(x + 3, yPosition + 3, 12, 12, 1, 1, 'F');
-      pdf.setDrawColor(...grayColor);
-      pdf.setLineWidth(0.3);
-      // Draw a cube/box
-      pdf.rect(x + 5, yPosition + 6, 6, 6, 'S');
-      pdf.line(x + 5, yPosition + 6, x + 7, yPosition + 4);
-      pdf.line(x + 11, yPosition + 6, x + 13, yPosition + 4);
-      pdf.line(x + 7, yPosition + 4, x + 13, yPosition + 4);
+      // Icon background
+      const iconSize = 12;
+      drawIconBg(x + 4, yPosition + 4, iconSize, accentBgColor);
+
+      // Package icon (box with ribbon)
+      pdf.setDrawColor(...mutedColor);
+      pdf.setLineWidth(0.5);
+      pdf.rect(x + 6, yPosition + 7, 8, 6, 'S');
+      // Top flaps
+      pdf.line(x + 6, yPosition + 7, x + 8, yPosition + 5);
+      pdf.line(x + 14, yPosition + 7, x + 12, yPosition + 5);
+      pdf.line(x + 8, yPosition + 5, x + 12, yPosition + 5);
+      // Vertical line on box
+      pdf.line(x + 10, yPosition + 5, x + 10, yPosition + 13);
 
       // Name
-      pdf.setTextColor(...darkColor);
-      pdf.setFontSize(7);
+      pdf.setTextColor(...textColor);
+      pdf.setFontSize(7.5);
       pdf.setFont('helvetica', 'bold');
-      pdf.text(truncateText(software.name, cardWidth - 20), x + 18, yPosition + 8);
+      pdf.text(truncateText(software.name, cardWidth - 22), x + 19, yPosition + 9);
 
       // Type
       pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(5.5);
-      pdf.setTextColor(...grayColor);
-      pdf.text(software.software_type.replace(/_/g, ' '), x + 18, yPosition + 12);
+      pdf.setFontSize(6);
+      pdf.setTextColor(...mutedColor);
+      pdf.text(software.software_type.replace(/_/g, ' '), x + 19, yPosition + 14);
 
       // Contacts
-      let detailY = yPosition + 18;
+      let detailY = yPosition + 21;
+      pdf.setFontSize(5.5);
       if (software.assigned_contacts && software.assigned_contacts.length > 0) {
-        software.assigned_contacts.slice(0, 3).forEach(contact => {
-          pdf.text(truncateText(contact.contact_name, cardWidth - 12), x + 3, detailY);
-          detailY += 3.5;
+        software.assigned_contacts.slice(0, 2).forEach(contact => {
+          pdf.text(`• ${truncateText(contact.contact_name, cardWidth - 12)}`, x + 5, detailY);
+          detailY += 4;
         });
       }
 
       // Notes
-      if (software.notes && detailY < yPosition + cardHeight - 2) {
+      if (software.notes && detailY < yPosition + cardHeight - 3) {
         pdf.setFontSize(5);
-        pdf.text(truncateText(software.notes, cardWidth - 8), x + 3, detailY);
+        pdf.setTextColor(...mutedColor);
+        pdf.text(truncateText(software.notes, cardWidth - 10), x + 5, detailY);
       }
     });
 
-    yPosition += cardHeight + 10;
+    yPosition += cardHeight + 12;
   }
 
   // ==================== VOIP ====================
   if (data.voip.length > 0) {
-    checkPageBreak(40);
-    drawSectionBox('VoIP Services', 'voip');
+    checkPageBreak(45);
+    drawSectionHeader('VoIP Services', mutedColor, accentBgColor);
 
     const cardsPerRow = 3;
-    const cardWidth = (contentWidth - 8) / cardsPerRow;
-    const cardHeight = 28;
-    const cardGap = 4;
+    const cardGap = 6;
+    const cardWidth = (contentWidth - cardGap * (cardsPerRow - 1)) / cardsPerRow;
+    const cardHeight = 38;
 
     data.voip.forEach((voip, index) => {
       const col = index % cardsPerRow;
@@ -826,53 +996,64 @@ export async function exportAsPDF(
 
       const x = margin + col * (cardWidth + cardGap);
 
-      // Card
-      pdf.setFillColor(255, 255, 255);
-      pdf.setDrawColor(200, 200, 200);
-      pdf.setLineWidth(0.3);
-      pdf.roundedRect(x, yPosition, cardWidth, cardHeight, 2, 2, 'FD');
+      // Card with shadow
+      drawCard(x, yPosition, cardWidth, cardHeight);
 
-      // Phone icon (simple handset shape)
-      pdf.setFillColor(240, 240, 240);
-      pdf.roundedRect(x + 3, yPosition + 3, 12, 12, 1, 1, 'F');
-      pdf.setDrawColor(...grayColor);
-      pdf.setLineWidth(0.4);
-      // Draw phone handset
-      pdf.line(x + 5, yPosition + 6, x + 5, yPosition + 12);
-      pdf.line(x + 5, yPosition + 6, x + 8, yPosition + 6);
-      pdf.line(x + 8, yPosition + 6, x + 10, yPosition + 8);
-      pdf.line(x + 10, yPosition + 8, x + 10, yPosition + 10);
-      pdf.line(x + 10, yPosition + 10, x + 8, yPosition + 12);
-      pdf.line(x + 8, yPosition + 12, x + 5, yPosition + 12);
+      // Icon background
+      const iconSize = 12;
+      drawIconBg(x + 4, yPosition + 4, iconSize, accentBgColor);
+
+      // Phone icon
+      pdf.setDrawColor(...mutedColor);
+      pdf.setLineWidth(0.6);
+      // Phone receiver shape
+      pdf.line(x + 6, yPosition + 7, x + 6, yPosition + 13);
+      pdf.line(x + 6, yPosition + 7, x + 9, yPosition + 7);
+      pdf.line(x + 9, yPosition + 7, x + 11, yPosition + 9);
+      pdf.line(x + 11, yPosition + 9, x + 11, yPosition + 11);
+      pdf.line(x + 11, yPosition + 11, x + 9, yPosition + 13);
+      pdf.line(x + 9, yPosition + 13, x + 6, yPosition + 13);
+      // Base
+      pdf.line(x + 13, yPosition + 11, x + 13, yPosition + 14);
+      pdf.line(x + 13, yPosition + 14, x + 7, yPosition + 14);
 
       // Name
-      pdf.setTextColor(...darkColor);
-      pdf.setFontSize(7);
+      pdf.setTextColor(...textColor);
+      pdf.setFontSize(7.5);
       pdf.setFont('helvetica', 'bold');
-      pdf.text(truncateText(voip.name, cardWidth - 20), x + 18, yPosition + 8);
+      pdf.text(truncateText(voip.name, cardWidth - 22), x + 19, yPosition + 9);
 
       // Type
       const voipTypeDisplay = voip.voip_type === 'teams' ? 'Microsoft Teams' :
                               voip.voip_type === '3cx' ? '3CX' :
                               voip.voip_type === 'yeastar' ? 'Yeastar' : 'Other';
       pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(5.5);
-      pdf.setTextColor(...grayColor);
-      pdf.text(voipTypeDisplay, x + 18, yPosition + 12);
+      pdf.setFontSize(6);
+      pdf.setTextColor(...mutedColor);
+      pdf.text(voipTypeDisplay, x + 19, yPosition + 14);
 
-      // Contacts and licenses
-      let detailY = yPosition + 18;
+      // Contacts
+      let detailY = yPosition + 21;
+      pdf.setFontSize(5.5);
       if (voip.assigned_contacts && voip.assigned_contacts.length > 0) {
-        const contactNames = voip.assigned_contacts.slice(0, 2).map(c => c.contact_name).join(', ');
-        pdf.text(truncateText(contactNames, cardWidth - 10), x + 3, detailY);
-        detailY += 3.5;
+        voip.assigned_contacts.slice(0, 2).forEach(contact => {
+          let contactText = `• ${contact.contact_name}`;
+          if (contact.extension) contactText += ` (Ext: ${contact.extension})`;
+          pdf.text(truncateText(contactText, cardWidth - 10), x + 5, detailY);
+          detailY += 4;
+        });
       }
+
+      // Licenses
       if (voip.quantity) {
-        pdf.text(`Licenses: ${voip.assigned_count || 0}/${voip.quantity}`, x + 3, detailY);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Licenses:', x + 5, detailY);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(`${voip.assigned_count || 0}/${voip.quantity}`, x + 22, detailY);
       }
     });
 
-    yPosition += cardHeight + 10;
+    yPosition += cardHeight + 12;
   }
 
   // Add footers to all pages
