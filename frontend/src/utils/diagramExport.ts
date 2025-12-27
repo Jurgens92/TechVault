@@ -282,9 +282,6 @@ export async function exportAsPDF(
     pdf.roundedRect(x, y, size, size, 2, 2, 'F');
   };
 
-  // Add first page header
-  addHeader();
-
   // Title Section
   pdf.setTextColor(...darkColor);
   pdf.setFontSize(20);
