@@ -4,6 +4,9 @@ from .base import SoftDeleteManager, BaseModel
 # Organization models
 from .organization import Organization, Location, Contact
 
+# Membership models (for access control)
+from .membership import OrganizationMember
+
 # Documentation models
 from .documentation import Documentation, DocumentationVersion
 
@@ -36,6 +39,8 @@ __all__ = [
     'Organization',
     'Location',
     'Contact',
+    # Membership (access control)
+    'OrganizationMember',
     # Documentation
     'Documentation',
     'DocumentationVersion',

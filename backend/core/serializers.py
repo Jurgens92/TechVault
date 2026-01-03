@@ -5,6 +5,7 @@ from .models import (
     DocumentationVersion, PasswordEntryVersion, ConfigurationVersion
 )
 from users.serializers import UserSerializer
+from .encryption import encrypt_password, decrypt_password, is_encrypted
 
 
 # Base serializer classes to reduce duplication
@@ -82,13 +83,44 @@ class DocumentationSerializer(OrganizationOwnedSerializer):
 
 
 class PasswordEntrySerializer(OrganizationOwnedSerializer):
+    """
+    Serializer for password entries with encryption.
+    Passwords are encrypted at rest and never exposed in list/detail responses.
+    Use the retrieve_password action to get the decrypted password.
+    """
+    # Password is write-only - never returned in API responses for security
+    password = serializers.CharField(write_only=True, required=True, style={'input_type': 'password'})
+    # Indicator that password exists (without exposing it)
+    has_password = serializers.SerializerMethodField()
+
     class Meta(OrganizationOwnedSerializer.Meta):
         model = PasswordEntry
         fields = [
             'id', 'organization', 'organization_name', 'name', 'username',
-            'password', 'url', 'notes', 'category', 'is_encrypted',
+            'password', 'has_password', 'url', 'notes', 'category', 'is_encrypted',
             'created_by', 'created_at', 'updated_at', 'deleted_at', 'deleted_by'
         ]
+        extra_kwargs = {
+            'password': {'write_only': True}
+        }
+
+    def get_has_password(self, obj):
+        """Indicate if a password is set without exposing it."""
+        return bool(obj.password)
+
+    def create(self, validated_data):
+        """Encrypt password before saving."""
+        if 'password' in validated_data and validated_data['password']:
+            validated_data['password'] = encrypt_password(validated_data['password'])
+            validated_data['is_encrypted'] = True
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        """Encrypt password if being updated."""
+        if 'password' in validated_data and validated_data['password']:
+            validated_data['password'] = encrypt_password(validated_data['password'])
+            validated_data['is_encrypted'] = True
+        return super().update(instance, validated_data)
 
 
 class ConfigurationSerializer(OrganizationOwnedSerializer):
@@ -305,13 +337,24 @@ class DocumentationVersionSerializer(VersionSerializer):
 
 
 class PasswordEntryVersionSerializer(VersionSerializer):
+    """
+    Serializer for password entry versions.
+    Passwords are never exposed in version history for security.
+    """
+    # Password is hidden in version history
+    has_password = serializers.SerializerMethodField()
+
     class Meta(VersionSerializer.Meta):
         model = PasswordEntryVersion
         fields = [
             'id', 'password_entry', 'version_number', 'name', 'username',
-            'password', 'url', 'notes', 'category', 'is_encrypted',
+            'has_password', 'url', 'notes', 'category', 'is_encrypted',
             'change_note', 'created_at', 'created_by'
         ]
+
+    def get_has_password(self, obj):
+        """Indicate if a password was set in this version without exposing it."""
+        return bool(obj.password)
 
 
 class ConfigurationVersionSerializer(VersionSerializer):

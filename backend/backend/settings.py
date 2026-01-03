@@ -14,6 +14,13 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-change-this-in-produc
 DEBUG = config('DEBUG', default=False, cast=bool)
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv())
 
+# Security: Fail if using insecure SECRET_KEY in production
+if not DEBUG and SECRET_KEY == 'django-insecure-change-this-in-production':
+    raise ValueError(
+        "SECURITY ERROR: You must set a secure SECRET_KEY in production! "
+        "Generate one with: python -c \"from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())\""
+    )
+
 # Production Security Settings
 if not DEBUG:
     # HTTPS Security
@@ -81,6 +88,8 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'allauth.account.middleware.AccountMiddleware',
+    # Security: Additional security headers (CSP, Permissions-Policy, etc.)
+    'backend.security_middleware.SecurityHeadersMiddleware',
 ]
 
 ROOT_URLCONF = 'backend.urls'
@@ -255,7 +264,10 @@ REST_AUTH = {
     'USE_JWT': True,
     'JWT_AUTH_COOKIE': 'techvault-auth',
     'JWT_AUTH_REFRESH_COOKIE': 'techvault-refresh-token',
-    'JWT_AUTH_HTTPONLY': False,
+    # Security: Use HttpOnly cookies to prevent XSS token theft
+    'JWT_AUTH_HTTPONLY': True,
+    'JWT_AUTH_SECURE': not DEBUG,  # Secure cookies in production
+    'JWT_AUTH_SAMESITE': 'Lax',  # Prevent CSRF while allowing same-site requests
     'USER_DETAILS_SERIALIZER': 'users.serializers.UserSerializer',
     'LOGIN_SERIALIZER': 'users.serializers.LoginSerializer',
     'REGISTER_SERIALIZER': 'users.serializers.RegisterSerializer',
