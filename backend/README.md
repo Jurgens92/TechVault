@@ -8,7 +8,6 @@ Enterprise-grade IT documentation platform backend built with Django 5, Django R
 - **API**: Django REST Framework 3.14.0
 - **Database**: PostgreSQL
 - **Authentication**: Django-allauth + SimpleJWT
-- **Social Auth**: GitHub OAuth
 
 ## Prerequisites
 
@@ -94,10 +93,6 @@ DB_HOST=localhost
 DB_PORT=5432
 
 CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
-
-# Optional: GitHub OAuth (for social login)
-GITHUB_CLIENT_ID=your-github-client-id
-GITHUB_CLIENT_SECRET=your-github-client-secret
 ```
 
 ### 5. Run Migrations
@@ -141,22 +136,6 @@ The API will be available at `http://localhost:8000`
 ### Admin
 
 - `/admin/` - Django admin interface
-
-## Setting Up GitHub OAuth (Optional)
-
-1. Go to GitHub Settings → Developer settings → OAuth Apps
-2. Click "New OAuth App"
-3. Fill in the details:
-   - Application name: TechVault Local
-   - Homepage URL: `http://localhost:5173`
-   - Authorization callback URL: `http://localhost:8000/accounts/github/login/callback/`
-4. Copy the Client ID and Client Secret
-5. Add them to your `.env` file:
-   ```
-   GITHUB_CLIENT_ID=your_client_id
-   GITHUB_CLIENT_SECRET=your_client_secret
-   ```
-6. Restart the Django server
 
 ## Project Structure
 
@@ -265,7 +244,6 @@ python manage.py runserver 8001
 - [ ] Set up database backups
 - [ ] Configure static file serving with whitenoise or CDN
 - [ ] Set up logging and monitoring
-- [ ] Enable GitHub OAuth callback with production URL
 
 ## Development Commands
 

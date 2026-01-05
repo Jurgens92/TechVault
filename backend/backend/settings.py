@@ -66,8 +66,6 @@ INSTALLED_APPS = [
     'django_filters',
     'allauth',
     'allauth.account',
-    'allauth.socialaccount',
-    'allauth.socialaccount.providers.github',
     'dj_rest_auth',
     'dj_rest_auth.registration',
 
@@ -259,7 +257,6 @@ ACCOUNT_EMAIL_VERIFICATION = 'none'  # Don't require email verification for now
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_USER_MODEL_USERNAME_FIELD = None
 ACCOUNT_ADAPTER = 'allauth.account.adapter.DefaultAccountAdapter'
-SOCIALACCOUNT_ADAPTER = 'allauth.socialaccount.adapter.DefaultSocialAccountAdapter'
 
 # dj-rest-auth Settings
 REST_AUTH = {
@@ -276,20 +273,6 @@ REST_AUTH = {
     'JWT_SERIALIZER': 'users.serializers.JWTSerializer',
 }
 
-# Social Account Providers
-SOCIALACCOUNT_PROVIDERS = {
-    'github': {
-        'APP': {
-            'client_id': config('GITHUB_CLIENT_ID', default=''),
-            'secret': config('GITHUB_CLIENT_SECRET', default=''),
-            'key': ''
-        },
-        'SCOPE': [
-            'user',
-            'user:email',
-        ],
-    }
-}
 
 # Email Backend (for development)
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'

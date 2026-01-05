@@ -114,7 +114,6 @@ frontend/
 ### Authentication
 
 - Email/password registration and login
-- GitHub OAuth integration
 - JWT token management with automatic refresh
 - Protected routes
 - Persistent authentication
