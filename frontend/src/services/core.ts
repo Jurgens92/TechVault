@@ -388,4 +388,42 @@ export const reportsAPI = {
       }
     });
   },
+  // System Backup & Restore APIs
+  createSystemBackup: (includeDeleted: boolean = false) =>
+    api.post('/api/reports/system-backup/', {
+      include_deleted: includeDeleted
+    }, {
+      responseType: 'blob'
+    }),
+  restoreSystemBackup: (
+    file: File,
+    options: {
+      restoreUsers?: boolean;
+      restoreOrganizations?: boolean;
+      overwriteExisting?: boolean;
+    } = {}
+  ) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('restore_users', (options.restoreUsers ?? true).toString());
+    formData.append('restore_organizations', (options.restoreOrganizations ?? true).toString());
+    formData.append('overwrite_existing', (options.overwriteExisting ?? false).toString());
+    return api.post<{
+      success: boolean;
+      users: {
+        restored: Array<{ email: string; action: string }>;
+        skipped: Array<{ email: string; reason: string }>;
+        errors: Array<{ email: string; error: string }>;
+      };
+      organizations: {
+        imported: string[];
+        skipped: Array<{ name: string; reason: string }>;
+        errors: Array<{ organization: string; error: string }>;
+      };
+    }>('/api/reports/system-restore/', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+  },
 };

@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/Input';
 import { Settings as SettingsIcon, User, Mail, Shield, Users, Plus, Edit, Trash2, X, ShieldCheck, ShieldAlert } from 'lucide-react';
 import { userManagementService, User as UserType, CreateUserData } from '@/services/users';
 import ExportImport from '@/components/ExportImport';
+import BackupRestore from '@/components/BackupRestore';
 
 const Settings: React.FC = () => {
   const { user } = useAuth();
@@ -205,6 +206,9 @@ const Settings: React.FC = () => {
 
       {/* Organization Export/Import - Admin Only */}
       <ExportImport isAdmin={isAdmin} />
+
+      {/* System Backup & Restore - Admin Only */}
+      <BackupRestore isAdmin={isAdmin} />
 
       {/* User Management - Admin Only */}
       {isAdmin && (
