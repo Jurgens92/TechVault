@@ -5,7 +5,7 @@
 @layer base {
   :root {
     /* VSCode Dark Theme Colors */
-    --background: 0 0% 10%;              /* #1e1e1e - Editor background */
+    --background: 0 0% 10%;              /* #1a1a1a - Editor background */
     --foreground: 0 0% 83%;              /* #d4d4d4 - Default text */
     --card: 240 1% 15%;                  /* #252526 - Sidebar/panel background */
     --card-foreground: 0 0% 83%;         /* #d4d4d4 - Card text */
