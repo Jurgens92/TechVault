@@ -58,8 +58,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return response;
       }
 
-      // Normal login - set user
-      setUser(response.user);
+      // Fetch the full user profile to ensure all fields (including full_name) are available
+      // The login response may not include all user fields
+      const fullUserProfile = await authService.getCurrentUser();
+      setUser(fullUserProfile);
       return response;
     } catch (error) {
       console.error('Login failed:', error);
@@ -69,8 +71,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const register = async (data: RegisterData) => {
     try {
-      const { user } = await authService.register(data);
-      setUser(user);
+      await authService.register(data);
+      // Fetch the full user profile to ensure all fields (including full_name) are available
+      const fullUserProfile = await authService.getCurrentUser();
+      setUser(fullUserProfile);
     } catch (error) {
       console.error('Registration failed:', error);
       throw error;
