@@ -255,6 +255,7 @@ const Settings: React.FC = () => {
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Role</th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">2FA</th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Joined</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Last Login</th>
                       <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">Actions</th>
                     </tr>
                   </thead>
@@ -290,6 +291,9 @@ const Settings: React.FC = () => {
                         </td>
                         <td className="py-3 px-4 text-sm text-muted-foreground">
                           {new Date(u.date_joined).toLocaleDateString()}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-muted-foreground">
+                          {u.last_login ? new Date(u.last_login).toLocaleString() : 'Never'}
                         </td>
                         <td className="py-3 px-4 text-sm text-right">
                           <div className="flex justify-end gap-2">
