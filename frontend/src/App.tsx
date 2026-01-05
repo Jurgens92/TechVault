@@ -35,6 +35,7 @@ import { BackupForm } from '@/pages/BackupForm';
 import Settings from '@/pages/Settings';
 import DeletedItems from '@/pages/DeletedItems';
 import TwoFactorAuth from '@/pages/TwoFactorAuth';
+import TwoFactorSetup from '@/pages/TwoFactorSetup';
 import Reports from '@/pages/Reports';
 
 function App() {
@@ -44,6 +45,7 @@ function App() {
         <OrganizationProvider>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/setup-2fa" element={<TwoFactorSetup />} />
             <Route
               path="/"
               element={

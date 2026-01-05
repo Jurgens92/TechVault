@@ -29,10 +29,13 @@ const Login: React.FC = () => {
 
       const result = await login(credentials);
 
-      // Check if 2FA is required
+      // Check if 2FA verification is required (user has 2FA enabled)
       if (result && result.requires_2fa) {
         setRequires2FA(true);
         setError('');
+      } else if (result && result.requires_2fa_setup) {
+        // User logged in but needs to set up 2FA
+        navigate('/setup-2fa');
       } else {
         navigate('/dashboard');
       }

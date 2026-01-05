@@ -32,6 +32,7 @@ export const authService = {
       backup_code_used: response.data.backup_code_used,
       remaining_backup_codes: response.data.remaining_backup_codes,
       warning: response.data.warning,
+      requires_2fa_setup: response.data.requires_2fa_setup,
     };
   },
 
