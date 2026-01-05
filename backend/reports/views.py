@@ -12,6 +12,7 @@ from django.http import HttpResponse
 from .services import ReportService
 from .exporters import ExcelExporter, CSVExporter, PDFExporter
 from .export_import_service import OrganizationExportImportService
+from .system_backup_service import SystemBackupService
 
 logger = logging.getLogger(__name__)
 
@@ -371,5 +372,129 @@ class ReportViewSet(viewsets.ViewSet):
         except Exception as e:
             return Response(
                 {'error': f'Error importing organizations: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=False, methods=['post'], url_path='system-backup')
+    def system_backup(self, request):
+        """
+        Create a complete system backup including all organizations, users, and 2FA configs.
+        Only accessible by admin users.
+
+        POST /api/reports/system-backup/
+        Body:
+        {
+            "include_deleted": false  // optional, default false
+        }
+        """
+        # Check if user is admin
+        if not request.user.is_staff:
+            return Response(
+                {'error': 'Only administrators can create system backups'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        include_deleted = request.data.get('include_deleted', False)
+
+        try:
+            service = SystemBackupService(request.user)
+            backup_data = service.create_backup(include_deleted=include_deleted)
+
+            # Return as downloadable JSON file
+            response = HttpResponse(
+                json.dumps(backup_data, indent=2),
+                content_type='application/json'
+            )
+            filename = f'techvault_system_backup_{backup_data.get("created_at", "")}.json'
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            return response
+
+        except Exception as e:
+            logger.exception("Error creating system backup")
+            return Response(
+                {'error': f'Error creating system backup: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(
+        detail=False,
+        methods=['post'],
+        url_path='system-restore',
+        parser_classes=[MultiPartParser, FormParser, JSONParser]
+    )
+    def system_restore(self, request):
+        """
+        Restore system from a backup file.
+        Only accessible by admin users.
+
+        POST /api/reports/system-restore/
+        Body (multipart/form-data):
+        {
+            "file": <file>,  // JSON backup file
+            "restore_users": true,  // optional, default true
+            "restore_organizations": true,  // optional, default true
+            "overwrite_existing": false  // optional, default false
+        }
+        """
+        # Check if user is admin
+        if not request.user.is_staff:
+            return Response(
+                {'error': 'Only administrators can restore system backups'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Parse boolean options
+        restore_users = request.data.get('restore_users', 'true')
+        restore_organizations = request.data.get('restore_organizations', 'true')
+        overwrite_existing = request.data.get('overwrite_existing', 'false')
+
+        # Convert string booleans to actual booleans
+        if isinstance(restore_users, str):
+            restore_users = restore_users.lower() == 'true'
+        if isinstance(restore_organizations, str):
+            restore_organizations = restore_organizations.lower() == 'true'
+        if isinstance(overwrite_existing, str):
+            overwrite_existing = overwrite_existing.lower() == 'true'
+
+        # Get backup data from file upload or direct JSON
+        if 'file' in request.FILES:
+            uploaded_file = request.FILES['file']
+            try:
+                backup_data = json.load(uploaded_file)
+            except json.JSONDecodeError:
+                return Response(
+                    {'error': 'Invalid JSON file'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        elif 'data' in request.data:
+            backup_data = request.data['data']
+        else:
+            return Response(
+                {'error': 'No backup data provided. Include either "file" or "data" in request.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Validate backup type
+        if backup_data.get('backup_type') != 'full_system':
+            return Response(
+                {'error': 'Invalid backup file. Expected a full system backup.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            service = SystemBackupService(request.user)
+            results = service.restore_backup(
+                backup_data=backup_data,
+                restore_users=restore_users,
+                restore_organizations=restore_organizations,
+                overwrite_existing=overwrite_existing
+            )
+
+            return Response(results, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.exception("Error restoring system backup")
+            return Response(
+                {'error': f'Error restoring system backup: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
