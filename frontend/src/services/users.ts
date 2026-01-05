@@ -10,6 +10,7 @@ export interface User {
   is_staff: boolean;
   date_joined: string;
   twofa_enabled: boolean;
+  last_login: string | null;
 }
 
 export interface CreateUserData {

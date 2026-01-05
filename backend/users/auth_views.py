@@ -10,6 +10,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate, get_user_model
+from django.utils import timezone
 from users.throttling import LoginRateThrottle
 
 User = get_user_model()
@@ -121,8 +122,10 @@ def login_with_2fa(request):
 
     # If 2FA is not enabled, return tokens but indicate setup is required
     if not user.twofa_enabled:
-        # Reset failed attempts on successful login
+        # Reset failed attempts on successful login and update last_login
         user.reset_failed_login_attempts()
+        user.last_login = timezone.now()
+        user.save(update_fields=['last_login'])
         security_logger.info(
             f"Successful login (2FA not enabled): email={email}, ip={client_ip}"
         )
@@ -145,8 +148,10 @@ def login_with_2fa(request):
 
     # Try TOTP verification first
     if totp.verify(twofa_token, valid_window=1):
-        # Reset failed attempts on successful login
+        # Reset failed attempts on successful login and update last_login
         user.reset_failed_login_attempts()
+        user.last_login = timezone.now()
+        user.save(update_fields=['last_login'])
         security_logger.info(
             f"Successful login with 2FA: email={email}, ip={client_ip}"
         )
@@ -156,9 +161,10 @@ def login_with_2fa(request):
     # Check if it's a backup code
     token_hash = hash_backup_code(twofa_token.upper())
     if token_hash in user.twofa_backup_codes:
-        # Remove used backup code
+        # Remove used backup code and update last_login
         user.twofa_backup_codes.remove(token_hash)
         user.reset_failed_login_attempts()
+        user.last_login = timezone.now()
         user.save()
 
         security_logger.info(
