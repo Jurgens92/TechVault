@@ -119,14 +119,17 @@ def login_with_2fa(request):
             status=status.HTTP_401_UNAUTHORIZED
         )
 
-    # If 2FA is not enabled, return tokens immediately
+    # If 2FA is not enabled, return tokens but indicate setup is required
     if not user.twofa_enabled:
         # Reset failed attempts on successful login
         user.reset_failed_login_attempts()
         security_logger.info(
-            f"Successful login: email={email}, ip={client_ip}"
+            f"Successful login (2FA not enabled): email={email}, ip={client_ip}"
         )
         tokens = get_tokens_for_user(user)
+        tokens['requires_2fa_setup'] = True
+        tokens['message'] = 'You must enable Two-Factor Authentication. Please set up 2FA to continue using the application.'
+        tokens['setup_url'] = '/api/auth/2fa/setup/'
         return Response(tokens, status=status.HTTP_200_OK)
 
     # If 2FA is enabled but no token provided, ask for it

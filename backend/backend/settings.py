@@ -90,6 +90,8 @@ MIDDLEWARE = [
     'allauth.account.middleware.AccountMiddleware',
     # Security: Additional security headers (CSP, Permissions-Policy, etc.)
     'backend.security_middleware.SecurityHeadersMiddleware',
+    # Security: Enforce 2FA for all authenticated users
+    'users.enforce_2fa_middleware.Enforce2FAMiddleware',
 ]
 
 ROOT_URLCONF = 'backend.urls'

@@ -43,6 +43,10 @@ class LoginSecurityTestCase(TestCase):
         self.assertIn('access_token', response.data)
         self.assertIn('refresh_token', response.data)
         self.assertIn('user', response.data)
+        # Since 2FA is now enforced, response should indicate setup is required
+        self.assertTrue(response.data.get('requires_2fa_setup'))
+        self.assertIn('message', response.data)
+        self.assertIn('setup_url', response.data)
 
     def test_failed_login_invalid_credentials(self):
         """Test login with invalid credentials returns appropriate error."""
