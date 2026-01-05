@@ -1,6 +1,62 @@
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import type { DiagramData } from '@/types/core';
+import {
+  FILLED_ICONS,
+  svgToPngDataUrl,
+  getIconForDeviceType,
+} from './pdfIcons';
+
+// Icon cache for PDF generation
+interface IconCache {
+  internet: string;
+  firewall: string;
+  switch: string;
+  wifi: string;
+  server: string;
+  desktop: string;
+  laptop: string;
+  printer: string;
+  backup: string;
+  software: string;
+  voip: string;
+}
+
+/**
+ * Pre-load all icons needed for PDF export
+ */
+async function loadPdfIcons(): Promise<IconCache> {
+  const iconSize = 96; // High quality for PDF
+
+  const [internet, firewall, switchIcon, wifi, server, desktop, laptop, printer, backup, software, voip] =
+    await Promise.all([
+      svgToPngDataUrl(FILLED_ICONS.internetFilled, iconSize, iconSize),
+      svgToPngDataUrl(FILLED_ICONS.firewallFilled, iconSize, iconSize),
+      svgToPngDataUrl(FILLED_ICONS.switchFilled, iconSize, iconSize),
+      svgToPngDataUrl(FILLED_ICONS.wifiFilled, iconSize, iconSize),
+      svgToPngDataUrl(FILLED_ICONS.serverFilled, iconSize, iconSize),
+      svgToPngDataUrl(FILLED_ICONS.desktopFilled, iconSize, iconSize),
+      svgToPngDataUrl(FILLED_ICONS.laptopFilled, iconSize, iconSize),
+      svgToPngDataUrl(FILLED_ICONS.printerFilled, iconSize, iconSize),
+      svgToPngDataUrl(FILLED_ICONS.backupFilled, iconSize, iconSize),
+      svgToPngDataUrl(FILLED_ICONS.softwareFilled, iconSize, iconSize),
+      svgToPngDataUrl(FILLED_ICONS.voipFilled, iconSize, iconSize),
+    ]);
+
+  return {
+    internet,
+    firewall,
+    switch: switchIcon,
+    wifi,
+    server,
+    desktop,
+    laptop,
+    printer,
+    backup,
+    software,
+    voip,
+  };
+}
 
 export type ExportFormat = 'png' | 'json' | 'svg' | 'pdf' | 'print';
 
@@ -94,6 +150,9 @@ export async function exportAsPDF(
   orgName: string,
   elementId?: string
 ): Promise<void> {
+  // Pre-load all icons for high-quality PDF rendering
+  const icons = await loadPdfIcons();
+
   // Create PDF in landscape A4
   const pdf = new jsPDF({
     orientation: 'landscape',
@@ -219,14 +278,16 @@ export async function exportAsPDF(
 
     const centerX = pageWidth / 2;
 
-    // Internet circle with globe icon (drawn as circle with crosshairs)
-    pdf.setFillColor(...blueColor);
-    pdf.circle(centerX, yPosition + 8, 8, 'F');
-    pdf.setDrawColor(255, 255, 255);
-    pdf.setLineWidth(0.8);
-    pdf.circle(centerX, yPosition + 8, 4, 'S');
-    pdf.line(centerX - 6, yPosition + 8, centerX + 6, yPosition + 8);
-    pdf.line(centerX, yPosition + 2, centerX, yPosition + 14);
+    // Internet globe icon (high-quality PNG)
+    const internetIconSize = 14;
+    pdf.addImage(
+      icons.internet,
+      'PNG',
+      centerX - internetIconSize / 2,
+      yPosition + 1,
+      internetIconSize,
+      internetIconSize
+    );
     pdf.setTextColor(...darkColor);
     pdf.setFontSize(8);
     pdf.setFont('helvetica', 'normal');
@@ -256,21 +317,16 @@ export async function exportAsPDF(
         pdf.setLineWidth(0.3);
         pdf.roundedRect(x, yPosition, fwCardWidth, fwCardHeight, 2, 2, 'FD');
         
-        // Shield icon (drawn as shape)
-        pdf.setFillColor(254, 226, 226); // Red light
-        pdf.roundedRect(x + fwCardWidth/2 - 6, yPosition + 2, 12, 11, 1, 1, 'F');
-        pdf.setFillColor(...redColor);
-        // Draw shield shape
-        pdf.setDrawColor(...redColor);
-        pdf.setLineWidth(0.6);
-        const shieldX = x + fwCardWidth/2;
-        const shieldY = yPosition + 7;
-        pdf.line(shieldX - 3, shieldY - 2, shieldX, shieldY - 4);
-        pdf.line(shieldX, shieldY - 4, shieldX + 3, shieldY - 2);
-        pdf.line(shieldX + 3, shieldY - 2, shieldX + 3, shieldY + 1);
-        pdf.line(shieldX + 3, shieldY + 1, shieldX, shieldY + 4);
-        pdf.line(shieldX, shieldY + 4, shieldX - 3, shieldY + 1);
-        pdf.line(shieldX - 3, shieldY + 1, shieldX - 3, shieldY - 2);
+        // Firewall/Shield icon (high-quality PNG)
+        const fwIconSize = 11;
+        pdf.addImage(
+          icons.firewall,
+          'PNG',
+          x + fwCardWidth / 2 - fwIconSize / 2,
+          yPosition + 2,
+          fwIconSize,
+          fwIconSize
+        );
         
         // Name
         pdf.setTextColor(...darkColor);
@@ -324,13 +380,16 @@ export async function exportAsPDF(
         pdf.setLineWidth(0.3);
         pdf.roundedRect(x, yPosition, swCardWidth, swCardHeight, 2, 2, 'FD');
         
-        // Switch icon (network symbol - box with dots)
-        pdf.setFillColor(220, 252, 231); // Green light
-        pdf.roundedRect(x + swCardWidth/2 - 6, yPosition + 2, 12, 9, 1, 1, 'F');
-        pdf.setFillColor(...greenColor);
-        pdf.circle(x + swCardWidth/2 - 3, yPosition + 6.5, 1, 'F');
-        pdf.circle(x + swCardWidth/2, yPosition + 6.5, 1, 'F');
-        pdf.circle(x + swCardWidth/2 + 3, yPosition + 6.5, 1, 'F');
+        // Switch icon (high-quality PNG)
+        const swIconSize = 10;
+        pdf.addImage(
+          icons.switch,
+          'PNG',
+          x + swCardWidth / 2 - swIconSize / 2,
+          yPosition + 2,
+          swIconSize,
+          swIconSize
+        );
         
         // Name
         pdf.setTextColor(...darkColor);
@@ -371,35 +430,16 @@ export async function exportAsPDF(
         pdf.setLineWidth(0.3);
         pdf.roundedRect(x, yPosition, wifiCardWidth, wifiCardHeight, 2, 2, 'FD');
         
-        // WiFi icon (arcs)
-        pdf.setFillColor(243, 232, 255); // Purple light
-        pdf.roundedRect(x + 2, yPosition + 3, 14, 14, 1, 1, 'F');
-        pdf.setDrawColor(...purpleColor);
-        pdf.setLineWidth(0.5);
-        // Draw wifi arcs
-        const wifiX = x + 9;
-        const wifiY = yPosition + 13;
-        pdf.circle(wifiX, wifiY, 1, 'F');
-        // Arc 1 (approximate with lines)
-        drawArc(pdf, wifiX, wifiY, 3, 220, 320);
-        // Arc 2 (approximate with lines)
-        drawArc(pdf, wifiX, wifiY, 5, 220, 320);
-
-    // Helper to draw an arc using lines (jsPDF does not support arc natively)
-    function drawArc(pdf: any, cx: number, cy: number, r: number, startAngle: number, endAngle: number) {
-      const segments = 20;
-      const points = [];
-      for (let i = 0; i <= segments; i++) {
-        const angle = (startAngle + (endAngle - startAngle) * (i / segments)) * Math.PI / 180;
-        points.push([
-          cx + r * Math.cos(angle),
-          cy + r * Math.sin(angle)
-        ]);
-      }
-      for (let i = 0; i < points.length - 1; i++) {
-        pdf.line(points[i][0], points[i][1], points[i + 1][0], points[i + 1][1]);
-      }
-    }
+        // WiFi icon (high-quality PNG)
+        const wifiIconSize = 12;
+        pdf.addImage(
+          icons.wifi,
+          'PNG',
+          x + 3,
+          yPosition + 4,
+          wifiIconSize,
+          wifiIconSize
+        );
         
         // Name and details
         pdf.setTextColor(...darkColor);
@@ -456,31 +496,35 @@ export async function exportAsPDF(
     // Draw endpoint cards in columns
     const maxRows = Math.max(desktops.length, laptops.length, workstations.length);
     
-    const drawEndpointCard = (endpoint: typeof data.endpoint_users[0], x: number, y: number, width: number) => {
+    const drawEndpointCard = (endpoint: typeof data.endpoint_users[0], x: number, y: number, width: number, icon: string) => {
       // Card
       pdf.setFillColor(255, 255, 255);
       pdf.setDrawColor(200, 200, 200);
       pdf.setLineWidth(0.3);
       pdf.roundedRect(x, y, width, cardHeight, 1.5, 1.5, 'FD');
-      
-      // Name
+
+      // Device type icon (high-quality PNG)
+      const endpointIconSize = 10;
+      pdf.addImage(icon, 'PNG', x + 2, y + 2, endpointIconSize, endpointIconSize);
+
+      // Name (shifted right to accommodate icon)
       pdf.setTextColor(...darkColor);
       pdf.setFontSize(7);
       pdf.setFont('helvetica', 'bold');
-      pdf.text(truncateText(endpoint.name, width - 4), x + 2, y + 5);
-      
+      pdf.text(truncateText(endpoint.name, width - 16), x + 14, y + 6);
+
       // User
       if (endpoint.assigned_to_name) {
         pdf.setFont('helvetica', 'normal');
         pdf.setFontSize(6);
         pdf.setTextColor(...grayColor);
-        pdf.text(truncateText(endpoint.assigned_to_name, width - 8), x + 2, y + 9);
+        pdf.text(truncateText(endpoint.assigned_to_name, width - 16), x + 14, y + 10);
       }
-      
+
       // Details
-      let detailY = y + 13;
+      let detailY = y + 15;
       pdf.setFontSize(5);
-      
+
       if (endpoint.operating_system) {
         pdf.setTextColor(...darkColor);
         pdf.text(`OS: ${truncateText(endpoint.operating_system, width - 8)}`, x + 2, detailY);
@@ -503,17 +547,17 @@ export async function exportAsPDF(
 
     for (let row = 0; row < maxRows; row++) {
       checkPageBreak(cardHeight + cardGap);
-      
+
       if (desktops[row]) {
-        drawEndpointCard(desktops[row], col1X, yPosition, colWidth);
+        drawEndpointCard(desktops[row], col1X, yPosition, colWidth, icons.desktop);
       }
       if (laptops[row]) {
-        drawEndpointCard(laptops[row], col2X, yPosition, colWidth);
+        drawEndpointCard(laptops[row], col2X, yPosition, colWidth, icons.laptop);
       }
       if (workstations[row]) {
-        drawEndpointCard(workstations[row], col3X, yPosition, colWidth);
+        drawEndpointCard(workstations[row], col3X, yPosition, colWidth, icons.desktop);
       }
-      
+
       yPosition += cardHeight + cardGap;
     }
 
@@ -547,14 +591,16 @@ export async function exportAsPDF(
       pdf.setLineWidth(0.3);
       pdf.roundedRect(x, y, cardWidth, cardHeight, 2, 2, 'FD');
 
-      // Server icon (simple box with lines)
-      pdf.setFillColor(240, 240, 240);
-      pdf.roundedRect(x + 3, y + 3, 10, 10, 1, 1, 'F');
-      pdf.setDrawColor(...grayColor);
-      pdf.setLineWidth(0.3);
-      pdf.rect(x + 4.5, y + 4.5, 7, 7, 'S');
-      pdf.line(x + 4.5, y + 7, x + 11.5, y + 7);
-      pdf.line(x + 4.5, y + 9.5, x + 11.5, y + 9.5);
+      // Server icon (high-quality PNG)
+      const serverIconSize = 11;
+      pdf.addImage(
+        icons.server,
+        'PNG',
+        x + 2,
+        y + 2,
+        serverIconSize,
+        serverIconSize
+      );
 
       pdf.setTextColor(...darkColor);
       pdf.setFontSize(8);
@@ -628,14 +674,16 @@ export async function exportAsPDF(
       pdf.setLineWidth(0.3);
       pdf.roundedRect(x, yPosition, cardWidth, cardHeight, 2, 2, 'FD');
 
-      // Icon (simple shape based on type)
-      pdf.setFillColor(240, 240, 240);
-      pdf.roundedRect(x + 2, yPosition + 2, 12, 12, 1, 1, 'F');
-      pdf.setDrawColor(...grayColor);
-      pdf.setLineWidth(0.3);
-      // Draw a simple printer/device icon
-      pdf.rect(x + 4, yPosition + 5, 8, 6, 'S');
-      pdf.line(x + 5, yPosition + 8, x + 11, yPosition + 8);
+      // Peripheral icon (high-quality PNG)
+      const peripheralIconSize = 11;
+      pdf.addImage(
+        icons.printer,
+        'PNG',
+        x + 2,
+        yPosition + 2,
+        peripheralIconSize,
+        peripheralIconSize
+      );
 
       // Name
       pdf.setTextColor(...darkColor);
@@ -687,16 +735,16 @@ export async function exportAsPDF(
       pdf.setLineWidth(0.3);
       pdf.roundedRect(x, yPosition, cardWidth, cardHeight, 2, 2, 'FD');
 
-      // Icon (database/disk shape)
-      pdf.setFillColor(240, 240, 240);
-      pdf.roundedRect(x + 3, yPosition + 3, 12, 12, 1, 1, 'F');
-      pdf.setDrawColor(...grayColor);
-      pdf.setLineWidth(0.3);
-      // Draw disk/cylinder shape
-      pdf.ellipse(x + 9, yPosition + 6, 4, 1.5, 'S');
-      pdf.line(x + 5, yPosition + 6, x + 5, yPosition + 12);
-      pdf.line(x + 13, yPosition + 6, x + 13, yPosition + 12);
-      pdf.ellipse(x + 9, yPosition + 12, 4, 1.5, 'S');
+      // Backup/Database icon (high-quality PNG)
+      const backupIconSize = 12;
+      pdf.addImage(
+        icons.backup,
+        'PNG',
+        x + 3,
+        yPosition + 3,
+        backupIconSize,
+        backupIconSize
+      );
 
       // Name
       pdf.setTextColor(...darkColor);
@@ -764,16 +812,16 @@ export async function exportAsPDF(
       pdf.setLineWidth(0.3);
       pdf.roundedRect(x, yPosition, cardWidth, cardHeight, 2, 2, 'FD');
 
-      // Icon (box/package shape)
-      pdf.setFillColor(240, 240, 240);
-      pdf.roundedRect(x + 3, yPosition + 3, 12, 12, 1, 1, 'F');
-      pdf.setDrawColor(...grayColor);
-      pdf.setLineWidth(0.3);
-      // Draw a cube/box
-      pdf.rect(x + 5, yPosition + 6, 6, 6, 'S');
-      pdf.line(x + 5, yPosition + 6, x + 7, yPosition + 4);
-      pdf.line(x + 11, yPosition + 6, x + 13, yPosition + 4);
-      pdf.line(x + 7, yPosition + 4, x + 13, yPosition + 4);
+      // Software/Package icon (high-quality PNG)
+      const softwareIconSize = 11;
+      pdf.addImage(
+        icons.software,
+        'PNG',
+        x + 3,
+        yPosition + 3,
+        softwareIconSize,
+        softwareIconSize
+      );
 
       // Name
       pdf.setTextColor(...darkColor);
@@ -832,18 +880,16 @@ export async function exportAsPDF(
       pdf.setLineWidth(0.3);
       pdf.roundedRect(x, yPosition, cardWidth, cardHeight, 2, 2, 'FD');
 
-      // Phone icon (simple handset shape)
-      pdf.setFillColor(240, 240, 240);
-      pdf.roundedRect(x + 3, yPosition + 3, 12, 12, 1, 1, 'F');
-      pdf.setDrawColor(...grayColor);
-      pdf.setLineWidth(0.4);
-      // Draw phone handset
-      pdf.line(x + 5, yPosition + 6, x + 5, yPosition + 12);
-      pdf.line(x + 5, yPosition + 6, x + 8, yPosition + 6);
-      pdf.line(x + 8, yPosition + 6, x + 10, yPosition + 8);
-      pdf.line(x + 10, yPosition + 8, x + 10, yPosition + 10);
-      pdf.line(x + 10, yPosition + 10, x + 8, yPosition + 12);
-      pdf.line(x + 8, yPosition + 12, x + 5, yPosition + 12);
+      // VoIP/Phone icon (high-quality PNG)
+      const voipIconSize = 11;
+      pdf.addImage(
+        icons.voip,
+        'PNG',
+        x + 3,
+        yPosition + 3,
+        voipIconSize,
+        voipIconSize
+      );
 
       // Name
       pdf.setTextColor(...darkColor);
