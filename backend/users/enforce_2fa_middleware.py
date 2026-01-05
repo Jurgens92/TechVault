@@ -16,23 +16,18 @@ class Enforce2FAMiddleware(MiddlewareMixin):
     Middleware that enforces 2FA for all authenticated users.
 
     Users without 2FA enabled can only access:
-    - 2FA setup endpoints (/api/auth/2fa/*)
-    - Logout endpoint (/api/auth/logout/)
-    - User profile endpoint (to view their info)
+    - All authentication endpoints (/api/auth/*) - login, logout, register, 2FA setup, token refresh, etc.
+    - User account management endpoints (/api/user/*) - view/edit profile, change password, etc.
+    - Django admin panel (/admin/)
 
-    All other endpoints are blocked until 2FA is enabled.
+    All other endpoints (business data like /api/organizations/, /api/devices/, etc.)
+    are blocked until 2FA is enabled.
     """
 
     # Endpoints that are always allowed (public or 2FA setup)
     ALLOWED_PATHS = [
-        '/api/auth/login/',
-        '/api/auth/logout/',
-        '/api/auth/register/',
-        '/api/auth/2fa/status/',
-        '/api/auth/2fa/setup/',
-        '/api/auth/2fa/enable/',
-        '/api/auth/2fa/verify/',
-        '/api/auth/user/',  # Allow viewing user profile
+        '/api/auth/',  # Allow all auth endpoints (login, logout, register, token refresh, etc.)
+        '/api/user/',  # Allow user profile access (needed to view own profile before setting up 2FA)
         '/admin/',  # Allow Django admin access
     ]
 

@@ -74,9 +74,8 @@ class Enforce2FAMiddlewareTestCase(TestCase):
         # Try to access a protected endpoint
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
 
-        # Test various protected endpoints
+        # Test various protected endpoints (not including /api/user/* or /api/auth/* which are allowed)
         protected_endpoints = [
-            '/api/user/profile/',
             '/api/organizations/',
             '/api/devices/',
             '/api/servers/',
@@ -94,6 +93,30 @@ class Enforce2FAMiddlewareTestCase(TestCase):
             self.assertIn('error', response.data)
             self.assertIn('2FA', response.data['error'])
             self.assertTrue(response.data.get('requires_2fa_setup'))
+
+    def test_user_without_2fa_can_access_user_profile(self):
+        """Test that users without 2FA can access their user profile."""
+        # Login to get token
+        login_response = self.client.post(self.login_url, {
+            'email': self.test_email_no_2fa,
+            'password': self.test_password
+        })
+        access_token = login_response.data['access_token']
+
+        # Use token to access user profile
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
+        response = self.client.get('/api/user/profile/')
+
+        # Should NOT be blocked by 2FA enforcement (may be 200 or 404, but not 403)
+        self.assertNotEqual(
+            response.status_code,
+            status.HTTP_403_FORBIDDEN,
+            "User profile should be accessible before 2FA setup"
+        )
+
+        # If it is 403, make sure it's not due to 2FA requirement
+        if response.status_code == status.HTTP_403_FORBIDDEN:
+            self.assertNotIn('requires_2fa_setup', response.data)
 
     def test_user_without_2fa_can_access_2fa_setup_endpoints(self):
         """Test that users without 2FA can access 2FA setup endpoints."""
