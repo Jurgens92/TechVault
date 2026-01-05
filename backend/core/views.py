@@ -9,7 +9,8 @@ from django.http import HttpResponse
 from .models import (
     Organization, Location, Contact, Documentation,
     PasswordEntry, Configuration, NetworkDevice, EndpointUser, Server, Peripheral, Software, Backup, VoIP,
-    DocumentationVersion, PasswordEntryVersion, ConfigurationVersion
+    DocumentationVersion, PasswordEntryVersion, ConfigurationVersion,
+    OrganizationMember
 )
 from .serializers import (
     OrganizationSerializer, LocationSerializer, ContactSerializer,
@@ -17,6 +18,39 @@ from .serializers import (
     NetworkDeviceSerializer, EndpointUserSerializer, ServerSerializer, PeripheralSerializer, SoftwareSerializer, BackupSerializer, VoIPSerializer,
     DocumentationVersionSerializer, PasswordEntryVersionSerializer, ConfigurationVersionSerializer
 )
+from .permissions import IsOrganizationMember, IsOrganizationAdmin
+
+
+class SecureQuerySetMixin:
+    """
+    Mixin that filters querysets to only show data from organizations
+    the user has access to. This is the foundation of multi-tenant security.
+    """
+
+    def get_user_organizations(self):
+        """Get organizations the current user has access to."""
+        user = self.request.user
+        if user.is_superuser:
+            return Organization.objects.all()
+        return OrganizationMember.get_user_organizations(user)
+
+    def filter_by_organization_access(self, queryset):
+        """Filter queryset to only include items from accessible organizations."""
+        user = self.request.user
+        if user.is_superuser:
+            return queryset
+
+        user_orgs = self.get_user_organizations()
+
+        # Handle Organization model directly
+        if queryset.model == Organization:
+            return queryset.filter(id__in=user_orgs)
+
+        # Handle models with organization FK
+        if hasattr(queryset.model, 'organization'):
+            return queryset.filter(organization__in=user_orgs)
+
+        return queryset
 
 
 class VersionHistoryMixin:
@@ -134,6 +168,22 @@ class VersionHistoryMixin:
 class SoftDeleteViewSetMixin:
     """Mixin to add soft delete functionality to ViewSets."""
 
+    def _check_organization_access(self, instance):
+        """Check if user has access to the instance's organization."""
+        user = self.request.user
+        if user.is_superuser:
+            return True
+
+        # Get organization from instance
+        if isinstance(instance, Organization):
+            org = instance
+        elif hasattr(instance, 'organization'):
+            org = instance.organization
+        else:
+            return True  # No organization relationship
+
+        return OrganizationMember.user_has_access(user, org)
+
     def destroy(self, request, *args, **kwargs):
         """Override destroy to perform soft delete instead of hard delete."""
         instance = self.get_object()
@@ -150,6 +200,14 @@ class SoftDeleteViewSetMixin:
         model_class = self.get_queryset().model
         try:
             instance = model_class.all_objects.get(pk=pk)
+
+            # Security: Check organization access
+            if not self._check_organization_access(instance):
+                return Response(
+                    {'detail': 'You do not have access to this item.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
             if not instance.is_deleted:
                 return Response(
                     {'detail': 'Item is not deleted.'},
@@ -173,7 +231,11 @@ class SoftDeleteViewSetMixin:
         model_class = self.get_queryset().model
         deleted_items = model_class.objects.deleted()
 
-        # Apply organization filter if provided
+        # Security: Filter by user's accessible organizations
+        if hasattr(self, 'filter_by_organization_access'):
+            deleted_items = self.filter_by_organization_access(deleted_items)
+
+        # Apply additional organization filter if provided
         org_id = request.query_params.get('organization_id')
         if org_id and hasattr(model_class, 'organization'):
             deleted_items = deleted_items.filter(organization_id=org_id)
@@ -198,6 +260,14 @@ class SoftDeleteViewSetMixin:
         model_class = self.get_queryset().model
         try:
             instance = model_class.all_objects.get(pk=pk)
+
+            # Security: Check organization access
+            if not self._check_organization_access(instance):
+                return Response(
+                    {'detail': 'You do not have access to this item.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
             instance.hard_delete()
             return Response(
                 {'detail': 'Item permanently deleted.'},
@@ -238,26 +308,37 @@ class LocationFilterMixin(OrganizationFilterMixin):
         return Response([], status=status.HTTP_400_BAD_REQUEST)
 
 
-class OrganizationViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+class OrganizationViewSet(SecureQuerySetMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for Organization CRUD operations."""
     serializer_class = OrganizationSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsOrganizationMember]
     filterset_fields = ['is_active', 'country']
     search_fields = ['name', 'description', 'email']
     ordering_fields = ['name', 'created_at']
     ordering = ['name']
 
     def get_queryset(self):
-        return Organization.objects.all()
+        """Return only organizations the user has access to."""
+        queryset = Organization.objects.all()
+        return self.filter_by_organization_access(queryset)
 
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+        """Create organization and add creator as owner."""
+        org = serializer.save(created_by=self.request.user)
+        # Automatically add creator as organization owner
+        OrganizationMember.objects.create(
+            organization=org,
+            user=self.request.user,
+            role='owner',
+            created_by=self.request.user
+        )
 
     @action(detail=False, methods=['get'])
     def search(self, request):
         query = request.query_params.get('q', '')
         if query:
-            organizations = Organization.objects.filter(
+            # Security: Only search within accessible organizations
+            organizations = self.get_queryset().filter(
                 Q(name__icontains=query) |
                 Q(description__icontains=query) |
                 Q(email__icontains=query)
@@ -279,33 +360,37 @@ class OrganizationViewSet(SoftDeleteViewSetMixin, viewsets.ModelViewSet):
         })
 
 
-class LocationViewSet(OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+class LocationViewSet(SecureQuerySetMixin, OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for Location CRUD operations."""
     serializer_class = LocationSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsOrganizationMember]
     filterset_fields = ['organization', 'is_active', 'country']
     search_fields = ['name', 'city', 'address']
     ordering_fields = ['name', 'city', 'created_at']
     ordering = ['organization', 'name']
 
     def get_queryset(self):
-        return Location.objects.select_related('organization')
+        """Return only locations from organizations the user has access to."""
+        queryset = Location.objects.select_related('organization')
+        return self.filter_by_organization_access(queryset)
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
 
 
-class ContactViewSet(LocationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+class ContactViewSet(SecureQuerySetMixin, LocationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for Contact CRUD operations."""
     serializer_class = ContactSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsOrganizationMember]
     filterset_fields = ['organization', 'location', 'is_active']
     search_fields = ['first_name', 'last_name', 'email', 'title']
     ordering_fields = ['last_name', 'first_name', 'created_at']
     ordering = ['organization', 'last_name', 'first_name']
 
     def get_queryset(self):
-        return Contact.objects.select_related('organization', 'location')
+        """Return only contacts from organizations the user has access to."""
+        queryset = Contact.objects.select_related('organization', 'location')
+        return self.filter_by_organization_access(queryset)
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
@@ -329,6 +414,10 @@ class ContactViewSet(LocationFilterMixin, SoftDeleteViewSetMixin, viewsets.Model
     @action(detail=False, methods=['post'])
     def import_csv(self, request):
         """Import contacts from a CSV file."""
+        # Security: File size limit (5MB max)
+        MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
+        MAX_ROWS = 10000
+
         if 'file' not in request.FILES:
             return Response(
                 {'error': 'No file provided'},
@@ -336,6 +425,13 @@ class ContactViewSet(LocationFilterMixin, SoftDeleteViewSetMixin, viewsets.Model
             )
 
         csv_file = request.FILES['file']
+
+        # Security: Check file size
+        if csv_file.size > MAX_FILE_SIZE:
+            return Response(
+                {'error': 'File size exceeds 5MB limit'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         # Check file extension
         if not csv_file.name.endswith('.csv'):
@@ -352,9 +448,15 @@ class ContactViewSet(LocationFilterMixin, SoftDeleteViewSetMixin, viewsets.Model
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Verify organization exists
+        # Verify organization exists and user has access
         try:
             organization = Organization.objects.get(id=org_id)
+            # Security: Check user has access to this organization
+            if not OrganizationMember.user_has_access(request.user, organization) and not request.user.is_superuser:
+                return Response(
+                    {'error': 'You do not have access to this organization'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
         except Organization.DoesNotExist:
             return Response(
                 {'error': 'Organization not found'},
@@ -371,15 +473,35 @@ class ContactViewSet(LocationFilterMixin, SoftDeleteViewSetMixin, viewsets.Model
             errors = []
 
             for row_num, row in enumerate(reader, start=2):  # start=2 because row 1 is header
+                # Security: Limit number of rows
+                if row_num > MAX_ROWS + 1:
+                    errors.append({
+                        'row': row_num,
+                        'error': f'Exceeded maximum row limit of {MAX_ROWS}'
+                    })
+                    break
+
                 try:
+                    # Security: Sanitize inputs - strip and limit length
+                    first_name = row.get('first_name', '').strip()[:100]
+                    last_name = row.get('last_name', '').strip()[:100]
+                    title = row.get('title', '').strip()[:100]
+                    email = row.get('email', '').strip()[:254]
+                    phone = row.get('phone', '').strip()[:20]
+
+                    # Security: Check for CSV injection (cells starting with =, +, -, @)
+                    for field in [first_name, last_name, title, email, phone]:
+                        if field and field[0] in ('=', '+', '-', '@'):
+                            raise ValueError('Invalid character at start of field')
+
                     # Create contact (is_active always set to True)
                     Contact.objects.create(
                         organization=organization,
-                        first_name=row.get('first_name', '').strip(),
-                        last_name=row.get('last_name', '').strip(),
-                        title=row.get('title', '').strip(),
-                        email=row.get('email', '').strip(),
-                        phone=row.get('phone', '').strip(),
+                        first_name=first_name,
+                        last_name=last_name,
+                        title=title,
+                        email=email,
+                        phone=phone,
                         is_active=True,
                         created_by=request.user
                     )
@@ -405,15 +527,15 @@ class ContactViewSet(LocationFilterMixin, SoftDeleteViewSetMixin, viewsets.Model
 
         except Exception as e:
             return Response(
-                {'error': f'Error processing CSV file: {str(e)}'},
+                {'error': 'Error processing CSV file'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
 
-class DocumentationViewSet(OrganizationFilterMixin, VersionHistoryMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+class DocumentationViewSet(SecureQuerySetMixin, OrganizationFilterMixin, VersionHistoryMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for Documentation CRUD operations."""
     serializer_class = DocumentationSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsOrganizationMember]
     filterset_fields = ['organization', 'category', 'is_published']
     search_fields = ['title', 'content', 'tags']
     ordering_fields = ['title', 'created_at', 'category']
@@ -426,7 +548,9 @@ class DocumentationViewSet(OrganizationFilterMixin, VersionHistoryMixin, SoftDel
     parent_field = 'documentation'
 
     def get_queryset(self):
-        return Documentation.objects.select_related('organization')
+        """Return only documentation from organizations the user has access to."""
+        queryset = Documentation.objects.select_related('organization')
+        return self.filter_by_organization_access(queryset)
 
     def perform_create(self, serializer):
         instance = serializer.save(created_by=self.request.user)
@@ -448,10 +572,10 @@ class DocumentationViewSet(OrganizationFilterMixin, VersionHistoryMixin, SoftDel
         return Response({'status': 'documentation unpublished'})
 
 
-class PasswordEntryViewSet(OrganizationFilterMixin, VersionHistoryMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+class PasswordEntryViewSet(SecureQuerySetMixin, OrganizationFilterMixin, VersionHistoryMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for PasswordEntry CRUD operations."""
     serializer_class = PasswordEntrySerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsOrganizationMember]
     filterset_fields = ['organization', 'category']
     search_fields = ['name', 'username', 'url']
     ordering_fields = ['name', 'category', 'created_at']
@@ -464,18 +588,58 @@ class PasswordEntryViewSet(OrganizationFilterMixin, VersionHistoryMixin, SoftDel
     parent_field = 'password_entry'
 
     def get_queryset(self):
-        return PasswordEntry.objects.select_related('organization')
+        """Return only password entries from organizations the user has access to."""
+        queryset = PasswordEntry.objects.select_related('organization')
+        return self.filter_by_organization_access(queryset)
 
     def perform_create(self, serializer):
         instance = serializer.save(created_by=self.request.user)
         # Create initial version on create
         self._create_version(instance, 'Initial version')
 
+    @action(detail=True, methods=['post'])
+    def retrieve_password(self, request, pk=None):
+        """
+        Securely retrieve the decrypted password.
+        This action logs password access for audit purposes.
+        """
+        import logging
+        from .encryption import decrypt_password
 
-class ConfigurationViewSet(OrganizationFilterMixin, VersionHistoryMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+        security_logger = logging.getLogger('security')
+
+        password_entry = self.get_object()
+
+        # Log password access for audit trail
+        security_logger.info(
+            f"Password retrieved: user={request.user.email}, "
+            f"password_entry={password_entry.id}, "
+            f"name={password_entry.name}, "
+            f"organization={password_entry.organization.name}, "
+            f"ip={request.META.get('REMOTE_ADDR', 'unknown')}"
+        )
+
+        try:
+            decrypted_password = decrypt_password(password_entry.password)
+            return Response({
+                'password': decrypted_password,
+                'warning': 'This password was retrieved securely. Access has been logged.'
+            })
+        except Exception as e:
+            security_logger.error(
+                f"Password decryption failed: user={request.user.email}, "
+                f"password_entry={password_entry.id}, error={str(e)}"
+            )
+            return Response(
+                {'error': 'Failed to retrieve password'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class ConfigurationViewSet(SecureQuerySetMixin, OrganizationFilterMixin, VersionHistoryMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for Configuration CRUD operations."""
     serializer_class = ConfigurationSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsOrganizationMember]
     filterset_fields = ['organization', 'config_type', 'is_active']
     search_fields = ['name', 'description', 'content']
     ordering_fields = ['name', 'config_type', 'created_at']
@@ -488,7 +652,9 @@ class ConfigurationViewSet(OrganizationFilterMixin, VersionHistoryMixin, SoftDel
     parent_field = 'configuration'
 
     def get_queryset(self):
-        return Configuration.objects.select_related('organization')
+        """Return only configurations from organizations the user has access to."""
+        queryset = Configuration.objects.select_related('organization')
+        return self.filter_by_organization_access(queryset)
 
     def perform_create(self, serializer):
         instance = serializer.save(created_by=self.request.user)
@@ -496,119 +662,133 @@ class ConfigurationViewSet(OrganizationFilterMixin, VersionHistoryMixin, SoftDel
         self._create_version(instance, 'Initial version')
 
 
-class NetworkDeviceViewSet(OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+class NetworkDeviceViewSet(SecureQuerySetMixin, OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for NetworkDevice CRUD operations."""
     serializer_class = NetworkDeviceSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsOrganizationMember]
     filterset_fields = ['organization', 'device_type', 'location', 'is_active']
     search_fields = ['name', 'manufacturer', 'model', 'ip_address']
     ordering_fields = ['name', 'device_type', 'created_at']
     ordering = ['organization', 'device_type', 'name']
 
     def get_queryset(self):
-        return NetworkDevice.objects.select_related('organization', 'location')
+        """Return only network devices from organizations the user has access to."""
+        queryset = NetworkDevice.objects.select_related('organization', 'location')
+        return self.filter_by_organization_access(queryset)
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
 
 
-class EndpointUserViewSet(OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+class EndpointUserViewSet(SecureQuerySetMixin, OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for EndpointUser CRUD operations."""
     serializer_class = EndpointUserSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsOrganizationMember]
     filterset_fields = ['organization', 'device_type', 'assigned_to', 'location', 'is_active']
     search_fields = ['name', 'manufacturer', 'model', 'hostname', 'ip_address']
     ordering_fields = ['name', 'device_type', 'created_at']
     ordering = ['organization', 'device_type', 'name']
 
     def get_queryset(self):
-        return EndpointUser.objects.select_related('organization', 'location', 'assigned_to')
+        """Return only endpoint users from organizations the user has access to."""
+        queryset = EndpointUser.objects.select_related('organization', 'location', 'assigned_to')
+        return self.filter_by_organization_access(queryset)
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
 
 
-class ServerViewSet(OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+class ServerViewSet(SecureQuerySetMixin, OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for Server CRUD operations."""
     serializer_class = ServerSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsOrganizationMember]
     filterset_fields = ['organization', 'server_type', 'location', 'is_active']
     search_fields = ['name', 'role', 'manufacturer', 'model', 'hostname', 'ip_address']
     ordering_fields = ['name', 'server_type', 'created_at']
     ordering = ['organization', 'server_type', 'name']
 
     def get_queryset(self):
-        return Server.objects.select_related('organization', 'location')
+        """Return only servers from organizations the user has access to."""
+        queryset = Server.objects.select_related('organization', 'location')
+        return self.filter_by_organization_access(queryset)
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
 
 
-class PeripheralViewSet(OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+class PeripheralViewSet(SecureQuerySetMixin, OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for Peripheral CRUD operations."""
     serializer_class = PeripheralSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsOrganizationMember]
     filterset_fields = ['organization', 'device_type', 'location', 'is_active']
     search_fields = ['name', 'manufacturer', 'model', 'ip_address']
     ordering_fields = ['name', 'device_type', 'created_at']
     ordering = ['organization', 'device_type', 'name']
 
     def get_queryset(self):
-        return Peripheral.objects.select_related('organization', 'location')
+        """Return only peripherals from organizations the user has access to."""
+        queryset = Peripheral.objects.select_related('organization', 'location')
+        return self.filter_by_organization_access(queryset)
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
 
 
-class SoftwareViewSet(OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+class SoftwareViewSet(SecureQuerySetMixin, OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for Software CRUD operations."""
     serializer_class = SoftwareSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsOrganizationMember]
     filterset_fields = ['organization', 'software_type', 'license_type', 'is_active']
     search_fields = ['name', 'vendor', 'license_key']
     ordering_fields = ['name', 'software_type', 'expiry_date', 'created_at']
     ordering = ['organization', 'software_type', 'name']
 
     def get_queryset(self):
-        return Software.objects.select_related('organization').prefetch_related(
+        """Return only software from organizations the user has access to."""
+        queryset = Software.objects.select_related('organization').prefetch_related(
             'software_assignments__contact',
             'software_assignments__created_by'
         )
+        return self.filter_by_organization_access(queryset)
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
 
 
-class BackupViewSet(OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+class BackupViewSet(SecureQuerySetMixin, OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for Backup CRUD operations."""
     serializer_class = BackupSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsOrganizationMember]
     filterset_fields = ['organization', 'backup_type', 'backup_status', 'location', 'is_active']
     search_fields = ['name', 'vendor', 'target_systems', 'storage_location']
     ordering_fields = ['name', 'backup_type', 'last_backup_date', 'created_at']
     ordering = ['organization', 'backup_type', 'name']
 
     def get_queryset(self):
-        return Backup.objects.select_related('organization', 'location')
+        """Return only backups from organizations the user has access to."""
+        queryset = Backup.objects.select_related('organization', 'location')
+        return self.filter_by_organization_access(queryset)
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
 
 
-class VoIPViewSet(OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+class VoIPViewSet(SecureQuerySetMixin, OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for VoIP CRUD operations."""
     serializer_class = VoIPSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsOrganizationMember]
     filterset_fields = ['organization', 'voip_type', 'license_type', 'is_active']
     search_fields = ['name', 'vendor', 'license_key']
     ordering_fields = ['name', 'voip_type', 'expiry_date', 'created_at']
     ordering = ['organization', 'voip_type', 'name']
 
     def get_queryset(self):
-        return VoIP.objects.select_related('organization').prefetch_related(
+        """Return only VoIP from organizations the user has access to."""
+        queryset = VoIP.objects.select_related('organization').prefetch_related(
             'voip_assignments__contact',
             'voip_assignments__created_by'
         )
+        return self.filter_by_organization_access(queryset)
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)

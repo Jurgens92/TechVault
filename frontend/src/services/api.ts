@@ -7,16 +7,23 @@ const API_URL = import.meta.env.VITE_API_URL !== undefined && import.meta.env.VI
   ? import.meta.env.VITE_API_URL
   : (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8000');
 
-// Create axios instance
+// Create axios instance with credentials support for HttpOnly cookies
 const api = axios.create({
   baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
+  // Security: Enable credentials to allow HttpOnly cookie authentication
+  withCredentials: true,
 });
 
-// Token management
+// Token management - Uses HttpOnly cookies primarily, with localStorage as fallback
+// Note: With HttpOnly cookies, the browser handles token storage automatically
+// We keep localStorage methods for backwards compatibility during transition
+
 const getAccessToken = (): string | null => {
+  // With HttpOnly cookies, we can't access tokens directly
+  // This is kept for backwards compatibility but cookies take precedence
   return localStorage.getItem('access_token');
 };
 
@@ -25,13 +32,20 @@ const getRefreshToken = (): string | null => {
 };
 
 const setTokens = (tokens: AuthTokens): void => {
-  localStorage.setItem('access_token', tokens.access);
-  localStorage.setItem('refresh_token', tokens.refresh);
+  // Store tokens in localStorage as fallback (when backend returns them in response)
+  // HttpOnly cookies are set automatically by the browser from Set-Cookie headers
+  if (tokens.access) {
+    localStorage.setItem('access_token', tokens.access);
+  }
+  if (tokens.refresh) {
+    localStorage.setItem('refresh_token', tokens.refresh);
+  }
 };
 
 const clearTokens = (): void => {
   localStorage.removeItem('access_token');
   localStorage.removeItem('refresh_token');
+  // Note: HttpOnly cookies are cleared by the logout endpoint via Set-Cookie header
 };
 
 // Request interceptor to add auth token

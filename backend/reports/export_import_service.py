@@ -1,5 +1,6 @@
 """
 Export/Import service for complete organization data backup and restore.
+Security: Passwords are exported encrypted and never in plaintext.
 """
 from datetime import datetime
 from typing import Dict, List, Any, Optional
@@ -12,6 +13,7 @@ from core.models import (
     Documentation, Configuration, PasswordEntry,
     SoftwareAssignment, VoIPAssignment
 )
+from core.encryption import encrypt_password, is_encrypted
 
 User = get_user_model()
 
@@ -174,25 +176,37 @@ class OrganizationExportImportService:
         ]
 
     def _export_password_entries(self, org: Organization, include_deleted: bool) -> List[Dict]:
-        """Export all password entries for an organization."""
+        """
+        Export all password entries for an organization.
+        Security: Passwords are always exported encrypted, never in plaintext.
+        """
         manager = self._get_manager(PasswordEntry, include_deleted)
         passwords = manager.filter(organization=org)
-        return [
-            {
+        result = []
+        for pwd in passwords:
+            # Security: Ensure password is encrypted before export
+            password_value = pwd.password
+            password_encrypted = pwd.is_encrypted
+
+            if password_value and not is_encrypted(password_value):
+                # Encrypt plaintext passwords before export
+                password_value = encrypt_password(password_value)
+                password_encrypted = True
+
+            result.append({
                 'id': str(pwd.id),
                 'name': pwd.name,
                 'username': pwd.username,
-                'password': pwd.password,  # Exported as-is, encryption preserved
+                'password': password_value,  # Always encrypted
                 'url': pwd.url,
                 'notes': pwd.notes,
                 'category': pwd.category,
-                'is_encrypted': pwd.is_encrypted,
+                'is_encrypted': password_encrypted,
                 'created_at': pwd.created_at.isoformat(),
                 'updated_at': pwd.updated_at.isoformat(),
                 'deleted_at': pwd.deleted_at.isoformat() if pwd.deleted_at else None,
-            }
-            for pwd in passwords
-        ]
+            })
+        return result
 
     def _export_configurations(self, org: Organization, include_deleted: bool) -> List[Dict]:
         """Export all configurations for an organization."""
