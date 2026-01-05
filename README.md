@@ -10,8 +10,9 @@ TechVault is a modern, secure platform for managing IT documentation, similar to
 TechVault/
 ├── backend/                 # Django + DRF backend
 │   ├── backend/            # Project settings
-│   ├── core/               # Core app
-│   ├── users/              # User management
+│   ├── core/               # Core app (organizations, locations, etc.)
+│   ├── users/              # User management & authentication
+│   ├── reports/            # Reports, backup & restore
 │   ├── api/                # API endpoints
 │   ├── manage.py
 │   ├── requirements.txt
@@ -36,29 +37,31 @@ TechVault/
 ### Backend
 - **Framework**: Django 5.0
 - **API**: Django REST Framework 3.14
-- **Database**: PostgreSQL
-- **Authentication**: Django-allauth + SimpleJWT
-- **Two-Factor Authentication**: TOTP (Time-based One-Time Password)
-- **Security**: HTTPS with Let's Encrypt, Backup codes, Password hashing
+- **Database**: PostgreSQL (via psycopg)
+- **Authentication**: Django-allauth 0.57 + SimpleJWT 5.3
+- **Two-Factor Authentication**: PyOTP 2.9 (TOTP) with QRCode 7.4 generation
+- **Security**: Cryptography 42.0, HTTPS with Let's Encrypt, account lockout protection
+- **Reports**: ReportLab 4.4 (PDF), openpyxl 3.1 (Excel)
 
 ### Frontend
 - **Framework**: React 18
-- **Language**: TypeScript
+- **Language**: TypeScript 5
 - **Build Tool**: Vite 5
-- **Styling**: Tailwind CSS 3
-- **UI Components**: shadcn/ui
+- **Styling**: Tailwind CSS 3 with class-variance-authority
+- **UI Components**: shadcn/ui with Lucide React icons
 - **Routing**: React Router v6.26+
 - **HTTP Client**: Axios with interceptors
+- **Export Libraries**: html2canvas (PNG export), jsPDF (PDF generation)
 
 ## ✨ Features
 
 ### Core Management
-- **Organizations** - Multi-tenant organization management with full CRUD operations
+- **Organizations** - Multi-tenant organization management with full CRUD operations and role-based access control (Owner, Admin, Member, Viewer)
 - **Locations** - Multiple locations per organization with address and contact details
 - **Contacts** - Contact management with CSV import/export, software and VoIP assignments
-- **Documentation** - Rich documentation system with categories (procedures, configurations, guides, troubleshooting, policies), versioning, and publish/unpublish functionality
-- **Password Vault** - Secure password management with categories (account, service, device)
-- **Configurations** - System and service configuration tracking (Network, Server, Application, Security, Backup)
+- **Documentation** - Rich documentation system with categories (procedures, configurations, guides, troubleshooting, policies), versioning, version history restoration, and publish/unpublish functionality
+- **Password Vault** - Secure password management with categories (account, service, device) and version history
+- **Configurations** - System and service configuration tracking (Network, Server, Application, Security, Backup) with version history
 
 ### IT Infrastructure Inventory
 - **Network Devices** - Comprehensive tracking of firewalls, routers, switches, and WiFi access points with IP/MAC addresses, internet speed, and manufacturer details
@@ -71,20 +74,26 @@ TechVault/
 - **VoIP Services** - VoIP service tracking (Microsoft Teams, 3CX, Yeastar) with extension assignments and license management
 - **Backups** - Backup solution monitoring with status tracking, frequency, retention periods, and last backup dates
 
-### Visualization & Export
+### Visualization & Reporting
 - **Infrastructure Diagrams** - Interactive network topology visualization showing the complete IT infrastructure
-- **Multi-format Export** - Export diagrams as PNG, PDF, SVG, or JSON
+- **Multi-format Diagram Export** - Export diagrams as PNG, PDF (with high-quality SVG icons), SVG, or JSON
+- **Comprehensive Reports** - Generate reports for organizations, locations, asset inventory, and software licenses in JSON, Excel, CSV, or PDF formats
 - **Dashboard Statistics** - Overview of all entities with counts and quick access
 
 ### Data Management
 - **Soft Delete** - All entities support soft delete with full recovery capability
 - **Deleted Items Recovery** - Dedicated interface for viewing and restoring soft-deleted items
+- **Version History** - Full version history and restoration for documentation, passwords, and configurations
 - **Audit Trail** - Track who created, modified, or deleted items with timestamps
 - **CSV Import/Export** - Bulk import and export contacts
+- **Organization Data Export/Import** - Export and import organization data for backup or migration
+- **System Backup & Restore** - Complete system backup including all users, 2FA configurations, and organization data with full restoration capability
 
 ### Security & Authentication
 - **Email-based Authentication** - Secure registration and login system
-- **Two-Factor Authentication (2FA)** - TOTP-based 2FA with QR code setup and backup codes
+- **GitHub OAuth** - Alternative authentication via GitHub (optional)
+- **Mandatory Two-Factor Authentication (2FA)** - TOTP-based 2FA required for all authenticated users with QR code setup and backup codes
+- **Account Lockout** - Automatic account lockout after failed login attempts for brute force protection
 - **JWT Tokens** - Automatic token refresh for secure API access
 - **Rate Limiting** - Brute force protection on authentication endpoints
 - **Security Headers** - Production-ready HTTPS enforcement, HSTS, secure cookies
@@ -211,30 +220,52 @@ See [SECURITY.md](./SECURITY.md) for detailed HTTPS setup instructions.
 
 ### Two-Factor Authentication (2FA)
 
-Protect your account with an additional layer of security:
+TechVault requires 2FA for all authenticated users as a mandatory security measure:
 
 - **TOTP-based** authentication (Time-based One-Time Passwords)
 - Compatible with popular authenticator apps (Google Authenticator, Authy, Microsoft Authenticator, etc.)
 - **QR code setup** for easy configuration
-- **Backup codes** for account recovery
-- Per-user 2FA settings (enable/disable as needed)
+- **Backup codes** for account recovery (automatically generated)
+- **First-time setup wizard** guides new users through 2FA setup
 
-**To enable 2FA:**
-1. Log in to TechVault
-2. Navigate to **2FA Security** in the sidebar
-3. Click **Enable 2FA** and follow the setup wizard
-4. Save your backup codes in a secure location
+**Setting up 2FA (required for all users):**
+1. Log in to TechVault with your email and password
+2. If 2FA is not yet configured, you'll be prompted to set it up
+3. Scan the QR code with your authenticator app
+4. Enter the verification code to confirm setup
+5. Save your backup codes in a secure location
+
+**Logging in with 2FA:**
+1. Enter your email and password
+2. Enter the 6-digit code from your authenticator app (or use a backup code)
+3. Access granted!
 
 See [SECURITY.md](./SECURITY.md) for detailed 2FA documentation and troubleshooting.
 
 ## 🔐 Authentication
 
+TechVault supports multiple authentication methods:
 
-### Email/Password Login
+### Email/Password Authentication
 
-1. Navigate to `http://localhost:5173/login`
-2. Enter your credentials
-3. Submit the form
+1. Navigate to the login page
+2. Enter your email and password
+3. Complete 2FA verification with your authenticator app
+4. Access granted!
+
+### GitHub OAuth (Optional)
+
+1. Click "Sign in with GitHub" on the login/registration page
+2. Authorize TechVault to access your GitHub account
+3. Complete 2FA setup if this is your first login
+4. Access granted!
+
+### New User Registration
+
+1. Navigate to the registration page
+2. Choose to register with email/password or GitHub
+3. Complete the registration form
+4. Log in and set up 2FA on your first login
 
 
 ## 🎨 Design Philosophy
@@ -289,6 +320,16 @@ TechVault follows a **premium, enterprise-grade design language**:
 - `GET /api/dashboard/stats/` - Dashboard statistics for all entities
 - `GET /api/diagram/data/` - Infrastructure diagram data
 
+### Reports & Backup
+- `POST /api/reports/organization/` - Generate organization report (JSON/Excel/CSV/PDF)
+- `POST /api/reports/location/` - Generate location report
+- `POST /api/reports/asset-inventory/` - Generate asset inventory report
+- `POST /api/reports/software-licenses/` - Generate software license report
+- `POST /api/reports/export-organizations/` - Export organization data for backup
+- `POST /api/reports/import-organizations/` - Import organization data
+- `POST /api/reports/system_backup/` - Create complete system backup (users, 2FA, all data)
+- `POST /api/reports/system_restore/` - Restore from system backup
+
 ### Admin
 - `/admin/` - Django admin interface
 
@@ -299,14 +340,15 @@ All resource endpoints support standard REST operations: `GET` (list/retrieve), 
 ### Backend Tests
 ```bash
 cd backend
+source venv/bin/activate
 python manage.py test
 ```
 
-### Frontend Tests
-```bash
-cd frontend
-npm run test  # To be configured
-```
+Test coverage includes:
+- 2FA enforcement and authentication flows
+- Login security and account lockout
+- API endpoints and serializers
+- Model validation and business logic
 
 ## 🔄 Updating TechVault
 
@@ -318,26 +360,6 @@ sudo bash update.sh
 ```
 
 This creates automatic backups and updates all components. See [INSTALLATION.md](./INSTALLATION.md#updating-techvault) for details.
-
-## 🛠️ Development Workflow
-
-1. Create a feature branch
-2. Make changes
-3. Test thoroughly
-4. Commit with clear messages
-5. Create pull request
-6. Code review
-7. Merge to main
-
-## 🤝 Contributing
-
-Contributions are welcome! Please follow the development workflow and ensure:
-
-- Code follows project style guidelines
-- TypeScript types are properly defined
-- Backend includes migrations
-- Tests pass
-- Documentation is updated
 
 ## 📄 License
 
