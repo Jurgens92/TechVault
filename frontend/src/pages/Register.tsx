@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Shield, Github } from 'lucide-react';
+import { Shield } from 'lucide-react';
 
 const Register: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -164,29 +164,6 @@ const Register: React.FC = () => {
                 {loading ? 'Creating account...' : 'Create account'}
               </Button>
             </form>
-
-            <div className="mt-6">
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-border" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
-                </div>
-              </div>
-
-              <Button
-                variant="outline"
-                className="w-full mt-4"
-                onClick={() => {
-                  // GitHub OAuth will be handled by backend
-                  window.location.href = 'http://localhost:8000/accounts/github/login/';
-                }}
-              >
-                <Github className="mr-2 h-4 w-4" />
-                GitHub
-              </Button>
-            </div>
           </CardContent>
           <CardFooter className="flex justify-center">
             <p className="text-sm text-muted-foreground">

@@ -91,7 +91,6 @@ TechVault/
 
 ### Security & Authentication
 - **Email-based Authentication** - Secure registration and login system
-- **GitHub OAuth** - Alternative authentication via GitHub (optional)
 - **Mandatory Two-Factor Authentication (2FA)** - TOTP-based 2FA required for all authenticated users with QR code setup and backup codes
 - **Account Lockout** - Automatic account lockout after failed login attempts for brute force protection
 - **JWT Tokens** - Automatic token refresh for secure API access
@@ -244,7 +243,7 @@ See [SECURITY.md](./SECURITY.md) for detailed 2FA documentation and troubleshoot
 
 ## 🔐 Authentication
 
-TechVault supports multiple authentication methods:
+TechVault provides secure email-based authentication:
 
 ### Email/Password Authentication
 
@@ -253,19 +252,11 @@ TechVault supports multiple authentication methods:
 3. Complete 2FA verification with your authenticator app
 4. Access granted!
 
-### GitHub OAuth (Optional)
-
-1. Click "Sign in with GitHub" on the login/registration page
-2. Authorize TechVault to access your GitHub account
-3. Complete 2FA setup if this is your first login
-4. Access granted!
-
 ### New User Registration
 
 1. Navigate to the registration page
-2. Choose to register with email/password or GitHub
-3. Complete the registration form
-4. Log in and set up 2FA on your first login
+2. Complete the registration form with your email and password
+3. Log in and set up 2FA on your first login
 
 
 ## 🎨 Design Philosophy
