@@ -23,7 +23,7 @@ export const OrganizationProvider: React.FC<{ children: ReactNode }> = ({ childr
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadOrganizations = async () => {
+  const loadOrganizations = async (silent: boolean = false) => {
     // Only load organizations if user is authenticated
     if (!isAuthenticated) {
       setOrganizations([]);
@@ -34,7 +34,10 @@ export const OrganizationProvider: React.FC<{ children: ReactNode }> = ({ childr
     }
 
     try {
-      setLoading(true);
+      // Only show loading state on initial load, not on refresh
+      if (!silent) {
+        setLoading(true);
+      }
       setError(null);
       const response = await organizationAPI.getAll();
       const orgs = response.data?.results || [];
@@ -76,7 +79,7 @@ export const OrganizationProvider: React.FC<{ children: ReactNode }> = ({ childr
   };
 
   const refreshOrganizations = async () => {
-    await loadOrganizations();
+    await loadOrganizations(true);
   };
 
   return (
