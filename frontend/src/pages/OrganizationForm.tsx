@@ -67,6 +67,7 @@ export const OrganizationForm: React.FC = () => {
     try {
       if (isEditMode && id) {
         await organizationAPI.update(id, formData);
+        await refreshOrganizations();
         navigate(`/organizations/${id}`);
       } else {
         const response = await organizationAPI.create(formData);
