@@ -95,7 +95,7 @@ export function VersionHistory<T extends Version>({
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-gray-900">Version History</h3>
+      <h3 className="text-lg font-semibold text-white">Version History</h3>
 
       <div className="space-y-3">
         {versions.map((version) => (
@@ -105,7 +105,7 @@ export function VersionHistory<T extends Version>({
           >
             <div className="flex justify-between items-start mb-2">
               <div>
-                <h4 className="font-medium text-gray-900">
+                <h4 className="font-medium text-white">
                   Version {version.version_number}
                 </h4>
                 <p className="text-sm text-gray-600">
