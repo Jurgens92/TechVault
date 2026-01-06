@@ -13,6 +13,7 @@ interface SearchableSelectProps {
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
+  onOpen?: () => void;
 }
 
 export const SearchableSelect: React.FC<SearchableSelectProps> = ({
@@ -21,6 +22,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
   onChange,
   placeholder = 'Select an option',
   className,
+  onOpen,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -68,6 +70,9 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
         setIsOpen(true);
+        if (onOpen) {
+          onOpen();
+        }
       }
       return;
     }
@@ -114,7 +119,13 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
           'focus-within:outline-none focus-within:ring-2 focus-within:ring-primary',
           isOpen && 'ring-2 ring-primary'
         )}
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          const willOpen = !isOpen;
+          setIsOpen(willOpen);
+          if (willOpen && onOpen) {
+            onOpen();
+          }
+        }}
       >
         <span className={cn(!selectedOption && 'text-muted-foreground')}>
           {selectedOption ? selectedOption.label : placeholder}
