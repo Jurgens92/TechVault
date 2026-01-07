@@ -181,6 +181,7 @@ cat > "$INSTALL_DIR/backend/.env" <<EOF
 # Django Settings
 SECRET_KEY=$SECRET_KEY
 DEBUG=False
+ENVIRONMENT=production
 # Allow all hosts for self-hosted deployments (change if you want to restrict)
 ALLOWED_HOSTS=*
 
