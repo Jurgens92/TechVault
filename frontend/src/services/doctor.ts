@@ -56,6 +56,16 @@ export interface StorageHealth extends HealthCheck {
   error?: string;
 }
 
+export interface DiskSpaceHealth extends HealthCheck {
+  path?: string;
+  total_gb?: number;
+  used_gb?: number;
+  free_gb?: number;
+  used_percent?: number;
+  free_percent?: number;
+  error?: string;
+}
+
 export interface SystemHealthResponse {
   status: 'healthy' | 'warning' | 'unhealthy';
   timestamp: string;
@@ -66,6 +76,7 @@ export interface SystemHealthResponse {
     data?: DataHealth;
     security?: SecurityHealth;
     storage?: StorageHealth;
+    disk_space?: DiskSpaceHealth;
   };
 }
 

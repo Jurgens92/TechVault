@@ -8,6 +8,7 @@ from datetime import timedelta
 import django
 import sys
 import os
+import shutil
 from core.models import (
     Organization, Location, Contact, Documentation,
     PasswordEntry, Configuration, NetworkDevice, EndpointUser, Server, Peripheral, Software, Backup, VoIP
@@ -331,6 +332,43 @@ def system_health(request):
                 }
     except Exception as e:
         health_data['checks']['storage'] = {
+            'status': 'warning',
+            'error': str(e),
+        }
+
+    # 7. Disk space check
+    try:
+        # Get disk usage for the root filesystem or current working directory
+        disk_path = '/'
+        if os.name == 'nt':  # Windows
+            disk_path = os.path.splitdrive(os.getcwd())[0] + '\\'
+
+        disk_usage = shutil.disk_usage(disk_path)
+        total_gb = disk_usage.total / (1024 ** 3)
+        used_gb = disk_usage.used / (1024 ** 3)
+        free_gb = disk_usage.free / (1024 ** 3)
+        used_percent = (disk_usage.used / disk_usage.total) * 100
+        free_percent = (disk_usage.free / disk_usage.total) * 100
+
+        # Determine status based on free space percentage
+        if free_percent < 10:
+            disk_status = 'unhealthy'
+        elif free_percent < 20:
+            disk_status = 'warning'
+        else:
+            disk_status = 'healthy'
+
+        health_data['checks']['disk_space'] = {
+            'status': disk_status,
+            'path': disk_path,
+            'total_gb': round(total_gb, 2),
+            'used_gb': round(used_gb, 2),
+            'free_gb': round(free_gb, 2),
+            'used_percent': round(used_percent, 1),
+            'free_percent': round(free_percent, 1),
+        }
+    except Exception as e:
+        health_data['checks']['disk_space'] = {
             'status': 'warning',
             'error': str(e),
         }
