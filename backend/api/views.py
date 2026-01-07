@@ -168,10 +168,14 @@ def system_health(request):
     try:
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1")
+        db_name = settings.DATABASES['default'].get('NAME', 'N/A')
+        # Convert Path objects to string for JSON serialization (Windows compatibility)
+        if hasattr(db_name, '__fspath__'):
+            db_name = str(db_name)
         health_data['checks']['database'] = {
             'status': 'healthy',
             'engine': settings.DATABASES['default']['ENGINE'].split('.')[-1],
-            'name': settings.DATABASES['default'].get('NAME', 'N/A'),
+            'name': db_name,
         }
     except Exception as e:
         health_data['checks']['database'] = {
