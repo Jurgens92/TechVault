@@ -37,6 +37,7 @@ import DeletedItems from '@/pages/DeletedItems';
 import TwoFactorAuth from '@/pages/TwoFactorAuth';
 import TwoFactorSetup from '@/pages/TwoFactorSetup';
 import Reports from '@/pages/Reports';
+import Doctor from '@/pages/Doctor';
 
 function App() {
   return (
@@ -96,6 +97,7 @@ function App() {
             <Route path="configurations/:id/edit" element={<ConfigurationForm />} />
             <Route path="configurations/new" element={<ConfigurationForm />} />
             <Route path="reports" element={<Reports />} />
+            <Route path="doctor" element={<Doctor />} />
             <Route path="deleted-items" element={<DeletedItems />} />
             <Route path="settings" element={<Settings />} />
             <Route path="2fa" element={<TwoFactorAuth />} />

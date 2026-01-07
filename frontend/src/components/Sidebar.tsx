@@ -22,6 +22,7 @@ import {
   Trash2,
   KeyRound,
   BarChart3,
+  Stethoscope,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -30,10 +31,12 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const { selectedOrg, setSelectedOrg, organizations, loading, error, refreshOrganizations } = useOrganization();
   const navigate = useNavigate();
   const [activeItem, setActiveItem] = useState('dashboard');
+
+  const isAdmin = user?.is_staff || false;
 
   const handleOrgChange = (orgId: string) => {
     if (orgId) {
@@ -62,8 +65,9 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
     { id: 'deleted-items', label: 'Deleted Items', icon: Trash2, path: '/deleted-items' },
     { id: '2fa', label: '2FA Security', icon: KeyRound, path: '/2fa' },
     { id: 'reports', label: 'Reports', icon: BarChart3, path: '/reports' },
+    { id: 'doctor', label: 'Doctor', icon: Stethoscope, path: '/doctor', adminOnly: true },
     { id: 'settings', label: 'Settings', icon: SettingsIcon, path: '/settings' },
-  ];
+  ].filter(item => !item.adminOnly || isAdmin);
 
   return (
     <div
