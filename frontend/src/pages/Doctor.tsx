@@ -20,6 +20,7 @@ import {
   UserCheck,
   Trash2,
   FileText,
+  Disc,
 } from 'lucide-react';
 import { doctorService, SystemHealthResponse } from '@/services/doctor';
 
@@ -304,6 +305,61 @@ const Doctor: React.FC = () => {
                     )}
                     {healthData.checks.storage.message && (
                       <div className="text-sm text-muted-foreground">{healthData.checks.storage.message}</div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Disk Space */}
+            {healthData.checks.disk_space && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <Disc className="h-5 w-5" />
+                      Disk Space
+                    </CardTitle>
+                    <StatusIcon status={healthData.checks.disk_space.status} />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Path</span>
+                      <span className="font-medium font-mono text-xs">{healthData.checks.disk_space.path}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Total</span>
+                      <span className="font-medium">{healthData.checks.disk_space.total_gb} GB</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Used</span>
+                      <span className="font-medium">{healthData.checks.disk_space.used_gb} GB ({healthData.checks.disk_space.used_percent}%)</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Free</span>
+                      <span className={`font-medium ${
+                        (healthData.checks.disk_space.free_percent || 0) < 10 ? 'text-red-500' :
+                        (healthData.checks.disk_space.free_percent || 0) < 20 ? 'text-amber-500' : 'text-green-500'
+                      }`}>
+                        {healthData.checks.disk_space.free_gb} GB ({healthData.checks.disk_space.free_percent}%)
+                      </span>
+                    </div>
+                    {/* Disk usage bar */}
+                    <div className="pt-2">
+                      <div className="h-2 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className={`h-full transition-all ${
+                            (healthData.checks.disk_space.used_percent || 0) > 90 ? 'bg-red-500' :
+                            (healthData.checks.disk_space.used_percent || 0) > 80 ? 'bg-amber-500' : 'bg-primary'
+                          }`}
+                          style={{ width: `${healthData.checks.disk_space.used_percent || 0}%` }}
+                        />
+                      </div>
+                    </div>
+                    {healthData.checks.disk_space.error && (
+                      <div className="text-sm text-red-500">{healthData.checks.disk_space.error}</div>
                     )}
                   </div>
                 </CardContent>
