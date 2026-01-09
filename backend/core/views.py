@@ -10,13 +10,14 @@ from .models import (
     Organization, Location, Contact, Documentation,
     PasswordEntry, Configuration, NetworkDevice, EndpointUser, Server, Peripheral, Software, Backup, VoIP,
     DocumentationVersion, PasswordEntryVersion, ConfigurationVersion,
-    OrganizationMember
+    OrganizationMember, EntityVersion
 )
 from .serializers import (
     OrganizationSerializer, LocationSerializer, ContactSerializer,
     DocumentationSerializer, PasswordEntrySerializer, ConfigurationSerializer,
     NetworkDeviceSerializer, EndpointUserSerializer, ServerSerializer, PeripheralSerializer, SoftwareSerializer, BackupSerializer, VoIPSerializer,
-    DocumentationVersionSerializer, PasswordEntryVersionSerializer, ConfigurationVersionSerializer
+    DocumentationVersionSerializer, PasswordEntryVersionSerializer, ConfigurationVersionSerializer,
+    EntityVersionSerializer
 )
 from .permissions import IsOrganizationMember, IsOrganizationAdmin
 
@@ -162,6 +163,115 @@ class VersionHistoryMixin:
             return Response(
                 {'detail': 'Version not found.'},
                 status=status.HTTP_404_NOT_FOUND
+            )
+
+
+class UnifiedVersionHistoryMixin:
+    """
+    Mixin to add version history using the unified EntityVersion model.
+
+    This is the Single Source of Truth for version history, replacing the
+    per-entity version tables (DocumentationVersion, PasswordEntryVersion, etc.).
+
+    Usage:
+        class MyViewSet(UnifiedVersionHistoryMixin, viewsets.ModelViewSet):
+            use_unified_versioning = True  # Enable unified versioning
+    """
+    use_unified_versioning = True
+
+    def _create_unified_version(self, instance, change_note=''):
+        """Create a version snapshot using the unified EntityVersion model."""
+        user = self.request.user if hasattr(self, 'request') else None
+        EntityVersion.create_version(
+            instance,
+            user=user,
+            change_note=change_note,
+            serializer_class=self.get_serializer_class()
+        )
+
+    def perform_create(self, serializer):
+        """Create initial version on entity creation."""
+        instance = serializer.save(created_by=self.request.user)
+        if self.use_unified_versioning:
+            self._create_unified_version(instance, 'Initial version')
+
+    def perform_update(self, serializer):
+        """Create version before updating entity."""
+        instance = self.get_object()
+
+        # Create version of current state before updating
+        if self.use_unified_versioning:
+            change_note = self.request.data.get('change_note', '')
+            self._create_unified_version(instance, change_note)
+
+        # Save the update
+        updated_instance = serializer.save()
+
+        # Increment version field if it exists
+        if hasattr(updated_instance, 'version') and isinstance(getattr(updated_instance, 'version'), int):
+            updated_instance.version += 1
+            updated_instance.save(update_fields=['version'])
+
+    @action(detail=True, methods=['get'])
+    def versions(self, request, pk=None):
+        """Get version history for this entry using unified versioning."""
+        instance = self.get_object()
+        versions = EntityVersion.get_versions(instance)
+        serializer = EntityVersionSerializer(versions, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['get'], url_path='versions/(?P<version_number>[0-9]+)')
+    def get_version(self, request, pk=None, version_number=None):
+        """Get a specific version."""
+        instance = self.get_object()
+        version = EntityVersion.get_version(instance, int(version_number))
+        if not version:
+            return Response(
+                {'detail': 'Version not found.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        serializer = EntityVersionSerializer(version)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'], url_path='restore-version/(?P<version_number>[0-9]+)')
+    def restore_version(self, request, pk=None, version_number=None):
+        """Restore an entry to a specific version."""
+        instance = self.get_object()
+        version = EntityVersion.get_version(instance, int(version_number))
+
+        if not version:
+            return Response(
+                {'detail': 'Version not found.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        try:
+            # Create a new version of current state before restoring
+            self._create_unified_version(instance, f'Before restoring to version {version_number}')
+
+            # Restore fields from snapshot
+            snapshot = version.snapshot
+            for field_name, value in snapshot.items():
+                if hasattr(instance, field_name) and field_name not in ['id', 'pk', 'created_at', 'created_by', 'organization', 'organization_name']:
+                    try:
+                        setattr(instance, field_name, value)
+                    except (AttributeError, TypeError):
+                        pass
+
+            instance.save()
+
+            # Create a version for the restored state
+            self._create_unified_version(instance, f'Restored from version {version_number}')
+
+            serializer = self.get_serializer(instance)
+            return Response({
+                'detail': f'Successfully restored to version {version_number}',
+                'data': serializer.data
+            })
+        except Exception as e:
+            return Response(
+                {'detail': f'Error restoring version: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
 

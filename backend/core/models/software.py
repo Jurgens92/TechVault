@@ -1,6 +1,7 @@
 from django.db import models
 from .base import BaseModel
 from .organization import Organization, Contact
+from core.constants import SoftwareType, LicenseType
 
 
 class Software(BaseModel):
@@ -9,15 +10,8 @@ class Software(BaseModel):
     name = models.CharField(max_length=255, help_text='Software name or product')
     software_type = models.CharField(
         max_length=50,
-        choices=[
-            ('microsoft365', 'Microsoft 365'),
-            ('endpoint_protection', 'Endpoint Protection'),
-            ('design', 'Design/CAD'),
-            ('development', 'Development'),
-            ('subscription', 'Subscription Service'),
-            ('other', 'Other'),
-        ],
-        default='other'
+        choices=SoftwareType.CHOICES,
+        default=SoftwareType.DEFAULT
     )
 
     # License information
@@ -25,14 +19,8 @@ class Software(BaseModel):
     version = models.CharField(max_length=100, blank=True, help_text='e.g., 2024, Pro, Standard')
     license_type = models.CharField(
         max_length=50,
-        choices=[
-            ('perpetual', 'Perpetual'),
-            ('subscription', 'Subscription'),
-            ('trial', 'Trial'),
-            ('free', 'Free'),
-            ('other', 'Other'),
-        ],
-        default='perpetual'
+        choices=LicenseType.CHOICES,
+        default=LicenseType.DEFAULT
     )
 
     # License dates

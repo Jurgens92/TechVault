@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 import uuid
 from .base import BaseModel
 from .organization import Organization
+from core.constants import DocumentationCategory
 
 User = get_user_model()
 
@@ -14,15 +15,8 @@ class Documentation(BaseModel):
     content = models.TextField()
     category = models.CharField(
         max_length=50,
-        choices=[
-            ('procedure', 'Procedure'),
-            ('configuration', 'Configuration'),
-            ('guide', 'Guide'),
-            ('troubleshooting', 'Troubleshooting'),
-            ('policy', 'Policy'),
-            ('other', 'Other'),
-        ],
-        default='other'
+        choices=DocumentationCategory.CHOICES,
+        default=DocumentationCategory.DEFAULT
     )
     tags = models.CharField(max_length=500, blank=True, help_text='Comma-separated tags')
     is_published = models.BooleanField(default=False)
