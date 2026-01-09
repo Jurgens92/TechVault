@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 import uuid
 from .base import BaseModel
 from .organization import Organization
+from core.constants import ConfigurationType
 
 User = get_user_model()
 
@@ -13,15 +14,8 @@ class Configuration(BaseModel):
     name = models.CharField(max_length=255)
     config_type = models.CharField(
         max_length=50,
-        choices=[
-            ('network', 'Network'),
-            ('server', 'Server'),
-            ('application', 'Application'),
-            ('security', 'Security'),
-            ('backup', 'Backup'),
-            ('other', 'Other'),
-        ],
-        default='other'
+        choices=ConfigurationType.CHOICES,
+        default=ConfigurationType.DEFAULT
     )
     content = models.TextField(help_text='Configuration details, code, or settings')
     description = models.TextField(blank=True)

@@ -15,7 +15,7 @@ from core.views import (
     DocumentationViewSet, PasswordEntryViewSet, ConfigurationViewSet,
     NetworkDeviceViewSet, EndpointUserViewSet, ServerViewSet, PeripheralViewSet, SoftwareViewSet, BackupViewSet, VoIPViewSet
 )
-from .views import dashboard_stats, diagram_data, system_health
+from .views import dashboard_stats, diagram_data, system_health, get_choices
 
 app_name = 'api'
 
@@ -47,6 +47,9 @@ urlpatterns = [
 
     # Admin system health endpoint
     path('admin/health/', system_health, name='system-health'),
+
+    # Metadata endpoints (Single Source of Truth for choices/enums)
+    path('meta/choices/', get_choices, name='meta-choices'),
 
     # User endpoints
     path('user/profile/', UserProfileView.as_view(), name='user-profile'),

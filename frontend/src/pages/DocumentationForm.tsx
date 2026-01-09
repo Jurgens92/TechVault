@@ -7,12 +7,14 @@ import { documentationAPI } from '../services/core';
 import { Documentation, DocumentationVersion } from '../types/core';
 import { ArrowLeft } from 'lucide-react';
 import { useOrganization } from '../contexts/OrganizationContext';
+import { useChoices } from '../contexts/ChoicesContext';
 import { VersionHistory } from '../components/VersionHistory';
 
 export const DocumentationForm: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id?: string }>();
   const { selectedOrg } = useOrganization();
+  const { getChoicesForField, getChoiceLabel } = useChoices();
   const isEditMode = !!id && id !== 'new';
   const [loading, setLoading] = useState(isEditMode);
   const [submitting, setSubmitting] = useState(false);
@@ -87,12 +89,10 @@ export const DocumentationForm: React.FC = () => {
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">Category</label>
               <select name="category" value={formData.category || 'other'} onChange={handleChange} className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white">
-                <option value="procedure">Procedure</option>
-                <option value="configuration">Configuration</option>
-                <option value="guide">Guide</option>
-                <option value="troubleshooting">Troubleshooting</option>
-                <option value="policy">Policy</option>
-                <option value="other">Other</option>
+                {/* Single Source of Truth: Options fetched from /api/meta/choices/ */}
+                {getChoicesForField('documentation_category').map(choice => (
+                  <option key={choice.value} value={choice.value}>{choice.label}</option>
+                ))}
               </select>
             </div>
             <div>
@@ -133,7 +133,7 @@ export const DocumentationForm: React.FC = () => {
                 </div>
                 <div>
                   <span className="font-medium text-gray-400">Category:</span>
-                  <span className="ml-2 text-gray-300">{version.category}</span>
+                  <span className="ml-2 text-gray-300">{getChoiceLabel('documentation_category', version.category)}</span>
                 </div>
                 <div>
                   <span className="font-medium text-gray-400">Published:</span>

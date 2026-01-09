@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { OrganizationProvider } from '@/contexts/OrganizationContext';
+import { ChoicesProvider } from '@/contexts/ChoicesContext';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import DashboardLayout from '@/components/DashboardLayout';
 import Login from '@/pages/Login';
@@ -44,17 +45,18 @@ function App() {
     <Router>
       <AuthProvider>
         <OrganizationProvider>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/setup-2fa" element={<TwoFactorSetup />} />
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <DashboardLayout />
-                </ProtectedRoute>
-              }
-            >
+          <ChoicesProvider>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/setup-2fa" element={<TwoFactorSetup />} />
+              <Route
+                path="/"
+                element={
+                  <ProtectedRoute>
+                    <DashboardLayout />
+                  </ProtectedRoute>
+                }
+              >
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="organizations" element={<Organizations />} />
             <Route path="organizations/:id" element={<OrganizationDetail />} />
@@ -102,9 +104,10 @@ function App() {
             <Route path="settings" element={<Settings />} />
             <Route path="2fa" element={<TwoFactorAuth />} />
           </Route>
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+          </ChoicesProvider>
         </OrganizationProvider>
       </AuthProvider>
     </Router>

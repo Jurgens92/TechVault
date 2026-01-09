@@ -1,6 +1,7 @@
 from django.db import models
 from .base import BaseModel
 from .organization import Organization, Location
+from core.constants import BackupType, BackupStatus
 
 
 class Backup(BaseModel):
@@ -9,16 +10,8 @@ class Backup(BaseModel):
     name = models.CharField(max_length=255, help_text='Backup solution name or identifier')
     backup_type = models.CharField(
         max_length=50,
-        choices=[
-            ('server', 'Server Backup'),
-            ('microsoft365', 'Microsoft 365 Backup'),
-            ('cloud', 'Cloud Backup'),
-            ('endpoint', 'Endpoint Backup'),
-            ('database', 'Database Backup'),
-            ('nas', 'NAS Backup'),
-            ('other', 'Other'),
-        ],
-        default='other'
+        choices=BackupType.CHOICES,
+        default=BackupType.DEFAULT
     )
 
     # Backup details
@@ -36,13 +29,8 @@ class Backup(BaseModel):
     next_backup_date = models.DateTimeField(null=True, blank=True, help_text='Next scheduled backup')
     backup_status = models.CharField(
         max_length=50,
-        choices=[
-            ('active', 'Active'),
-            ('inactive', 'Inactive'),
-            ('failed', 'Failed'),
-            ('warning', 'Warning'),
-        ],
-        default='active'
+        choices=BackupStatus.CHOICES,
+        default=BackupStatus.DEFAULT
     )
 
     # Other details

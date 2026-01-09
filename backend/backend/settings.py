@@ -64,6 +64,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'corsheaders',
     'django_filters',
+    'drf_spectacular',  # OpenAPI Schema - Single Source of Truth for API
     'allauth',
     'allauth.account',
     'dj_rest_auth',
@@ -225,6 +226,38 @@ REST_FRAMEWORK = {
         'login': '5/minute',  # Login endpoint: 5 attempts per minute
         '2fa_verification': '10/minute',  # 2FA verification: 10 attempts per minute
     },
+    # OpenAPI Schema - Single Source of Truth for API documentation
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+# DRF Spectacular Settings (OpenAPI Schema Generation)
+# This is the Single Source of Truth for API documentation
+# Frontend TypeScript types can be auto-generated from this schema
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'TechVault API',
+    'DESCRIPTION': 'Enterprise-grade IT Documentation Platform API - Single Source of Truth for IT infrastructure management',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,
+    'SCHEMA_PATH_PREFIX': '/api/',
+    'TAGS': [
+        {'name': 'Authentication', 'description': 'User authentication and 2FA'},
+        {'name': 'Organizations', 'description': 'Organization management'},
+        {'name': 'Locations', 'description': 'Location management'},
+        {'name': 'Contacts', 'description': 'Contact management'},
+        {'name': 'Documentation', 'description': 'IT documentation and procedures'},
+        {'name': 'Passwords', 'description': 'Secure password vault'},
+        {'name': 'Configurations', 'description': 'System configurations'},
+        {'name': 'Network Devices', 'description': 'Network infrastructure'},
+        {'name': 'Servers', 'description': 'Server inventory'},
+        {'name': 'Endpoints', 'description': 'Endpoint devices'},
+        {'name': 'Peripherals', 'description': 'Peripheral devices'},
+        {'name': 'Software', 'description': 'Software licenses'},
+        {'name': 'Backups', 'description': 'Backup solutions'},
+        {'name': 'VoIP', 'description': 'VoIP services'},
+        {'name': 'Reports', 'description': 'Reporting and exports'},
+        {'name': 'Meta', 'description': 'Metadata endpoints (choices, schema)'},
+    ],
 }
 
 # Simple JWT Settings

@@ -365,3 +365,34 @@ class ConfigurationVersionSerializer(VersionSerializer):
             'content', 'description', 'version', 'is_active', 'change_note',
             'created_at', 'created_by'
         ]
+
+
+# =============================================================================
+# Unified Entity Version Serializer (Single Source of Truth)
+# =============================================================================
+
+from .models import EntityVersion
+
+
+class EntityVersionSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the unified EntityVersion model.
+
+    This is the Single Source of Truth for all entity version history,
+    replacing the per-entity version serializers above.
+    """
+    created_by = UserSerializer(read_only=True)
+    content_type_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = EntityVersion
+        fields = [
+            'id', 'content_type', 'content_type_name', 'object_id',
+            'version_number', 'snapshot', 'change_note',
+            'created_at', 'created_by'
+        ]
+        read_only_fields = ['id', 'content_type', 'object_id', 'version_number', 'created_at', 'created_by']
+
+    def get_content_type_name(self, obj):
+        """Get human-readable name of the versioned entity type."""
+        return obj.content_type.model.replace('_', ' ').title()

@@ -1,6 +1,7 @@
 from django.db import models
 from .base import BaseModel
 from .organization import Organization, Location
+from core.constants import NetworkDeviceType
 
 
 class NetworkDevice(BaseModel):
@@ -9,15 +10,8 @@ class NetworkDevice(BaseModel):
     name = models.CharField(max_length=255)
     device_type = models.CharField(
         max_length=50,
-        choices=[
-            ('firewall', 'Firewall'),
-            ('router', 'Router'),
-            ('firewall_router', 'Firewall/Router'),
-            ('switch', 'Switch'),
-            ('wifi', 'WiFi Access Point'),
-            ('other', 'Other'),
-        ],
-        default='other'
+        choices=NetworkDeviceType.CHOICES,
+        default=NetworkDeviceType.DEFAULT
     )
     # Internet connection details (for firewall/router)
     internet_provider = models.CharField(max_length=255, blank=True)

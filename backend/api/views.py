@@ -16,6 +16,7 @@ from core.models import (
 from core.serializers import (
     NetworkDeviceSerializer, EndpointUserSerializer, ServerSerializer, PeripheralSerializer, SoftwareSerializer, BackupSerializer, VoIPSerializer
 )
+from core.constants import get_all_choices
 from users.models import User
 
 
@@ -381,3 +382,33 @@ def system_health(request):
         health_data['status'] = 'warning'
 
     return Response(health_data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_choices(request):
+    """
+    Get all available choices/enums for the application.
+
+    This is the Single Source of Truth for all dropdown options, categories,
+    and types used throughout the application. Frontend should fetch this
+    once on load and cache in context/store.
+
+    Returns a dictionary with choice names as keys and arrays of
+    {value, label} objects as values.
+
+    Example response:
+    {
+        "documentation_category": [
+            {"value": "procedure", "label": "Procedure"},
+            {"value": "configuration", "label": "Configuration"},
+            ...
+        ],
+        "server_type": [
+            {"value": "physical", "label": "Physical Server"},
+            ...
+        ],
+        ...
+    }
+    """
+    return Response(get_all_choices())

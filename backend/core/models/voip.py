@@ -1,6 +1,7 @@
 from django.db import models
 from .base import BaseModel
 from .organization import Organization, Contact
+from core.constants import VoIPType, LicenseType
 
 
 class VoIP(BaseModel):
@@ -9,13 +10,8 @@ class VoIP(BaseModel):
     name = models.CharField(max_length=255, help_text='VoIP service name or product')
     voip_type = models.CharField(
         max_length=50,
-        choices=[
-            ('teams', 'Microsoft Teams'),
-            ('3cx', '3CX'),
-            ('yeastar', 'Yeastar'),
-            ('other', 'Other'),
-        ],
-        default='other'
+        choices=VoIPType.CHOICES,
+        default=VoIPType.DEFAULT
     )
 
     # License information
@@ -23,14 +19,8 @@ class VoIP(BaseModel):
     version = models.CharField(max_length=100, blank=True, help_text='e.g., Business, Enterprise, Pro')
     license_type = models.CharField(
         max_length=50,
-        choices=[
-            ('perpetual', 'Perpetual'),
-            ('subscription', 'Subscription'),
-            ('trial', 'Trial'),
-            ('free', 'Free'),
-            ('other', 'Other'),
-        ],
-        default='subscription'
+        choices=LicenseType.CHOICES,
+        default=LicenseType.SUBSCRIPTION  # VoIP typically defaults to subscription
     )
 
     # License dates

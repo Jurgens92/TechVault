@@ -1,6 +1,7 @@
 from django.db import models
 from .base import BaseModel
 from .organization import Organization, Location, Contact
+from core.constants import EndpointDeviceType, ServerType, PeripheralType
 
 
 class EndpointUser(BaseModel):
@@ -9,13 +10,8 @@ class EndpointUser(BaseModel):
     name = models.CharField(max_length=255, help_text='Device name or identifier')
     device_type = models.CharField(
         max_length=50,
-        choices=[
-            ('desktop', 'Desktop'),
-            ('laptop', 'Laptop'),
-            ('workstation', 'Workstation'),
-            ('other', 'Other'),
-        ],
-        default='desktop'
+        choices=EndpointDeviceType.CHOICES,
+        default=EndpointDeviceType.DEFAULT
     )
 
     # User assignment
@@ -60,14 +56,8 @@ class Server(BaseModel):
     name = models.CharField(max_length=255)
     server_type = models.CharField(
         max_length=50,
-        choices=[
-            ('physical', 'Physical Server'),
-            ('virtual', 'Virtual Machine'),
-            ('cloud', 'Cloud Instance'),
-            ('container', 'Container'),
-            ('other', 'Other'),
-        ],
-        default='physical'
+        choices=ServerType.CHOICES,
+        default=ServerType.DEFAULT
     )
 
     # Server role/purpose
@@ -109,15 +99,8 @@ class Peripheral(BaseModel):
     name = models.CharField(max_length=255)
     device_type = models.CharField(
         max_length=50,
-        choices=[
-            ('printer', 'Printer'),
-            ('scanner', 'Scanner'),
-            ('multifunction', 'Multifunction Printer'),
-            ('ups', 'UPS'),
-            ('nas', 'NAS'),
-            ('other', 'Other'),
-        ],
-        default='printer'
+        choices=PeripheralType.CHOICES,
+        default=PeripheralType.DEFAULT
     )
 
     # Device details

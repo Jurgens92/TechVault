@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 import uuid
 from .base import BaseModel
 from .organization import Organization
+from core.constants import PasswordCategory
 
 User = get_user_model()
 
@@ -17,13 +18,8 @@ class PasswordEntry(BaseModel):
     notes = models.TextField(blank=True)
     category = models.CharField(
         max_length=50,
-        choices=[
-            ('account', 'Account'),
-            ('service', 'Service'),
-            ('device', 'Device'),
-            ('other', 'Other'),
-        ],
-        default='other'
+        choices=PasswordCategory.CHOICES,
+        default=PasswordCategory.DEFAULT
     )
     is_encrypted = models.BooleanField(default=False)
 
