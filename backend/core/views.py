@@ -614,11 +614,6 @@ class ContactViewSet(SecureQuerySetMixin, LocationFilterMixin, SoftDeleteViewSet
                     email = row.get('email', '').strip()[:254]
                     phone = row.get('phone', '').strip()[:20]
 
-                    # Security: Check for CSV injection (cells starting with =, +, -, @)
-                    for field in [first_name, last_name, title, email, phone]:
-                        if field and field[0] in ('=', '+', '-', '@'):
-                            raise ValueError('Invalid character at start of field')
-
                     # Create contact (is_active always set to True)
                     Contact.objects.create(
                         organization=organization,
