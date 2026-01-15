@@ -442,6 +442,20 @@ class OrganizationViewSet(SecureQuerySetMixin, SoftDeleteViewSetMixin, viewsets.
             role='owner',
             created_by=self.request.user
         )
+        # Automatically create a default "Head Office" location if address is provided
+        # Location requires: address, city, postal_code, country
+        if org.address and org.city and org.postal_code and org.country:
+            Location.objects.create(
+                organization=org,
+                name='Head Office',
+                address=org.address,
+                city=org.city,
+                state_province=org.state_province,
+                postal_code=org.postal_code,
+                country=org.country,
+                phone=org.phone,
+                created_by=self.request.user
+            )
 
     @action(detail=False, methods=['get'])
     def search(self, request):
@@ -575,7 +589,8 @@ class ContactViewSet(SecureQuerySetMixin, LocationFilterMixin, SoftDeleteViewSet
 
         # Read and decode CSV file
         try:
-            decoded_file = csv_file.read().decode('utf-8')
+            # Use utf-8-sig to handle BOM (Byte Order Mark) from Excel-exported CSV files
+            decoded_file = csv_file.read().decode('utf-8-sig')
             io_string = io.StringIO(decoded_file)
             reader = csv.DictReader(io_string)
 

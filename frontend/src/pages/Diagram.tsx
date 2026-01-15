@@ -380,15 +380,35 @@ function NetworkDiagram({ devices }: { devices: DiagramData['network_devices'] }
                 {device.manufacturer && (
                   <span className="text-xs text-muted-foreground">{device.manufacturer} {device.model}</span>
                 )}
-                {device.internet_speed && (
-                  <span className="text-xs font-medium text-blue-600 dark:text-blue-400 mt-1">
-                    {device.internet_speed}
-                  </span>
-                )}
-                {device.internet_provider && (
-                  <span className="text-xs text-muted-foreground">
-                    {device.internet_provider}
-                  </span>
+                {/* Display multiple ISP connections */}
+                {device.internet_connections && device.internet_connections.length > 0 ? (
+                  <div className="mt-1 space-y-1">
+                    {device.internet_connections.map((conn, idx) => (
+                      <div key={idx} className="text-center">
+                        <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
+                          {conn.download_speed}/{conn.upload_speed} Mbps
+                          {conn.is_primary && <span className="ml-1 text-green-500">●</span>}
+                        </span>
+                        <span className="block text-xs text-muted-foreground">
+                          {conn.provider_name}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <>
+                    {/* Fallback to legacy fields */}
+                    {device.internet_speed && (
+                      <span className="text-xs font-medium text-blue-600 dark:text-blue-400 mt-1">
+                        {device.internet_speed}
+                      </span>
+                    )}
+                    {device.internet_provider && (
+                      <span className="text-xs text-muted-foreground">
+                        {device.internet_provider}
+                      </span>
+                    )}
+                  </>
                 )}
                 {device.ip_address && (
                   <span className="text-xs font-mono text-muted-foreground mt-1">{device.ip_address}</span>
