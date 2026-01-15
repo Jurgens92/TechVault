@@ -24,33 +24,18 @@ from .permissions import IsOrganizationMember, IsOrganizationAdmin
 
 class SecureQuerySetMixin:
     """
-    Mixin that filters querysets to only show data from organizations
-    the user has access to. This is the foundation of multi-tenant security.
+    Mixin that provides access to organizations for authenticated users.
+    All authenticated users can see all organizations (shared workspace model).
     """
 
     def get_user_organizations(self):
         """Get organizations the current user has access to."""
-        user = self.request.user
-        if user.is_superuser:
-            return Organization.objects.all()
-        return OrganizationMember.get_user_organizations(user)
+        # All authenticated users can access all organizations
+        return Organization.objects.all()
 
     def filter_by_organization_access(self, queryset):
-        """Filter queryset to only include items from accessible organizations."""
-        user = self.request.user
-        if user.is_superuser:
-            return queryset
-
-        user_orgs = self.get_user_organizations()
-
-        # Handle Organization model directly
-        if queryset.model == Organization:
-            return queryset.filter(id__in=user_orgs)
-
-        # Handle models with organization FK
-        if hasattr(queryset.model, 'organization'):
-            return queryset.filter(organization__in=user_orgs)
-
+        """Filter queryset - all authenticated users have full access."""
+        # All authenticated users can see all data
         return queryset
 
 
