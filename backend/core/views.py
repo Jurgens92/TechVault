@@ -589,7 +589,8 @@ class ContactViewSet(SecureQuerySetMixin, LocationFilterMixin, SoftDeleteViewSet
 
         # Read and decode CSV file
         try:
-            decoded_file = csv_file.read().decode('utf-8')
+            # Use utf-8-sig to handle BOM (Byte Order Mark) from Excel-exported CSV files
+            decoded_file = csv_file.read().decode('utf-8-sig')
             io_string = io.StringIO(decoded_file)
             reader = csv.DictReader(io_string)
 
