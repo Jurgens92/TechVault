@@ -133,10 +133,12 @@ export function NetworkDeviceForm() {
       setLoading(true);
       // Filter out incomplete connections (must have provider_name)
       const validConnections = internetConnections
-        .filter(conn => conn.provider_name && conn.provider_name.trim())
+        .filter((conn): conn is Partial<InternetConnection> & { provider_name: string } =>
+          Boolean(conn.provider_name && conn.provider_name.trim())
+        )
         .map(conn => ({
           provider_name: conn.provider_name,
-          connection_type: conn.connection_type || 'fiber',
+          connection_type: conn.connection_type || 'fiber' as const,
           download_speed: conn.download_speed || 100,
           upload_speed: conn.upload_speed || 100,
           is_primary: conn.is_primary || false,
