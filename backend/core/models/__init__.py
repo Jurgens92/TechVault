@@ -23,7 +23,7 @@ from .security import PasswordEntry, PasswordEntryVersion
 from .configuration import Configuration, ConfigurationVersion
 
 # Network models
-from .network import NetworkDevice
+from .network import NetworkDevice, InternetConnection, ConnectionType
 
 # Device models
 from .devices import EndpointUser, Server, Peripheral
@@ -60,6 +60,8 @@ __all__ = [
     'ConfigurationVersion',  # Deprecated - kept for backward compatibility
     # Network
     'NetworkDevice',
+    'InternetConnection',
+    'ConnectionType',
     # Devices
     'EndpointUser',
     'Server',

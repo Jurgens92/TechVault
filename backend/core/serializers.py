@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import (
     Organization, Location, Contact, Documentation,
-    PasswordEntry, Configuration, NetworkDevice, EndpointUser, Server, Peripheral, Software, SoftwareAssignment, Backup, VoIP, VoIPAssignment,
+    PasswordEntry, Configuration, NetworkDevice, InternetConnection, EndpointUser, Server, Peripheral, Software, SoftwareAssignment, Backup, VoIP, VoIPAssignment,
     DocumentationVersion, PasswordEntryVersion, ConfigurationVersion
 )
 from users.serializers import UserSerializer
@@ -133,16 +133,58 @@ class ConfigurationSerializer(OrganizationOwnedSerializer):
         ]
 
 
+class InternetConnectionSerializer(serializers.ModelSerializer):
+    """Serializer for ISP/internet connections on network devices."""
+    speed_display = serializers.CharField(read_only=True)
+
+    class Meta:
+        model = InternetConnection
+        fields = [
+            'id', 'provider_name', 'connection_type', 'download_speed', 'upload_speed',
+            'speed_display', 'is_primary', 'account_number', 'notes', 'is_active',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'speed_display', 'created_at', 'updated_at']
+
+
 class NetworkDeviceSerializer(LocationOwnedSerializer):
+    internet_connections = InternetConnectionSerializer(many=True, required=False)
+
     class Meta(LocationOwnedSerializer.Meta):
         model = NetworkDevice
         fields = [
             'id', 'organization', 'organization_name', 'name', 'device_type',
-            'internet_provider', 'internet_speed', 'manufacturer', 'model',
-            'ip_address', 'mac_address', 'serial_number', 'firmware_version',
-            'location', 'location_name', 'notes', 'is_active', 'created_by',
-            'created_at', 'updated_at', 'deleted_at', 'deleted_by'
+            'internet_provider', 'internet_speed', 'internet_connections',
+            'manufacturer', 'model', 'ip_address', 'mac_address', 'serial_number',
+            'firmware_version', 'location', 'location_name', 'notes', 'is_active',
+            'created_by', 'created_at', 'updated_at', 'deleted_at', 'deleted_by'
         ]
+
+    def create(self, validated_data):
+        connections_data = validated_data.pop('internet_connections', [])
+        device = super().create(validated_data)
+        for conn_data in connections_data:
+            InternetConnection.objects.create(
+                network_device=device,
+                created_by=validated_data.get('created_by'),
+                **conn_data
+            )
+        return device
+
+    def update(self, instance, validated_data):
+        connections_data = validated_data.pop('internet_connections', None)
+        device = super().update(instance, validated_data)
+
+        if connections_data is not None:
+            # Clear existing connections and recreate
+            instance.internet_connections.all().delete()
+            for conn_data in connections_data:
+                InternetConnection.objects.create(
+                    network_device=device,
+                    created_by=instance.created_by,
+                    **conn_data
+                )
+        return device
 
 
 class EndpointUserSerializer(LocationOwnedSerializer):

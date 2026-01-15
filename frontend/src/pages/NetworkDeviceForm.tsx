@@ -2,8 +2,19 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { networkDeviceAPI, locationAPI } from '@/services/core';
-import type { NetworkDevice, Location } from '@/types/core';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import type { NetworkDevice, Location, InternetConnection } from '@/types/core';
+import { ArrowLeft, Loader2, Plus, Trash2 } from 'lucide-react';
+
+const emptyConnection: Omit<InternetConnection, 'id' | 'created_at' | 'updated_at' | 'speed_display'> = {
+  provider_name: '',
+  connection_type: 'fiber',
+  download_speed: 100,
+  upload_speed: 100,
+  is_primary: false,
+  account_number: '',
+  notes: '',
+  is_active: true,
+};
 
 export function NetworkDeviceForm() {
   const { id } = useParams<{ id: string }>();
@@ -26,6 +37,7 @@ export function NetworkDeviceForm() {
     notes: '',
     is_active: true,
   });
+  const [internetConnections, setInternetConnections] = useState<Partial<InternetConnection>[]>([]);
 
   useEffect(() => {
     if (selectedOrg) {
@@ -76,11 +88,41 @@ export function NetworkDeviceForm() {
         notes: device.notes,
         is_active: device.is_active,
       });
+      // Load internet connections if available
+      if (device.internet_connections && device.internet_connections.length > 0) {
+        setInternetConnections(device.internet_connections);
+      }
     } catch (error) {
       console.error('Failed to load device:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const addConnection = () => {
+    const isFirst = internetConnections.length === 0;
+    setInternetConnections([...internetConnections, { ...emptyConnection, is_primary: isFirst }]);
+  };
+
+  const removeConnection = (index: number) => {
+    const updated = internetConnections.filter((_, i) => i !== index);
+    // If we removed the primary, make the first one primary
+    if (updated.length > 0 && !updated.some(c => c.is_primary)) {
+      updated[0].is_primary = true;
+    }
+    setInternetConnections(updated);
+  };
+
+  const updateConnection = (index: number, field: keyof InternetConnection, value: any) => {
+    const updated = [...internetConnections];
+    updated[index] = { ...updated[index], [field]: value };
+    // If setting this as primary, unset others
+    if (field === 'is_primary' && value === true) {
+      updated.forEach((conn, i) => {
+        if (i !== index) conn.is_primary = false;
+      });
+    }
+    setInternetConnections(updated);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -89,10 +131,25 @@ export function NetworkDeviceForm() {
 
     try {
       setLoading(true);
+      // Filter out incomplete connections (must have provider_name)
+      const validConnections = internetConnections
+        .filter(conn => conn.provider_name && conn.provider_name.trim())
+        .map(conn => ({
+          provider_name: conn.provider_name,
+          connection_type: conn.connection_type || 'fiber',
+          download_speed: conn.download_speed || 100,
+          upload_speed: conn.upload_speed || 100,
+          is_primary: conn.is_primary || false,
+          account_number: conn.account_number || '',
+          notes: conn.notes || '',
+          is_active: conn.is_active !== false,
+        }));
+
       const data = {
         ...formData,
         organization: selectedOrg.id,
         location: formData.location || null,
+        internet_connections: validConnections,
       };
 
       if (id) {
@@ -193,29 +250,142 @@ export function NetworkDeviceForm() {
 
         {(formData.device_type === 'firewall' || formData.device_type === 'router' || formData.device_type === 'firewall_router') && (
           <div className="border border-border rounded-lg p-6 space-y-4">
-            <h2 className="text-lg font-semibold">Internet Connection</h2>
-
-            <div>
-              <label className="block text-sm font-medium mb-2">Internet Provider</label>
-              <input
-                type="text"
-                value={formData.internet_provider}
-                onChange={(e) => setFormData({ ...formData, internet_provider: e.target.value })}
-                className="w-full px-3 py-2 border border-input rounded-md bg-background"
-                placeholder="e.g., Comcast, AT&T"
-              />
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Internet Connections</h2>
+              <button
+                type="button"
+                onClick={addConnection}
+                className="flex items-center gap-1 px-3 py-1 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+              >
+                <Plus className="h-4 w-4" /> Add ISP
+              </button>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-2">Internet Speed</label>
-              <input
-                type="text"
-                value={formData.internet_speed}
-                onChange={(e) => setFormData({ ...formData, internet_speed: e.target.value })}
-                className="w-full px-3 py-2 border border-input rounded-md bg-background"
-                placeholder="e.g., 100/100 Mbps"
-              />
-            </div>
+            {internetConnections.length === 0 ? (
+              <p className="text-muted-foreground text-sm">No internet connections added. Click "Add ISP" to add one.</p>
+            ) : (
+              <div className="space-y-4">
+                {internetConnections.map((conn, index) => (
+                  <div key={index} className="border border-border rounded-md p-4 space-y-3 relative">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">Connection {index + 1}</span>
+                        {conn.is_primary && (
+                          <span className="px-2 py-0.5 text-xs bg-green-500/20 text-green-400 rounded">Primary</span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeConnection(index)}
+                        className="p-1 text-destructive hover:bg-destructive/10 rounded"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Provider Name *</label>
+                        <input
+                          type="text"
+                          value={conn.provider_name || ''}
+                          onChange={(e) => updateConnection(index, 'provider_name', e.target.value)}
+                          className="w-full px-3 py-2 border border-input rounded-md bg-background text-sm"
+                          placeholder="e.g., Comcast, AT&T"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Connection Type</label>
+                        <select
+                          value={conn.connection_type || 'fiber'}
+                          onChange={(e) => updateConnection(index, 'connection_type', e.target.value)}
+                          className="w-full px-3 py-2 border border-input rounded-md bg-background text-sm"
+                        >
+                          <option value="fiber">Fiber</option>
+                          <option value="cable">Cable</option>
+                          <option value="dsl">DSL</option>
+                          <option value="wireless">5G/Wireless</option>
+                          <option value="satellite">Satellite</option>
+                          <option value="other">Other</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Download (Mbps)</label>
+                        <input
+                          type="number"
+                          value={conn.download_speed || 100}
+                          onChange={(e) => updateConnection(index, 'download_speed', parseInt(e.target.value) || 0)}
+                          className="w-full px-3 py-2 border border-input rounded-md bg-background text-sm"
+                          min="0"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Upload (Mbps)</label>
+                        <input
+                          type="number"
+                          value={conn.upload_speed || 100}
+                          onChange={(e) => updateConnection(index, 'upload_speed', parseInt(e.target.value) || 0)}
+                          className="w-full px-3 py-2 border border-input rounded-md bg-background text-sm"
+                          min="0"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Account #</label>
+                        <input
+                          type="text"
+                          value={conn.account_number || ''}
+                          onChange={(e) => updateConnection(index, 'account_number', e.target.value)}
+                          className="w-full px-3 py-2 border border-input rounded-md bg-background text-sm"
+                          placeholder="Optional"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={conn.is_primary || false}
+                          onChange={(e) => updateConnection(index, 'is_primary', e.target.checked)}
+                          className="rounded"
+                        />
+                        <span className="text-sm">Primary connection</span>
+                      </label>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Legacy fields for backward compatibility */}
+            <details className="text-sm">
+              <summary className="cursor-pointer text-muted-foreground hover:text-foreground">Legacy ISP fields (deprecated)</summary>
+              <div className="mt-3 space-y-3 pl-4 border-l-2 border-border">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Internet Provider (legacy)</label>
+                  <input
+                    type="text"
+                    value={formData.internet_provider}
+                    onChange={(e) => setFormData({ ...formData, internet_provider: e.target.value })}
+                    className="w-full px-3 py-2 border border-input rounded-md bg-background text-sm"
+                    placeholder="e.g., Comcast, AT&T"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Internet Speed (legacy)</label>
+                  <input
+                    type="text"
+                    value={formData.internet_speed}
+                    onChange={(e) => setFormData({ ...formData, internet_speed: e.target.value })}
+                    className="w-full px-3 py-2 border border-input rounded-md bg-background text-sm"
+                    placeholder="e.g., 100/100 Mbps"
+                  />
+                </div>
+              </div>
+            </details>
           </div>
         )}
 

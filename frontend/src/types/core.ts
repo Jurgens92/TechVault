@@ -120,6 +120,21 @@ export interface Configuration {
   updated_at: string;
 }
 
+export interface InternetConnection {
+  id?: string;
+  provider_name: string;
+  connection_type: 'fiber' | 'cable' | 'dsl' | 'wireless' | 'satellite' | 'other';
+  download_speed: number;
+  upload_speed: number;
+  speed_display?: string;
+  is_primary: boolean;
+  account_number: string;
+  notes: string;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface NetworkDevice {
   id: string;
   organization: string;
@@ -128,6 +143,7 @@ export interface NetworkDevice {
   device_type: 'firewall' | 'router' | 'firewall_router' | 'switch' | 'wifi' | 'other';
   internet_provider: string;
   internet_speed: string;
+  internet_connections?: InternetConnection[];
   manufacturer: string;
   model: string;
   ip_address: string;
