@@ -168,6 +168,9 @@ export const passwordAPI = {
     api.get<PasswordEntryVersion>(`/api/passwords/${id}/versions/${versionNumber}/`),
   restoreVersion: (id: string, versionNumber: number) =>
     api.post<{ detail: string; data: PasswordEntry }>(`/api/passwords/${id}/restore-version/${versionNumber}/`, {}),
+  // Securely retrieve the decrypted password (with audit logging)
+  retrievePassword: (id: string) =>
+    api.post<{ password: string; warning: string }>(`/api/passwords/${id}/retrieve_password/`),
 };
 
 // Configuration APIs
