@@ -117,32 +117,6 @@ const Dashboard: React.FC = () => {
           })}
         </div>
 
-        {/* Quick Actions */}
-        <div className="mt-8">
-          <h2 className="text-xl font-semibold mb-4">Quick Actions</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[
-              { label: 'Add Organization', path: '/organizations', icon: Building2 },
-              { label: 'Add Location', path: '/locations', icon: MapPin },
-              { label: 'Add Contact', path: '/contacts', icon: Users },
-              { label: 'Create Document', path: '/documentations', icon: FileText },
-            ].map((action) => {
-              const Icon = action.icon;
-              return (
-                <Card
-                  key={action.label}
-                  className="cursor-pointer hover:bg-accent hover:border-primary/40 transition-all"
-                >
-                  <CardContent className="flex items-center gap-3 p-4">
-                    <Icon className="h-5 w-5 text-primary" />
-                    <span className="font-medium">{action.label}</span>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </div>
-
         {/* Info Footer */}
         <div className="mt-8 p-4 bg-muted/50 rounded-lg border border-border">
           <p className="text-sm text-muted-foreground text-center">
