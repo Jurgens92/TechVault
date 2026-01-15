@@ -17,7 +17,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from core.models import (
-    Organization, Location, Contact, Documentation, PasswordEntry,
+    Organization, OrganizationMember, Location, Contact, Documentation, PasswordEntry,
     Configuration, NetworkDevice, EndpointUser, Server, Peripheral,
     Software, SoftwareAssignment, Backup
 )
@@ -58,6 +58,10 @@ class Command(BaseCommand):
             # Create organizations
             organizations = self.create_organizations(users)
             self.stdout.write(self.style.SUCCESS(f'Created {len(organizations)} organizations'))
+
+            # Create organization memberships for all users
+            memberships = self.create_organization_members(organizations, users)
+            self.stdout.write(self.style.SUCCESS(f'Created {len(memberships)} organization memberships'))
 
             # Create locations
             locations = self.create_locations(organizations, users)
@@ -118,6 +122,7 @@ class Command(BaseCommand):
         Documentation.objects.all().delete()
         Contact.objects.all().delete()
         Location.objects.all().delete()
+        OrganizationMember.objects.all().delete()
         Organization.objects.all().delete()
 
     def create_organizations(self, users):
@@ -194,6 +199,24 @@ class Command(BaseCommand):
             organizations.append(org)
 
         return organizations
+
+    def create_organization_members(self, organizations, users):
+        """Create organization memberships for all users to all demo organizations."""
+        memberships = []
+        for org in organizations:
+            for user in users:
+                membership, created = OrganizationMember.objects.get_or_create(
+                    organization=org,
+                    user=user,
+                    defaults={
+                        'role': 'admin',
+                        'is_active': True,
+                        'created_by': user
+                    }
+                )
+                if created:
+                    memberships.append(membership)
+        return memberships
 
     def create_locations(self, organizations, users):
         """Create locations for organizations."""
