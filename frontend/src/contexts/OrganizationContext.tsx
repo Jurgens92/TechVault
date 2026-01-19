@@ -20,7 +20,7 @@ export const OrganizationProvider: React.FC<{ children: ReactNode }> = ({ childr
   const { isAuthenticated, user } = useAuth();
   const [selectedOrg, setSelectedOrgState] = useState<Organization | null>(null);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const loadOrganizations = async (silent: boolean = false) => {
