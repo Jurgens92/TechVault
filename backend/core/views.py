@@ -802,6 +802,139 @@ class EndpointUserViewSet(SecureQuerySetMixin, OrganizationFilterMixin, SoftDele
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
 
+    @action(detail=False, methods=['get'])
+    def download_example_csv(self, request):
+        """Download an example CSV file for endpoint user imports."""
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="endpoint_users_example.csv"'
+
+        writer = csv.writer(response)
+        # Write header
+        writer.writerow(['name', 'device_type', 'manufacturer', 'model', 'cpu', 'ram', 'storage', 'gpu', 'operating_system', 'ip_address', 'mac_address', 'hostname', 'serial_number'])
+        # Write example rows
+        writer.writerow(['DESKTOP-001', 'desktop', 'Dell', 'OptiPlex 7090', 'Intel Core i7-11700', '16GB DDR4', '512GB SSD', 'Intel UHD 750', 'Windows 11 Pro', '192.168.1.101', 'AA:BB:CC:DD:EE:01', 'desktop-001', 'ABC123456'])
+        writer.writerow(['LAPTOP-002', 'laptop', 'Lenovo', 'ThinkPad X1 Carbon', 'Intel Core i7-1165G7', '16GB DDR4', '1TB SSD', 'Intel Iris Xe', 'Windows 11 Pro', '192.168.1.102', 'AA:BB:CC:DD:EE:02', 'laptop-002', 'DEF789012'])
+        writer.writerow(['WORKSTATION-003', 'workstation', 'HP', 'Z4 G4', 'Intel Xeon W-2245', '64GB DDR4', '2TB NVMe SSD', 'NVIDIA Quadro RTX 4000', 'Windows 10 Pro', '192.168.1.103', 'AA:BB:CC:DD:EE:03', 'workstation-003', 'GHI345678'])
+
+        return response
+
+    @action(detail=False, methods=['post'])
+    def import_csv(self, request):
+        """Import endpoint users from a CSV file."""
+        # Security: File size limit (5MB max)
+        MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
+        MAX_ROWS = 10000
+
+        if 'file' not in request.FILES:
+            return Response({'error': 'No file provided'}, status=status.HTTP_400_BAD_REQUEST)
+
+        csv_file = request.FILES['file']
+
+        # Security: Check file size
+        if csv_file.size > MAX_FILE_SIZE:
+            return Response({'error': 'File size exceeds 5MB limit'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check file extension
+        if not csv_file.name.endswith('.csv'):
+            return Response({'error': 'File must be a CSV'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Get organization_id from request
+        org_id = request.data.get('organization_id')
+        if not org_id:
+            return Response({'error': 'organization_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Verify organization exists and user has access
+        try:
+            organization = Organization.objects.get(id=org_id)
+            # Security: Check user has access to this organization
+            if not OrganizationMember.user_has_access(request.user, organization) and not request.user.is_superuser:
+                return Response({'error': 'You do not have access to this organization'}, status=status.HTTP_403_FORBIDDEN)
+        except Organization.DoesNotExist:
+            return Response({'error': 'Organization not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Valid device types
+        valid_device_types = ['desktop', 'laptop', 'workstation', 'other']
+
+        # Read and decode CSV file
+        try:
+            # Use utf-8-sig to handle BOM (Byte Order Mark) from Excel-exported CSV files
+            decoded_file = csv_file.read().decode('utf-8-sig')
+            io_string = io.StringIO(decoded_file)
+            reader = csv.DictReader(io_string)
+
+            created_count = 0
+            errors = []
+
+            for row_num, row in enumerate(reader, start=2):  # start=2 because row 1 is header
+                # Security: Limit number of rows
+                if row_num > MAX_ROWS + 1:
+                    errors.append({'row': row_num, 'error': f'Exceeded maximum row limit of {MAX_ROWS}'})
+                    break
+
+                try:
+                    # Security: Sanitize inputs - strip and limit length
+                    name = row.get('name', '').strip()[:255]
+                    device_type = row.get('device_type', 'desktop').strip().lower()[:50]
+                    manufacturer = row.get('manufacturer', '').strip()[:255]
+                    model = row.get('model', '').strip()[:255]
+                    cpu = row.get('cpu', '').strip()[:255]
+                    ram = row.get('ram', '').strip()[:100]
+                    storage = row.get('storage', '').strip()[:255]
+                    gpu = row.get('gpu', '').strip()[:255]
+                    operating_system = row.get('operating_system', '').strip()[:255]
+                    ip_address = row.get('ip_address', '').strip()[:50]
+                    mac_address = row.get('mac_address', '').strip()[:50]
+                    hostname = row.get('hostname', '').strip()[:255]
+                    serial_number = row.get('serial_number', '').strip()[:255]
+
+                    # Validate required field
+                    if not name:
+                        errors.append({'row': row_num, 'error': 'Name is required'})
+                        continue
+
+                    # Validate device_type
+                    if device_type not in valid_device_types:
+                        device_type = 'other'
+
+                    # Create endpoint user
+                    EndpointUser.objects.create(
+                        organization=organization,
+                        name=name,
+                        device_type=device_type,
+                        manufacturer=manufacturer,
+                        model=model,
+                        cpu=cpu,
+                        ram=ram,
+                        storage=storage,
+                        gpu=gpu,
+                        operating_system=operating_system,
+                        ip_address=ip_address,
+                        mac_address=mac_address,
+                        hostname=hostname,
+                        serial_number=serial_number,
+                        is_active=True,
+                        created_by=request.user
+                    )
+                    created_count += 1
+
+                except Exception as e:
+                    errors.append({'row': row_num, 'error': str(e)})
+
+            response_data = {
+                'created': created_count,
+                'errors': errors
+            }
+
+            if errors:
+                response_data['message'] = f'Imported {created_count} endpoint users with {len(errors)} errors'
+            else:
+                response_data['message'] = f'Successfully imported {created_count} endpoint users'
+
+            return Response(response_data, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            return Response({'error': 'Error processing CSV file'}, status=status.HTTP_400_BAD_REQUEST)
+
 
 class ServerViewSet(SecureQuerySetMixin, OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for Server CRUD operations."""
