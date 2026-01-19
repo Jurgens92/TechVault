@@ -6,7 +6,7 @@ from core.constants import SoftwareType, LicenseType
 
 class Software(BaseModel):
     """Software licenses and applications assigned to users."""
-    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='software')
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='software', db_index=True)
     name = models.CharField(max_length=255, help_text='Software name or product')
     software_type = models.CharField(
         max_length=50,
@@ -54,8 +54,8 @@ class Software(BaseModel):
 
 class SoftwareAssignment(BaseModel):
     """Assignment of software licenses to contacts."""
-    software = models.ForeignKey(Software, on_delete=models.CASCADE, related_name='software_assignments')
-    contact = models.ForeignKey(Contact, on_delete=models.CASCADE, related_name='software_assignments')
+    software = models.ForeignKey(Software, on_delete=models.CASCADE, related_name='software_assignments', db_index=True)
+    contact = models.ForeignKey(Contact, on_delete=models.CASCADE, related_name='software_assignments', db_index=True)
 
     class Meta:
         db_table = 'software_assignments'

@@ -6,7 +6,7 @@ from core.constants import VoIPType, LicenseType
 
 class VoIP(BaseModel):
     """VoIP licenses and services assigned to users."""
-    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='voip')
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='voip', db_index=True)
     name = models.CharField(max_length=255, help_text='VoIP service name or product')
     voip_type = models.CharField(
         max_length=50,
@@ -58,8 +58,8 @@ class VoIP(BaseModel):
 
 class VoIPAssignment(BaseModel):
     """Assignment of VoIP licenses to contacts."""
-    voip = models.ForeignKey(VoIP, on_delete=models.CASCADE, related_name='voip_assignments')
-    contact = models.ForeignKey(Contact, on_delete=models.CASCADE, related_name='voip_assignments')
+    voip = models.ForeignKey(VoIP, on_delete=models.CASCADE, related_name='voip_assignments', db_index=True)
+    contact = models.ForeignKey(Contact, on_delete=models.CASCADE, related_name='voip_assignments', db_index=True)
     extension = models.CharField(max_length=50, blank=True, help_text='Assigned extension number')
     phone_number = models.CharField(max_length=50, blank=True, help_text='Assigned phone number')
 

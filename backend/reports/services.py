@@ -1,9 +1,10 @@
 """
 Report generation services for TechVault.
 """
-from datetime import datetime
+from datetime import timedelta
 from typing import Dict, List, Any, Optional
 from django.db.models import Count, Q
+from django.utils import timezone
 from core.models import (
     Organization, Location, Contact, NetworkDevice, Server,
     EndpointUser, Peripheral, Software, VoIP, Backup,
@@ -51,7 +52,7 @@ class ReportService:
 
         report = {
             'report_type': 'organization',
-            'generated_at': datetime.now().isoformat(),
+            'generated_at': timezone.now().isoformat(),
             'generated_by': self.user.email,
             'organization': {
                 'id': str(org.id),
@@ -131,7 +132,7 @@ class ReportService:
 
         report = {
             'report_type': 'location',
-            'generated_at': datetime.now().isoformat(),
+            'generated_at': timezone.now().isoformat(),
             'generated_by': self.user.email,
             'organization': {
                 'id': str(location.organization.id),
@@ -191,7 +192,7 @@ class ReportService:
         """Generate an asset inventory report."""
         report = {
             'report_type': 'asset_inventory',
-            'generated_at': datetime.now().isoformat(),
+            'generated_at': timezone.now().isoformat(),
             'generated_by': self.user.email,
             'assets': {
                 'network_devices': [],
@@ -252,7 +253,7 @@ class ReportService:
         """Generate a software license report showing all licenses and their status."""
         report = {
             'report_type': 'software_license',
-            'generated_at': datetime.now().isoformat(),
+            'generated_at': timezone.now().isoformat(),
             'generated_by': self.user.email,
             'licenses': []
         }
@@ -266,6 +267,9 @@ class ReportService:
         software_list = Software.objects.filter(**filters).prefetch_related('software_assignments', 'software_assignments__contact')
 
         for software in software_list:
+            # Use prefetched data - get assignments once and cache count
+            assignments = list(software.software_assignments.all())
+            seats_used = len(assignments)
             license_data = {
                 'id': str(software.id),
                 'name': software.name,
@@ -276,9 +280,9 @@ class ReportService:
                 'purchase_date': software.purchase_date.isoformat() if software.purchase_date else None,
                 'expiry_date': software.expiry_date.isoformat() if software.expiry_date else None,
                 'seats_total': software.quantity,
-                'seats_used': software.software_assignments.count(),
-                'seats_available': software.quantity - software.software_assignments.count() if software.quantity else None,
-                'status': self._get_license_status(software),
+                'seats_used': seats_used,
+                'seats_available': software.quantity - seats_used if software.quantity else None,
+                'status': self._get_license_status(software, seats_used),
                 'assignments': [
                     {
                         'contact_id': str(assignment.contact.id),
@@ -286,7 +290,7 @@ class ReportService:
                         'contact_email': assignment.contact.email,
                         'assigned_at': assignment.created_at.isoformat()
                     }
-                    for assignment in software.software_assignments.all()
+                    for assignment in assignments
                 ]
             }
             report['licenses'].append(license_data)
@@ -551,12 +555,10 @@ class ReportService:
             for pwd in passwords
         ]
 
-    def _get_license_status(self, software):
+    def _get_license_status(self, software, seats_used=None):
         """Determine the status of a software license."""
-        from datetime import datetime, timedelta
-
         if software.expiry_date:
-            today = datetime.now().date()
+            today = timezone.now().date()
             days_until_expiry = (software.expiry_date - today).days
 
             if days_until_expiry < 0:
@@ -564,7 +566,11 @@ class ReportService:
             elif days_until_expiry <= 30:
                 return 'expiring_soon'
 
-        if software.quantity and software.software_assignments.count() > software.quantity:
+        # Use passed seats_used if available to avoid extra query
+        if seats_used is None:
+            seats_used = software.software_assignments.count()
+
+        if software.quantity and seats_used > software.quantity:
             return 'over_capacity'
 
         return 'active'

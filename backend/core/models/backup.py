@@ -6,7 +6,7 @@ from core.constants import BackupType, BackupStatus
 
 class Backup(BaseModel):
     """Backup solutions for servers, cloud services, and endpoints."""
-    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='backups')
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='backups', db_index=True)
     name = models.CharField(max_length=255, help_text='Backup solution name or identifier')
     backup_type = models.CharField(
         max_length=50,
@@ -34,7 +34,7 @@ class Backup(BaseModel):
     )
 
     # Other details
-    location = models.ForeignKey(Location, on_delete=models.SET_NULL, null=True, blank=True, related_name='backups')
+    location = models.ForeignKey(Location, on_delete=models.SET_NULL, null=True, blank=True, related_name='backups', db_index=True)
     notes = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
 
