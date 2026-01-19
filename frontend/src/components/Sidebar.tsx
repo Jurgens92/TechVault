@@ -120,7 +120,6 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
               value={selectedOrg?.id.toString() || ''}
               onChange={handleOrgChange}
               placeholder="Select Organization"
-              onOpen={refreshOrganizations}
             />
           )}
         </div>

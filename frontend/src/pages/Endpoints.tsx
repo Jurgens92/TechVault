@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { networkDeviceAPI, endpointUserAPI, serverAPI, peripheralAPI, backupAPI, softwareAPI, voipAPI } from '@/services/core';
@@ -6,18 +6,20 @@ import type { NetworkDevice, EndpointUser, Server, Peripheral, Backup, Software,
 import { Plus, Network, Monitor, HardDrive, Printer, Database, Package, Phone, Loader2, Edit, Trash2 } from 'lucide-react';
 import { DeleteConfirmationModal } from '@/components/DeleteConfirmationModal';
 
+type TabType = 'network' | 'users' | 'servers' | 'peripherals' | 'backups' | 'software' | 'voip';
+
 export function Endpoints() {
   const { selectedOrg } = useOrganization();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
   // Read the tab from the URL query parameter, default to 'network' if not present
-  const tabFromUrl = searchParams.get('tab') as 'network' | 'users' | 'servers' | 'peripherals' | 'backups' | 'software' | 'voip' | null;
+  const tabFromUrl = searchParams.get('tab') as TabType | null;
   const initialTab = tabFromUrl && ['network', 'users', 'servers', 'peripherals', 'backups', 'software', 'voip'].includes(tabFromUrl)
     ? tabFromUrl
     : 'network';
 
-  const [activeTab, setActiveTab] = useState<'network' | 'users' | 'servers' | 'peripherals' | 'backups' | 'software' | 'voip'>(initialTab);
+  const [activeTab, setActiveTab] = useState<TabType>(initialTab);
   const [networkDevices, setNetworkDevices] = useState<NetworkDevice[]>([]);
   const [endpointUsers, setEndpointUsers] = useState<EndpointUser[]>([]);
   const [servers, setServers] = useState<Server[]>([]);
@@ -26,6 +28,12 @@ export function Endpoints() {
   const [software, setSoftware] = useState<Software[]>([]);
   const [voip, setVoIP] = useState<VoIP[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Track which tabs have been loaded for the current organization
+  const [loadedTabs, setLoadedTabs] = useState<Set<TabType>>(new Set());
+  // Track the org ID that data was loaded for to detect org changes
+  const loadedForOrgRef = useRef<string | number | null>(null);
+
   const [deleteModal, setDeleteModal] = useState<{
     isOpen: boolean;
     itemId: string;
@@ -33,38 +41,129 @@ export function Endpoints() {
     itemType: 'network' | 'user' | 'server' | 'peripheral' | 'backup' | 'software' | 'voip';
   } | null>(null);
 
-  useEffect(() => {
-    loadEndpoints();
-  }, [selectedOrg]);
-
-  const loadEndpoints = async () => {
-    if (!selectedOrg) return;
-
+  // Load data for a specific tab only
+  const loadTabData = useCallback(async (tab: TabType, orgId: string | number) => {
+    const orgIdStr = orgId.toString();
     try {
-      setLoading(true);
-      const [networkRes, usersRes, serversRes, peripheralsRes, backupsRes, softwareRes, voipRes] = await Promise.all([
-        networkDeviceAPI.byOrganization(selectedOrg.id),
-        endpointUserAPI.byOrganization(selectedOrg.id),
-        serverAPI.byOrganization(selectedOrg.id),
-        peripheralAPI.byOrganization(selectedOrg.id),
-        backupAPI.byOrganization(selectedOrg.id),
-        softwareAPI.byOrganization(selectedOrg.id),
-        voipAPI.byOrganization(selectedOrg.id),
-      ]);
-
-      setNetworkDevices(networkRes.data);
-      setEndpointUsers(usersRes.data);
-      setServers(serversRes.data);
-      setPeripherals(peripheralsRes.data);
-      setBackups(backupsRes.data);
-      setSoftware(softwareRes.data);
-      setVoIP(voipRes.data);
+      switch (tab) {
+        case 'network': {
+          const res = await networkDeviceAPI.byOrganization(orgIdStr);
+          // Only update if we're still on the same org
+          if (loadedForOrgRef.current === orgId) {
+            setNetworkDevices(res.data);
+          }
+          break;
+        }
+        case 'users': {
+          const res = await endpointUserAPI.byOrganization(orgIdStr);
+          if (loadedForOrgRef.current === orgId) {
+            setEndpointUsers(res.data);
+          }
+          break;
+        }
+        case 'servers': {
+          const res = await serverAPI.byOrganization(orgIdStr);
+          if (loadedForOrgRef.current === orgId) {
+            setServers(res.data);
+          }
+          break;
+        }
+        case 'peripherals': {
+          const res = await peripheralAPI.byOrganization(orgIdStr);
+          if (loadedForOrgRef.current === orgId) {
+            setPeripherals(res.data);
+          }
+          break;
+        }
+        case 'backups': {
+          const res = await backupAPI.byOrganization(orgIdStr);
+          if (loadedForOrgRef.current === orgId) {
+            setBackups(res.data);
+          }
+          break;
+        }
+        case 'software': {
+          const res = await softwareAPI.byOrganization(orgIdStr);
+          if (loadedForOrgRef.current === orgId) {
+            setSoftware(res.data);
+          }
+          break;
+        }
+        case 'voip': {
+          const res = await voipAPI.byOrganization(orgIdStr);
+          if (loadedForOrgRef.current === orgId) {
+            setVoIP(res.data);
+          }
+          break;
+        }
+      }
+      return true;
     } catch (error) {
-      console.error('Failed to load endpoints:', error);
-    } finally {
-      setLoading(false);
+      console.error(`Failed to load ${tab} endpoints:`, error);
+      return false;
     }
-  };
+  }, []);
+
+  // Effect to handle organization changes - reset state and load active tab
+  useEffect(() => {
+    if (!selectedOrg) {
+      // Clear all data when no org is selected
+      setNetworkDevices([]);
+      setEndpointUsers([]);
+      setServers([]);
+      setPeripherals([]);
+      setBackups([]);
+      setSoftware([]);
+      setVoIP([]);
+      setLoadedTabs(new Set());
+      loadedForOrgRef.current = null;
+      setLoading(false);
+      return;
+    }
+
+    // Check if organization changed
+    if (loadedForOrgRef.current !== selectedOrg.id) {
+      // Reset all data for new organization
+      setNetworkDevices([]);
+      setEndpointUsers([]);
+      setServers([]);
+      setPeripherals([]);
+      setBackups([]);
+      setSoftware([]);
+      setVoIP([]);
+      setLoadedTabs(new Set());
+      loadedForOrgRef.current = selectedOrg.id;
+
+      // Load the active tab's data
+      setLoading(true);
+      loadTabData(activeTab, selectedOrg.id).then(() => {
+        setLoadedTabs(new Set([activeTab]));
+        setLoading(false);
+      });
+    }
+  }, [selectedOrg, activeTab, loadTabData]);
+
+  // Effect to load data when switching tabs (if not already loaded)
+  useEffect(() => {
+    if (!selectedOrg || loadedForOrgRef.current !== selectedOrg.id) return;
+
+    // If this tab hasn't been loaded yet for the current org, load it
+    if (!loadedTabs.has(activeTab)) {
+      setLoading(true);
+      loadTabData(activeTab, selectedOrg.id).then(() => {
+        setLoadedTabs(prev => new Set([...prev, activeTab]));
+        setLoading(false);
+      });
+    }
+  }, [activeTab, selectedOrg, loadedTabs, loadTabData]);
+
+  // Function to refresh current tab data (for after deletes, etc.)
+  const refreshCurrentTab = useCallback(async () => {
+    if (!selectedOrg) return;
+    setLoading(true);
+    await loadTabData(activeTab, selectedOrg.id);
+    setLoading(false);
+  }, [selectedOrg, activeTab, loadTabData]);
 
   const handleEdit = (id: string, type: 'network' | 'user' | 'server' | 'peripheral' | 'backup' | 'software' | 'voip') => {
     const routes = {
