@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { cn } from '@/lib/utils';
@@ -34,7 +34,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
   const { logout, user } = useAuth();
   const { selectedOrg, setSelectedOrg, organizations, loading, error, refreshOrganizations } = useOrganization();
   const navigate = useNavigate();
-  const [activeItem, setActiveItem] = useState('dashboard');
+  const location = useLocation();
 
   const isAdmin = user?.is_staff || false;
 
@@ -72,7 +72,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
   return (
     <div
       className={cn(
-        'bg-card border-r border-border h-screen flex flex-col transition-all duration-300',
+        'bg-card border-r border-border h-screen flex flex-col transition-[width] duration-300',
         collapsed ? 'w-16' : 'w-64'
       )}
     >
@@ -130,13 +130,12 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
         <ul className="space-y-1">
           {menuItems.map((item) => {
             const Icon = item.icon;
-            const isActive = activeItem === item.id;
+            const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
 
             return (
               <li key={item.id}>
                 <Link
                   to={item.path}
-                  onClick={() => setActiveItem(item.id)}
                   className={cn(
                     'flex items-center gap-3 px-3 py-2 rounded-md transition-colors',
                     isActive

@@ -57,6 +57,7 @@ function App() {
                   </ProtectedRoute>
                 }
               >
+            <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="organizations" element={<Organizations />} />
             <Route path="organizations/:id" element={<OrganizationDetail />} />
@@ -103,9 +104,8 @@ function App() {
             <Route path="deleted-items" element={<DeletedItems />} />
             <Route path="settings" element={<Settings />} />
             <Route path="2fa" element={<TwoFactorAuth />} />
-          </Route>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Route>
           </Routes>
           </ChoicesProvider>
         </OrganizationProvider>
