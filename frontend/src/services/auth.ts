@@ -1,8 +1,8 @@
 import api, { setTokens, clearTokens } from './api';
-import { LoginCredentials, RegisterData, User } from '@/types/auth';
+import { LoginCredentials, RegisterData, User, LoginResponse } from '@/types/auth';
 
 export const authService = {
-  async login(credentials: LoginCredentials): Promise<any> {
+  async login(credentials: LoginCredentials): Promise<LoginResponse> {
     const response = await api.post('/api/auth/login/', credentials);
 
     // Check if 2FA is required

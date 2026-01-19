@@ -2,9 +2,11 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
 from django.db import connection
+from django.db.models import Q, Count
 from django.utils import timezone
 from django.conf import settings
 from datetime import timedelta
+import uuid
 import django
 import sys
 import os
@@ -64,9 +66,6 @@ def diagram_data(request):
     - organization_id: Filter by organization
     - location_id: Filter by location (includes unassigned items with location=null)
     """
-    from django.db.models import Q
-    import uuid
-
     org_id = request.query_params.get('organization_id')
     location_id_str = request.query_params.get('location_id')
 
@@ -75,7 +74,7 @@ def diagram_data(request):
     if location_id_str:
         try:
             location_id = uuid.UUID(location_id_str)
-        except (ValueError, AttributeError):
+        except (ValueError, TypeError):
             location_id = None
 
     # Base filters
@@ -101,19 +100,23 @@ def diagram_data(request):
         backups = Backup.objects.filter(**base_filter)
 
     # Filter Software and VoIP based on assigned contacts' locations
+    # Use prefetch_related to avoid N+1 queries
     if location_id:
         # Software: include if any assigned contact has this location or no location
+        # Use a single query with prefetch to get all software with their assignments
+        all_software = Software.objects.filter(**base_filter).prefetch_related(
+            'software_assignments__contact'
+        )
         software_ids = set()
-        all_software = Software.objects.filter(**base_filter)
         for sw in all_software:
-            # Get all assigned contacts for this software
-            assigned_contacts = sw.software_assignments.select_related('contact').all()
-            if not assigned_contacts.exists():
+            # Use prefetched data - no additional queries
+            assignments = list(sw.software_assignments.all())
+            if not assignments:
                 # No assignments - show in all location views
                 software_ids.add(sw.id)
             else:
                 # Check if any contact has this location or no location
-                for assignment in assigned_contacts:
+                for assignment in assignments:
                     if assignment.contact.location_id == location_id or assignment.contact.location_id is None:
                         software_ids.add(sw.id)
                         break
@@ -121,17 +124,19 @@ def diagram_data(request):
         software = Software.objects.filter(id__in=software_ids, **base_filter)
 
         # VoIP: include if any assigned contact has this location or no location
+        all_voip = VoIP.objects.filter(**base_filter).prefetch_related(
+            'voip_assignments__contact'
+        )
         voip_ids = set()
-        all_voip = VoIP.objects.filter(**base_filter)
         for vp in all_voip:
-            # Get all assigned contacts for this voip
-            assigned_contacts = vp.voip_assignments.select_related('contact').all()
-            if not assigned_contacts.exists():
+            # Use prefetched data - no additional queries
+            assignments = list(vp.voip_assignments.all())
+            if not assignments:
                 # No assignments - show in all location views
                 voip_ids.add(vp.id)
             else:
                 # Check if any contact has this location or no location
-                for assignment in assigned_contacts:
+                for assignment in assignments:
                     if assignment.contact.location_id == location_id or assignment.contact.location_id is None:
                         voip_ids.add(vp.id)
                         break
@@ -195,20 +200,32 @@ def system_health(request):
         'debug_mode': settings.DEBUG,
     }
 
-    # 3. User statistics
+    # 3. User statistics - Use aggregation to reduce queries
     try:
-        total_users = User.objects.count()
-        active_users = User.objects.filter(is_active=True).count()
-        admin_users = User.objects.filter(is_staff=True).count()
-        locked_users = User.objects.filter(locked_until__gt=timezone.now()).count()
-        twofa_enabled = User.objects.filter(twofa_enabled=True).count()
+        now = timezone.now()
+        last_24h = now - timedelta(hours=24)
+        last_7d = now - timedelta(days=7)
 
-        # Recent activity
-        last_24h = timezone.now() - timedelta(hours=24)
-        last_7d = timezone.now() - timedelta(days=7)
-        recent_logins_24h = User.objects.filter(last_login__gte=last_24h).count()
-        recent_logins_7d = User.objects.filter(last_login__gte=last_7d).count()
-        never_logged_in = User.objects.filter(last_login__isnull=True).count()
+        # Single aggregation query for user stats
+        user_stats = User.objects.aggregate(
+            total=Count('id'),
+            active=Count('id', filter=Q(is_active=True)),
+            admin=Count('id', filter=Q(is_staff=True)),
+            locked=Count('id', filter=Q(locked_until__gt=now)),
+            twofa_enabled=Count('id', filter=Q(twofa_enabled=True)),
+            recent_logins_24h=Count('id', filter=Q(last_login__gte=last_24h)),
+            recent_logins_7d=Count('id', filter=Q(last_login__gte=last_7d)),
+            never_logged_in=Count('id', filter=Q(last_login__isnull=True)),
+        )
+
+        total_users = user_stats['total']
+        active_users = user_stats['active']
+        admin_users = user_stats['admin']
+        locked_users = user_stats['locked']
+        twofa_enabled = user_stats['twofa_enabled']
+        recent_logins_24h = user_stats['recent_logins_24h']
+        recent_logins_7d = user_stats['recent_logins_7d']
+        never_logged_in = user_stats['never_logged_in']
 
         health_data['checks']['users'] = {
             'status': 'healthy',
@@ -234,40 +251,61 @@ def system_health(request):
             'error': str(e),
         }
 
-    # 4. Data statistics
+    # 4. Data statistics - Use aggregation to reduce queries
     try:
-        # Active records
+        # Use a helper to get active/inactive counts in single query per model
+        def get_counts(model):
+            result = model.objects.aggregate(
+                active=Count('id', filter=Q(is_active=True)),
+                deleted=Count('id', filter=Q(is_active=False)),
+            )
+            return result['active'], result['deleted']
+
+        # Get counts for all models (13 queries instead of 26)
+        org_active, org_deleted = get_counts(Organization)
+        loc_active, loc_deleted = get_counts(Location)
+        contact_active, contact_deleted = get_counts(Contact)
+        doc_active, doc_deleted = get_counts(Documentation)
+        pwd_active, pwd_deleted = get_counts(PasswordEntry)
+        config_active, config_deleted = get_counts(Configuration)
+        netdev_active, netdev_deleted = get_counts(NetworkDevice)
+        endpoint_active, endpoint_deleted = get_counts(EndpointUser)
+        server_active, server_deleted = get_counts(Server)
+        peripheral_active, peripheral_deleted = get_counts(Peripheral)
+        software_active, software_deleted = get_counts(Software)
+        backup_active, backup_deleted = get_counts(Backup)
+        voip_active, voip_deleted = get_counts(VoIP)
+
         active_counts = {
-            'organizations': Organization.objects.filter(is_active=True).count(),
-            'locations': Location.objects.filter(is_active=True).count(),
-            'contacts': Contact.objects.filter(is_active=True).count(),
-            'documentations': Documentation.objects.filter(is_active=True).count(),
-            'passwords': PasswordEntry.objects.filter(is_active=True).count(),
-            'configurations': Configuration.objects.filter(is_active=True).count(),
-            'network_devices': NetworkDevice.objects.filter(is_active=True).count(),
-            'endpoint_users': EndpointUser.objects.filter(is_active=True).count(),
-            'servers': Server.objects.filter(is_active=True).count(),
-            'peripherals': Peripheral.objects.filter(is_active=True).count(),
-            'software': Software.objects.filter(is_active=True).count(),
-            'backups': Backup.objects.filter(is_active=True).count(),
-            'voip': VoIP.objects.filter(is_active=True).count(),
+            'organizations': org_active,
+            'locations': loc_active,
+            'contacts': contact_active,
+            'documentations': doc_active,
+            'passwords': pwd_active,
+            'configurations': config_active,
+            'network_devices': netdev_active,
+            'endpoint_users': endpoint_active,
+            'servers': server_active,
+            'peripherals': peripheral_active,
+            'software': software_active,
+            'backups': backup_active,
+            'voip': voip_active,
         }
 
-        # Soft-deleted records
         deleted_counts = {
-            'organizations': Organization.objects.filter(is_active=False).count(),
-            'locations': Location.objects.filter(is_active=False).count(),
-            'contacts': Contact.objects.filter(is_active=False).count(),
-            'documentations': Documentation.objects.filter(is_active=False).count(),
-            'passwords': PasswordEntry.objects.filter(is_active=False).count(),
-            'configurations': Configuration.objects.filter(is_active=False).count(),
-            'network_devices': NetworkDevice.objects.filter(is_active=False).count(),
-            'endpoint_users': EndpointUser.objects.filter(is_active=False).count(),
-            'servers': Server.objects.filter(is_active=False).count(),
-            'peripherals': Peripheral.objects.filter(is_active=False).count(),
-            'software': Software.objects.filter(is_active=False).count(),
-            'backups': Backup.objects.filter(is_active=False).count(),
-            'voip': VoIP.objects.filter(is_active=False).count(),
+            'organizations': org_deleted,
+            'locations': loc_deleted,
+            'contacts': contact_deleted,
+            'documentations': doc_deleted,
+            'passwords': pwd_deleted,
+            'configurations': config_deleted,
+            'network_devices': netdev_deleted,
+            'endpoint_users': endpoint_deleted,
+            'servers': server_deleted,
+            'peripherals': peripheral_deleted,
+            'software': software_deleted,
+            'backups': backup_deleted,
+            'voip': voip_deleted,
         }
 
         total_active = sum(active_counts.values())

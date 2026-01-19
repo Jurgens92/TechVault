@@ -26,7 +26,7 @@ class Organization(BaseModel):
 
 class Location(BaseModel):
     """Physical locations within an organization."""
-    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='locations')
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='locations', db_index=True)
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     address = models.TextField()
@@ -48,8 +48,8 @@ class Location(BaseModel):
 
 class Contact(BaseModel):
     """Contacts for organizations and locations."""
-    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='contacts')
-    location = models.ForeignKey(Location, on_delete=models.SET_NULL, null=True, blank=True, related_name='contacts')
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='contacts', db_index=True)
+    location = models.ForeignKey(Location, on_delete=models.SET_NULL, null=True, blank=True, related_name='contacts', db_index=True)
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
     title = models.CharField(max_length=100, blank=True)

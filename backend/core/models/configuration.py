@@ -10,7 +10,7 @@ User = get_user_model()
 
 class Configuration(BaseModel):
     """System and service configurations."""
-    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='configurations')
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='configurations', db_index=True)
     name = models.CharField(max_length=255)
     config_type = models.CharField(
         max_length=50,

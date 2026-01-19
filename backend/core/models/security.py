@@ -10,7 +10,7 @@ User = get_user_model()
 
 class PasswordEntry(BaseModel):
     """Secure password vault entries."""
-    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='password_entries')
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='password_entries', db_index=True)
     name = models.CharField(max_length=255)
     username = models.CharField(max_length=255, blank=True)
     password = models.TextField()  # Should be encrypted in production

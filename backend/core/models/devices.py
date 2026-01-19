@@ -6,7 +6,7 @@ from core.constants import EndpointDeviceType, ServerType, PeripheralType
 
 class EndpointUser(BaseModel):
     """User endpoints like desktops and laptops."""
-    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='endpoint_users')
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='endpoint_users', db_index=True)
     name = models.CharField(max_length=255, help_text='Device name or identifier')
     device_type = models.CharField(
         max_length=50,
@@ -15,7 +15,7 @@ class EndpointUser(BaseModel):
     )
 
     # User assignment
-    assigned_to = models.ForeignKey(Contact, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_devices')
+    assigned_to = models.ForeignKey(Contact, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_devices', db_index=True)
 
     # Hardware specifications
     manufacturer = models.CharField(max_length=255, blank=True)
@@ -38,7 +38,7 @@ class EndpointUser(BaseModel):
     serial_number = models.CharField(max_length=255, blank=True)
     purchase_date = models.DateField(null=True, blank=True)
     warranty_expiry = models.DateField(null=True, blank=True)
-    location = models.ForeignKey(Location, on_delete=models.SET_NULL, null=True, blank=True, related_name='endpoint_users')
+    location = models.ForeignKey(Location, on_delete=models.SET_NULL, null=True, blank=True, related_name='endpoint_users', db_index=True)
     notes = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
 
@@ -52,7 +52,7 @@ class EndpointUser(BaseModel):
 
 class Server(BaseModel):
     """Server infrastructure."""
-    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='servers')
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='servers', db_index=True)
     name = models.CharField(max_length=255)
     server_type = models.CharField(
         max_length=50,
@@ -81,7 +81,7 @@ class Server(BaseModel):
 
     # Other details
     serial_number = models.CharField(max_length=255, blank=True)
-    location = models.ForeignKey(Location, on_delete=models.SET_NULL, null=True, blank=True, related_name='servers')
+    location = models.ForeignKey(Location, on_delete=models.SET_NULL, null=True, blank=True, related_name='servers', db_index=True)
     notes = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
 
@@ -95,7 +95,7 @@ class Server(BaseModel):
 
 class Peripheral(BaseModel):
     """Peripheral devices like printers, scanners, etc."""
-    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='peripherals')
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='peripherals', db_index=True)
     name = models.CharField(max_length=255)
     device_type = models.CharField(
         max_length=50,
@@ -111,7 +111,7 @@ class Peripheral(BaseModel):
     serial_number = models.CharField(max_length=255, blank=True)
 
     # Other details
-    location = models.ForeignKey(Location, on_delete=models.SET_NULL, null=True, blank=True, related_name='peripherals')
+    location = models.ForeignKey(Location, on_delete=models.SET_NULL, null=True, blank=True, related_name='peripherals', db_index=True)
     notes = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
 

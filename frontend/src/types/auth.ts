@@ -34,3 +34,27 @@ export interface AuthResponse {
   refresh_token: string;
   user: User;
 }
+
+export interface LoginResponse {
+  requires_2fa?: boolean;
+  email?: string;
+  message?: string;
+  user?: User;
+  tokens?: AuthTokens;
+  backup_code_used?: boolean;
+  remaining_backup_codes?: number;
+  warning?: string;
+  requires_2fa_setup?: boolean;
+}
+
+export interface ApiError {
+  response?: {
+    data?: {
+      error?: string;
+      message?: string;
+      detail?: string;
+    };
+    status?: number;
+  };
+  message?: string;
+}

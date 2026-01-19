@@ -26,7 +26,7 @@ class ConnectionType:
 
 class NetworkDevice(BaseModel):
     """Network infrastructure devices like firewalls, routers, switches, and WiFi."""
-    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='network_devices')
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name='network_devices', db_index=True)
     name = models.CharField(max_length=255)
     device_type = models.CharField(
         max_length=50,
@@ -46,7 +46,7 @@ class NetworkDevice(BaseModel):
 
     # Configuration
     firmware_version = models.CharField(max_length=100, blank=True)
-    location = models.ForeignKey(Location, on_delete=models.SET_NULL, null=True, blank=True, related_name='network_devices')
+    location = models.ForeignKey(Location, on_delete=models.SET_NULL, null=True, blank=True, related_name='network_devices', db_index=True)
     notes = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
 
@@ -63,7 +63,8 @@ class InternetConnection(BaseModel):
     network_device = models.ForeignKey(
         NetworkDevice,
         on_delete=models.CASCADE,
-        related_name='internet_connections'
+        related_name='internet_connections',
+        db_index=True
     )
     provider_name = models.CharField(max_length=255)
     connection_type = models.CharField(

@@ -36,8 +36,6 @@ const ExportImport: React.FC<ExportImportProps> = ({ isAdmin }) => {
     setLoadingOrgs(true);
     try {
       const response = await organizationAPI.getAll({ page_size: 1000 });
-      console.log('Organizations API response:', response);
-      console.log('response.data:', response.data);
 
       // Axios wraps the response in a data property
       // So response.data.results is the actual array
@@ -54,10 +52,8 @@ const ExportImport: React.FC<ExportImportProps> = ({ isAdmin }) => {
         orgs = response;
       }
 
-      console.log('Final organizations array:', orgs);
       setOrganizations(orgs);
-    } catch (err) {
-      console.error('Failed to load organizations:', err);
+    } catch {
       setOrganizations([]);
     } finally {
       setLoadingOrgs(false);
@@ -81,8 +77,9 @@ const ExportImport: React.FC<ExportImportProps> = ({ isAdmin }) => {
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
-    } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to export organizations');
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { error?: string } } };
+      alert(error.response?.data?.error || 'Failed to export organizations');
     } finally {
       setLoading(false);
     }
@@ -109,8 +106,9 @@ const ExportImport: React.FC<ExportImportProps> = ({ isAdmin }) => {
 
       // Reload organizations after import
       await loadOrganizations();
-    } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to import organizations');
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { error?: string } } };
+      alert(error.response?.data?.error || 'Failed to import organizations');
     } finally {
       setLoading(false);
     }

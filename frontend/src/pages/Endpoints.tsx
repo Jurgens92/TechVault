@@ -219,8 +219,9 @@ export function Endpoints() {
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
-    } catch (err: any) {
-      setImportError(err.response?.data?.error || 'Failed to import CSV');
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { error?: string } } };
+      setImportError(error.response?.data?.error || 'Failed to import CSV');
     } finally {
       setImporting(false);
     }

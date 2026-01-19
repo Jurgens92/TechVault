@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { PageHeader } from '@/components/PageHeader';
@@ -45,9 +45,12 @@ const Dashboard: React.FC = () => {
     fetchStats();
   }, []);
 
-  const totalEndpoints = (stats.network_devices || 0) + (stats.endpoint_users || 0) + (stats.servers || 0) + (stats.peripherals || 0);
+  const totalEndpoints = useMemo(() =>
+    (stats.network_devices || 0) + (stats.endpoint_users || 0) + (stats.servers || 0) + (stats.peripherals || 0),
+    [stats.network_devices, stats.endpoint_users, stats.servers, stats.peripherals]
+  );
 
-  const statsArray = [
+  const statsArray = useMemo(() => [
     { label: 'Organizations', value: stats.organizations, icon: Building2, color: 'text-blue-500' },
     { label: 'Locations', value: stats.locations, icon: MapPin, color: 'text-green-500' },
     { label: 'Contacts', value: stats.contacts, icon: Users, color: 'text-purple-500' },
@@ -55,7 +58,7 @@ const Dashboard: React.FC = () => {
     { label: 'Endpoints', value: totalEndpoints, icon: Network, color: 'text-cyan-500' },
     { label: 'Passwords', value: stats.passwords, icon: Lock, color: 'text-red-500' },
     { label: 'Configurations', value: stats.configurations, icon: Wrench, color: 'text-yellow-500' },
-  ];
+  ], [stats, totalEndpoints]);
 
   return (
     <div className="p-8">
