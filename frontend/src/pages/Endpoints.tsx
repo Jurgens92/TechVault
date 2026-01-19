@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { networkDeviceAPI, endpointUserAPI, serverAPI, peripheralAPI, backupAPI, softwareAPI, voipAPI } from '@/services/core';
 import type { NetworkDevice, EndpointUser, Server, Peripheral, Backup, Software, VoIP } from '@/types/core';
-import { Plus, Network, Monitor, HardDrive, Printer, Database, Package, Phone, Loader2, Edit, Trash2 } from 'lucide-react';
+import { Plus, Network, Monitor, HardDrive, Printer, Database, Package, Phone, Loader2, Edit, Trash2, Upload, Download } from 'lucide-react';
 import { DeleteConfirmationModal } from '@/components/DeleteConfirmationModal';
 
 type TabType = 'network' | 'users' | 'servers' | 'peripherals' | 'backups' | 'software' | 'voip';
@@ -40,6 +40,16 @@ export function Endpoints() {
     itemName: string;
     itemType: 'network' | 'user' | 'server' | 'peripheral' | 'backup' | 'software' | 'voip';
   } | null>(null);
+
+  // CSV Import state for endpoint users
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{
+    created: number;
+    errors: Array<{ row: number; error: string }>;
+    message: string;
+  } | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load data for a specific tab only
   const loadTabData = useCallback(async (tab: TabType, orgId: string | number) => {
@@ -164,6 +174,57 @@ export function Endpoints() {
     await loadTabData(activeTab, selectedOrg.id);
     setLoading(false);
   }, [selectedOrg, activeTab, loadTabData]);
+
+  // CSV Import handlers for endpoint users
+  const handleDownloadExample = async () => {
+    try {
+      const response = await endpointUserAPI.downloadExampleCSV();
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'endpoint_users_example.csv');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setImportError('Failed to download example CSV');
+    }
+  };
+
+  const handleImportClick = () => {
+    if (!selectedOrg) {
+      setImportError('Please select an organization first');
+      return;
+    }
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !selectedOrg) return;
+
+    try {
+      setImporting(true);
+      setImportError(null);
+      setImportResult(null);
+
+      const response = await endpointUserAPI.importCSV(file, selectedOrg.id.toString());
+      setImportResult(response.data);
+
+      // Refresh the endpoint users list
+      await loadTabData('users', selectedOrg.id);
+
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } catch (err: any) {
+      setImportError(err.response?.data?.error || 'Failed to import CSV');
+    } finally {
+      setImporting(false);
+    }
+  };
 
   const handleEdit = (id: string, type: 'network' | 'user' | 'server' | 'peripheral' | 'backup' | 'software' | 'voip') => {
     const routes = {
@@ -323,11 +384,65 @@ export function Endpoints() {
             />
           )}
           {activeTab === 'users' && (
-            <EndpointUsersList
-              users={endpointUsers}
-              onEdit={(id) => handleEdit(id, 'user')}
-              onDelete={(id, name) => handleDeleteClick(id, name, 'user')}
-            />
+            <div className="space-y-4">
+              {/* CSV Import/Export Section */}
+              <div className="border border-border rounded-lg p-4">
+                <div className="flex items-center gap-4">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".csv"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                  <button
+                    onClick={handleImportClick}
+                    disabled={importing || !selectedOrg}
+                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Upload className="w-4 h-4" />
+                    {importing ? 'Importing...' : 'Import CSV'}
+                  </button>
+                  <button
+                    onClick={handleDownloadExample}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                  >
+                    <Download className="w-4 h-4" />
+                    Download Example CSV
+                  </button>
+                </div>
+              </div>
+
+              {/* Import Result */}
+              {importResult && (
+                <div className={`border rounded-lg p-4 ${importResult.errors.length > 0 ? 'bg-yellow-900/20 border-yellow-700' : 'bg-green-900/20 border-green-700'}`}>
+                  <h3 className="font-semibold mb-2">{importResult.message}</h3>
+                  {importResult.errors.length > 0 && (
+                    <div className="mt-2">
+                      <p className="font-semibold text-sm mb-1">Errors:</p>
+                      <ul className="list-disc list-inside text-sm space-y-1">
+                        {importResult.errors.map((err, idx) => (
+                          <li key={idx}>Row {err.row}: {err.error}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Import Error */}
+              {importError && (
+                <div className="p-4 bg-red-900/20 border border-red-700 rounded-lg text-red-200">
+                  {importError}
+                </div>
+              )}
+
+              <EndpointUsersList
+                users={endpointUsers}
+                onEdit={(id) => handleEdit(id, 'user')}
+                onDelete={(id, name) => handleDeleteClick(id, name, 'user')}
+              />
+            </div>
           )}
           {activeTab === 'servers' && (
             <ServersList
