@@ -57,6 +57,49 @@ def dashboard_stats(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+def endpoint_counts(request):
+    """
+    Get counts for all endpoint types filtered by organization.
+    This is a lightweight endpoint that returns only counts (not full data)
+    for efficient tab badge display.
+
+    Query parameters:
+    - organization_id: Required. Filter counts by organization.
+
+    Returns:
+    {
+        'network_devices': 5,
+        'endpoint_users': 11,
+        'servers': 3,
+        'peripherals': 2,
+        'backups': 4,
+        'software': 8,
+        'voip': 2
+    }
+    """
+    org_id = request.query_params.get('organization_id')
+
+    if not org_id:
+        return Response(
+            {'error': 'organization_id is required'},
+            status=400
+        )
+
+    base_filter = {'organization_id': org_id, 'is_active': True}
+
+    return Response({
+        'network_devices': NetworkDevice.objects.filter(**base_filter).count(),
+        'endpoint_users': EndpointUser.objects.filter(**base_filter).count(),
+        'servers': Server.objects.filter(**base_filter).count(),
+        'peripherals': Peripheral.objects.filter(**base_filter).count(),
+        'backups': Backup.objects.filter(**base_filter).count(),
+        'software': Software.objects.filter(**base_filter).count(),
+        'voip': VoIP.objects.filter(**base_filter).count(),
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def diagram_data(request):
     """
     Get all endpoint data for diagram generation.

@@ -19,6 +19,24 @@ export const dashboardAPI = {
     }>('/api/dashboard/stats/'),
 };
 
+// Endpoints page APIs
+export interface EndpointCounts {
+  network_devices: number;
+  endpoint_users: number;
+  servers: number;
+  peripherals: number;
+  backups: number;
+  software: number;
+  voip: number;
+}
+
+export const endpointsAPI = {
+  getCounts: (organizationId: string) =>
+    api.get<EndpointCounts>('/api/endpoints/counts/', {
+      params: { organization_id: organizationId }
+    }),
+};
+
 // Organization APIs
 export const organizationAPI = {
   getAll: (params?: Record<string, any>) =>

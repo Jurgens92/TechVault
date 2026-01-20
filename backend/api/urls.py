@@ -15,7 +15,7 @@ from core.views import (
     DocumentationViewSet, PasswordEntryViewSet, ConfigurationViewSet,
     NetworkDeviceViewSet, EndpointUserViewSet, ServerViewSet, PeripheralViewSet, SoftwareViewSet, BackupViewSet, VoIPViewSet
 )
-from .views import dashboard_stats, diagram_data, system_health, get_choices
+from .views import dashboard_stats, diagram_data, system_health, get_choices, endpoint_counts
 
 app_name = 'api'
 
@@ -41,6 +41,9 @@ urlpatterns = [
 
     # Dashboard endpoints
     path('dashboard/stats/', dashboard_stats, name='dashboard-stats'),
+
+    # Endpoints page - lightweight counts for tab badges
+    path('endpoints/counts/', endpoint_counts, name='endpoint-counts'),
 
     # Diagram endpoints
     path('diagram/data/', diagram_data, name='diagram-data'),

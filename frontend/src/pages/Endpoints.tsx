@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useOrganization } from '@/contexts/OrganizationContext';
-import { networkDeviceAPI, endpointUserAPI, serverAPI, peripheralAPI, backupAPI, softwareAPI, voipAPI } from '@/services/core';
+import { networkDeviceAPI, endpointUserAPI, serverAPI, peripheralAPI, backupAPI, softwareAPI, voipAPI, endpointsAPI, EndpointCounts } from '@/services/core';
 import type { NetworkDevice, EndpointUser, Server, Peripheral, Backup, Software, VoIP } from '@/types/core';
 import { Plus, Network, Monitor, HardDrive, Printer, Database, Package, Phone, Loader2, Edit, Trash2, Upload, Download } from 'lucide-react';
 import { DeleteConfirmationModal } from '@/components/DeleteConfirmationModal';
@@ -33,6 +33,9 @@ export function Endpoints() {
   const [loadedTabs, setLoadedTabs] = useState<Set<TabType>>(new Set());
   // Track the org ID that data was loaded for to detect org changes
   const loadedForOrgRef = useRef<string | number | null>(null);
+
+  // Tab counts loaded via lightweight API (for accurate badge display)
+  const [tabCounts, setTabCounts] = useState<EndpointCounts | null>(null);
 
   const [deleteModal, setDeleteModal] = useState<{
     isOpen: boolean;
@@ -114,7 +117,7 @@ export function Endpoints() {
     }
   }, []);
 
-  // Effect to handle organization changes - reset state and load active tab
+  // Effect to handle organization changes - reset state and load active tab + counts
   useEffect(() => {
     if (!selectedOrg) {
       // Clear all data when no org is selected
@@ -126,6 +129,7 @@ export function Endpoints() {
       setSoftware([]);
       setVoIP([]);
       setLoadedTabs(new Set());
+      setTabCounts(null);
       loadedForOrgRef.current = null;
       setLoading(false);
       return;
@@ -142,11 +146,20 @@ export function Endpoints() {
       setSoftware([]);
       setVoIP([]);
       setLoadedTabs(new Set());
+      setTabCounts(null);
       loadedForOrgRef.current = selectedOrg.id;
 
-      // Load the active tab's data
+      // Load tab counts AND active tab's data in parallel
       setLoading(true);
-      loadTabData(activeTab, selectedOrg.id).then(() => {
+      const orgIdStr = selectedOrg.id.toString();
+      Promise.all([
+        endpointsAPI.getCounts(orgIdStr).then(res => {
+          if (loadedForOrgRef.current === selectedOrg.id) {
+            setTabCounts(res.data);
+          }
+        }).catch(err => console.error('Failed to load endpoint counts:', err)),
+        loadTabData(activeTab, selectedOrg.id)
+      ]).then(() => {
         setLoadedTabs(new Set([activeTab]));
         setLoading(false);
       });
@@ -295,14 +308,37 @@ export function Endpoints() {
     }
   };
 
+  // Helper to get count: use loaded data if available, otherwise use API counts
+  const getTabCount = (tabId: TabType, dataLength: number): number | null => {
+    // If tab data is loaded, use actual array length (reflects local changes)
+    if (loadedTabs.has(tabId)) {
+      return dataLength;
+    }
+    // If counts are loaded from API, use those
+    if (tabCounts) {
+      const countMap: Record<TabType, number> = {
+        network: tabCounts.network_devices,
+        users: tabCounts.endpoint_users,
+        servers: tabCounts.servers,
+        peripherals: tabCounts.peripherals,
+        backups: tabCounts.backups,
+        software: tabCounts.software,
+        voip: tabCounts.voip,
+      };
+      return countMap[tabId];
+    }
+    // Counts not yet loaded
+    return null;
+  };
+
   const tabs = [
-    { id: 'network' as const, label: 'Network', icon: Network, count: networkDevices.length },
-    { id: 'users' as const, label: 'Users', icon: Monitor, count: endpointUsers.length },
-    { id: 'servers' as const, label: 'Servers', icon: HardDrive, count: servers.length },
-    { id: 'peripherals' as const, label: 'Peripherals', icon: Printer, count: peripherals.length },
-    { id: 'backups' as const, label: 'Backups', icon: Database, count: backups.length },
-    { id: 'software' as const, label: 'Software', icon: Package, count: software.length },
-    { id: 'voip' as const, label: 'VoIP', icon: Phone, count: voip.length },
+    { id: 'network' as const, label: 'Network', icon: Network, count: getTabCount('network', networkDevices.length) },
+    { id: 'users' as const, label: 'Users', icon: Monitor, count: getTabCount('users', endpointUsers.length) },
+    { id: 'servers' as const, label: 'Servers', icon: HardDrive, count: getTabCount('servers', servers.length) },
+    { id: 'peripherals' as const, label: 'Peripherals', icon: Printer, count: getTabCount('peripherals', peripherals.length) },
+    { id: 'backups' as const, label: 'Backups', icon: Database, count: getTabCount('backups', backups.length) },
+    { id: 'software' as const, label: 'Software', icon: Package, count: getTabCount('software', software.length) },
+    { id: 'voip' as const, label: 'VoIP', icon: Phone, count: getTabCount('voip', voip.length) },
   ];
 
   if (!selectedOrg) {
@@ -362,8 +398,8 @@ export function Endpoints() {
               >
                 <Icon className="h-5 w-5" />
                 <span>{tab.label}</span>
-                <span className="ml-1 px-2 py-0.5 text-xs rounded-full bg-accent">
-                  {tab.count}
+                <span className="ml-1 px-2 py-0.5 text-xs rounded-full bg-accent min-w-[1.5rem] text-center">
+                  {tab.count !== null ? tab.count : '...'}
                 </span>
               </button>
             );
