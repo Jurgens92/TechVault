@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider } from '@/contexts/AuthContext';
 import { OrganizationProvider } from '@/contexts/OrganizationContext';
 import { ChoicesProvider } from '@/contexts/ChoicesContext';
+import { ThemeProvider } from '@/contexts/ThemeContext';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import DashboardLayout from '@/components/DashboardLayout';
 import Login from '@/pages/Login';
@@ -42,8 +43,9 @@ import Doctor from '@/pages/Doctor';
 
 function App() {
   return (
-    <Router>
-      <AuthProvider>
+    <ThemeProvider>
+      <Router>
+        <AuthProvider>
         <OrganizationProvider>
           <ChoicesProvider>
             <Routes>
@@ -109,8 +111,9 @@ function App() {
           </Routes>
           </ChoicesProvider>
         </OrganizationProvider>
-      </AuthProvider>
-    </Router>
+        </AuthProvider>
+      </Router>
+    </ThemeProvider>
   );
 }
 

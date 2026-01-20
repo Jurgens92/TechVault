@@ -89,7 +89,7 @@ export const Passwords: React.FC = () => {
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-2">
                     <Lock className="w-4 h-4 text-yellow-500" />
-                    <h3 className="text-lg font-semibold text-white group-hover:text-blue-400">{pwd.name}</h3>
+                    <h3 className="text-lg font-semibold text-foreground group-hover:text-primary">{pwd.name}</h3>
                   </div>
                   <p className="text-gray-400 text-sm">{pwd.category} • {pwd.organization_name}</p>
                   {pwd.username && <p className="text-gray-500 text-sm mt-1">{pwd.username}</p>}
