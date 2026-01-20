@@ -81,13 +81,13 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
       {/* Search bar */}
       {search && (
         <div className="relative">
-          <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
           <Input
             type="text"
             placeholder={search.placeholder || 'Search...'}
             value={searchQuery}
             onChange={handleSearchChange}
-            className={search.className || 'pl-10 bg-gray-700 border-gray-600 text-white placeholder-gray-400'}
+            className={search.className || 'pl-10 bg-secondary border-border text-foreground placeholder:text-muted-foreground'}
           />
         </div>
       )}
