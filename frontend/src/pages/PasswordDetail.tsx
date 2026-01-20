@@ -52,7 +52,7 @@ export const PasswordDetail: React.FC = () => {
       <div className="flex items-center justify-between gap-4 mb-8">
         <div className="flex items-center gap-4">
           <Button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-700"><ArrowLeft className="w-5 h-5" /></Button>
-          <h1 className="text-3xl font-bold text-white">{pwd.name}</h1>
+          <h1 className="text-3xl font-bold text-foreground">{pwd.name}</h1>
         </div>
         <Button onClick={() => navigate(`/passwords/${id}/edit`)} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"><Edit className="w-4 h-4" /> Edit</Button>
       </div>
@@ -60,22 +60,22 @@ export const PasswordDetail: React.FC = () => {
       <Card className="p-6 space-y-4">
         <div>
           <span className="text-gray-400">Organization:</span>
-          <span className="text-white ml-2">{pwd.organization_name}</span>
+          <span className="text-foreground ml-2">{pwd.organization_name}</span>
         </div>
         <div>
           <span className="text-gray-400">Category:</span>
-          <span className="text-white ml-2">{pwd.category}</span>
+          <span className="text-foreground ml-2">{pwd.category}</span>
         </div>
         {pwd.username && (
           <div>
             <span className="text-gray-400">Username:</span>
-            <span className="text-white ml-2">{pwd.username}</span>
+            <span className="text-foreground ml-2">{pwd.username}</span>
           </div>
         )}
         <div>
           <div className="text-gray-400 mb-2">Password</div>
           <div className="flex items-center gap-2">
-            <code className="flex-1 px-4 py-2 bg-gray-900 rounded text-white">
+            <code className="flex-1 px-4 py-2 bg-secondary rounded text-foreground">
               {passwordLoading ? 'Loading...' : (showPassword && decryptedPassword ? decryptedPassword : '••••••••')}
             </code>
             <Button onClick={handleTogglePassword} disabled={passwordLoading} className="p-2 hover:bg-gray-700">
