@@ -556,21 +556,21 @@ function UserEndpointsDiagram({ endpoints }: { endpoints: DiagramData['endpoint_
   );
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      {desktops.length > 0 && (
+    <div className="space-y-6">
+      {laptops.length > 0 && (
         <div>
-          <h3 className="text-sm font-semibold mb-3">Desktops ({desktops.length})</h3>
-          <div className="space-y-3">
-            {desktops.map(renderEndpoint)}
+          <h3 className="text-sm font-semibold mb-3">Laptops ({laptops.length})</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {laptops.map(renderEndpoint)}
           </div>
         </div>
       )}
 
-      {laptops.length > 0 && (
+      {desktops.length > 0 && (
         <div>
-          <h3 className="text-sm font-semibold mb-3">Laptops ({laptops.length})</h3>
-          <div className="space-y-3">
-            {laptops.map(renderEndpoint)}
+          <h3 className="text-sm font-semibold mb-3">Desktops ({desktops.length})</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {desktops.map(renderEndpoint)}
           </div>
         </div>
       )}
@@ -578,7 +578,7 @@ function UserEndpointsDiagram({ endpoints }: { endpoints: DiagramData['endpoint_
       {workstations.length > 0 && (
         <div>
           <h3 className="text-sm font-semibold mb-3">Workstations ({workstations.length})</h3>
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {workstations.map(renderEndpoint)}
           </div>
         </div>
