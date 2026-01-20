@@ -2,6 +2,7 @@ import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/lib/utils';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import {
@@ -23,6 +24,8 @@ import {
   KeyRound,
   BarChart3,
   Stethoscope,
+  Sun,
+  Moon,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -33,6 +36,7 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
   const { logout, user } = useAuth();
   const { selectedOrg, setSelectedOrg, organizations, loading, error, refreshOrganizations } = useOrganization();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -154,8 +158,23 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
         </ul>
       </nav>
 
-      {/* Logout */}
-      <div className="p-2 border-t border-border">
+      {/* Theme Toggle & Logout */}
+      <div className="p-2 border-t border-border space-y-1">
+        <button
+          onClick={toggleTheme}
+          className={cn(
+            'w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors hover:bg-accent hover:text-accent-foreground',
+            collapsed && 'justify-center'
+          )}
+          title={collapsed ? (theme === 'dark' ? 'Switch to Light' : 'Switch to Dark') : undefined}
+        >
+          {theme === 'dark' ? (
+            <Sun className="h-5 w-5 flex-shrink-0" />
+          ) : (
+            <Moon className="h-5 w-5 flex-shrink-0" />
+          )}
+          {!collapsed && <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>}
+        </button>
         <button
           onClick={handleLogout}
           className={cn(
