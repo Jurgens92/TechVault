@@ -191,7 +191,7 @@ export const Contacts: React.FC = () => {
             <Card key={contact.id} className="p-6 hover:border-blue-500 cursor-pointer group" onClick={() => navigate(`/contacts/${contact.id}`)}>
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-white group-hover:text-blue-400">{contact.full_name}</h3>
+                  <h3 className="text-lg font-semibold text-foreground group-hover:text-primary">{contact.full_name}</h3>
                   {contact.title && <p className="text-gray-400 text-sm">{contact.title}</p>}
                   {contact.location_name && <p className="text-gray-400 text-sm">📍 {contact.location_name}</p>}
                   <div className="flex gap-4 mt-2 text-sm text-gray-400">

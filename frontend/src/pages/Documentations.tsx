@@ -87,7 +87,7 @@ export const Documentations: React.FC = () => {
             <Card key={doc.id} className="p-6 hover:border-blue-500 cursor-pointer group" onClick={() => navigate(`/documentations/${doc.id}`)}>
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-white group-hover:text-blue-400">{doc.title}</h3>
+                  <h3 className="text-lg font-semibold text-foreground group-hover:text-primary">{doc.title}</h3>
                   <p className="text-gray-400 text-sm mt-1">{doc.category} • {doc.organization_name}</p>
                   <p className="text-gray-500 text-sm mt-2 line-clamp-2">{doc.content}</p>
                 </div>

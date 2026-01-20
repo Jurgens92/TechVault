@@ -87,7 +87,7 @@ export const Configurations: React.FC = () => {
             <Card key={config.id} className="p-6 hover:border-blue-500 cursor-pointer group" onClick={() => navigate(`/configurations/${config.id}`)}>
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-white group-hover:text-blue-400">{config.name}</h3>
+                  <h3 className="text-lg font-semibold text-foreground group-hover:text-primary">{config.name}</h3>
                   <p className="text-gray-400 text-sm">{config.config_type} • {config.organization_name}</p>
                   {config.description && <p className="text-gray-500 text-sm mt-1 line-clamp-1">{config.description}</p>}
                 </div>

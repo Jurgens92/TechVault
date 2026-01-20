@@ -154,7 +154,7 @@ export const OrganizationDetail: React.FC = () => {
               <Mail className="w-5 h-5 text-blue-500 mt-1" />
               <div>
                 <div className="text-sm text-gray-400">Email</div>
-                <a href={`mailto:${organization.email}`} className="text-white hover:text-blue-400">
+                <a href={`mailto:${organization.email}`} className="text-foreground hover:text-primary">
                   {organization.email}
                 </a>
               </div>
@@ -165,7 +165,7 @@ export const OrganizationDetail: React.FC = () => {
               <Phone className="w-5 h-5 text-green-500 mt-1" />
               <div>
                 <div className="text-sm text-gray-400">Phone</div>
-                <a href={`tel:${organization.phone}`} className="text-white hover:text-green-400">
+                <a href={`tel:${organization.phone}`} className="text-foreground hover:text-primary">
                   {organization.phone}
                 </a>
               </div>
@@ -176,7 +176,7 @@ export const OrganizationDetail: React.FC = () => {
               <Globe className="w-5 h-5 text-purple-500 mt-1" />
               <div>
                 <div className="text-sm text-gray-400">Website</div>
-                <a href={organization.website} target="_blank" rel="noopener noreferrer" className="text-white hover:text-purple-400">
+                <a href={organization.website} target="_blank" rel="noopener noreferrer" className="text-foreground hover:text-primary">
                   {organization.website}
                 </a>
               </div>
