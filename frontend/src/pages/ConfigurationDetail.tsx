@@ -57,13 +57,13 @@ export const ConfigurationDetail: React.FC = () => {
       {config.description && (
         <Card className="p-6">
           <h2 className="text-lg font-semibold text-foreground mb-3">Description</h2>
-          <p className="text-gray-300">{config.description}</p>
+          <p className="text-muted-foreground">{config.description}</p>
         </Card>
       )}
 
       <Card className="p-6">
         <h2 className="text-lg font-semibold text-foreground mb-3">Configuration Content</h2>
-        <pre className="bg-gray-900 p-4 rounded overflow-x-auto text-gray-300 text-sm"><code>{config.content}</code></pre>
+        <pre className="bg-secondary p-4 rounded overflow-x-auto text-foreground text-sm"><code>{config.content}</code></pre>
       </Card>
     </div>
   );
