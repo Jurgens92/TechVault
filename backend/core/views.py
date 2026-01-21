@@ -575,7 +575,7 @@ class ContactViewSet(SecureQuerySetMixin, LocationFilterMixin, SoftDeleteViewSet
         # Get the default location for this organization (oldest/first created)
         default_location = Location.objects.filter(
             organization=organization,
-            is_deleted=False
+            deleted_at__isnull=True
         ).order_by('created_at').first()
 
         # Read and decode CSV file
