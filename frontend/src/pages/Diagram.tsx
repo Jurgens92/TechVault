@@ -596,62 +596,147 @@ function ServersDiagram({ servers }: { servers: DiagramData['servers'] }) {
     );
   }
 
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {servers.map((server) => (
-        <div
-          key={server.id}
-          className="p-4 rounded-lg border border-border hover:border-primary transition-colors bg-card"
-        >
-          <div className="flex items-start gap-3 mb-3">
-            <div className="w-12 h-12 rounded-lg bg-accent flex items-center justify-center flex-shrink-0">
-              <HardDrive className="h-6 w-6 text-foreground" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium truncate">{server.name}</p>
-              {server.role && (
-                <p className="text-xs text-muted-foreground truncate">{server.role}</p>
-              )}
-              <div className="mt-1 px-2 py-0.5 rounded text-xs bg-primary/10 text-primary inline-block">
-                {server.server_type}
-              </div>
-            </div>
-          </div>
+  // Group servers: physical hosts with their VMs
+  const physicalServers = servers.filter(s => s.server_type === 'physical');
+  const virtualServers = servers.filter(s => s.server_type === 'virtual' || s.server_type === 'container');
+  const otherServers = servers.filter(s => s.server_type !== 'physical' && s.server_type !== 'virtual' && s.server_type !== 'container');
 
-          <div className="space-y-1 text-xs">
-            {server.operating_system && (
-              <div className="flex items-center gap-1.5">
-                <span className="text-muted-foreground">OS:</span>
-                <span className="font-medium">{server.operating_system}</span>
-              </div>
-            )}
-            {server.cpu && (
-              <div className="flex items-center gap-1.5">
-                <Cpu className="h-3 w-3 text-muted-foreground" />
-                <span className="truncate">{server.cpu}</span>
-              </div>
-            )}
-            {server.ram && (
-              <div className="flex items-center gap-1.5">
-                <MemoryStick className="h-3 w-3 text-muted-foreground" />
-                <span className="truncate">{server.ram}</span>
-              </div>
-            )}
-            {server.storage && (
-              <div className="flex items-center gap-1.5">
-                <Database className="h-3 w-3 text-muted-foreground" />
-                <span className="truncate">{server.storage}</span>
-              </div>
-            )}
-            {server.ip_address && (
-              <div className="flex items-center gap-1.5">
-                <span className="text-muted-foreground">IP:</span>
-                <span className="font-mono">{server.ip_address}</span>
-              </div>
+  const renderServerCard = (server: DiagramData['servers'][0], isVm = false) => (
+    <div
+      key={server.id}
+      className={`p-4 rounded-lg border border-border hover:border-primary transition-colors bg-card ${isVm ? 'ml-6 border-l-2 border-l-blue-500' : ''}`}
+    >
+      <div className="flex items-start gap-3 mb-3">
+        <div className={`w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 ${
+          server.server_type === 'physical' ? 'bg-green-500/10' :
+          server.server_type === 'virtual' ? 'bg-blue-500/10' : 'bg-accent'
+        }`}>
+          <HardDrive className={`h-6 w-6 ${
+            server.server_type === 'physical' ? 'text-green-500' :
+            server.server_type === 'virtual' ? 'text-blue-500' : 'text-foreground'
+          }`} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium truncate">{server.name}</p>
+          {server.role && (
+            <p className="text-xs text-muted-foreground truncate">{server.role}</p>
+          )}
+          <div className="mt-1 flex flex-wrap gap-1">
+            <span className={`px-2 py-0.5 rounded text-xs inline-block ${
+              server.server_type === 'physical' ? 'bg-green-500/10 text-green-600 dark:text-green-400' :
+              server.server_type === 'virtual' ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400' :
+              'bg-primary/10 text-primary'
+            }`}>
+              {server.server_type}
+            </span>
+            {server.host_server_name && (
+              <span className="px-2 py-0.5 rounded text-xs bg-purple-500/10 text-purple-600 dark:text-purple-400 inline-block">
+                Host: {server.host_server_name}
+              </span>
             )}
           </div>
         </div>
-      ))}
+      </div>
+
+      <div className="space-y-1 text-xs">
+        {server.operating_system && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-muted-foreground">OS:</span>
+            <span className="font-medium">{server.operating_system}</span>
+          </div>
+        )}
+        {server.cpu && (
+          <div className="flex items-center gap-1.5">
+            <Cpu className="h-3 w-3 text-muted-foreground" />
+            <span className="truncate">{server.cpu}</span>
+          </div>
+        )}
+        {server.ram && (
+          <div className="flex items-center gap-1.5">
+            <MemoryStick className="h-3 w-3 text-muted-foreground" />
+            <span className="truncate">{server.ram}</span>
+          </div>
+        )}
+        {(server.storage_drives || server.storage) && (
+          <div className="flex items-center gap-1.5">
+            <Database className="h-3 w-3 text-muted-foreground" />
+            <span className="truncate">
+              {server.storage_drives || server.storage}
+              {server.raid_configuration && ` (${server.raid_configuration})`}
+            </span>
+          </div>
+        )}
+        {server.ip_address && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-muted-foreground">IP:</span>
+            <span className="font-mono">{server.ip_address}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  // Get VMs that belong to a specific physical host
+  const getVmsForHost = (hostId: string) =>
+    virtualServers.filter(vm => vm.host_server === hostId);
+
+  // VMs without a host assigned
+  const orphanVms = virtualServers.filter(vm => !vm.host_server);
+
+  return (
+    <div className="space-y-6">
+      {/* Physical Servers with their VMs */}
+      {physicalServers.length > 0 && (
+        <div>
+          <h3 className="text-sm font-semibold mb-3 text-green-600 dark:text-green-400">
+            Physical Servers ({physicalServers.length})
+          </h3>
+          <div className="space-y-4">
+            {physicalServers.map((server) => {
+              const hostedVms = getVmsForHost(server.id);
+              return (
+                <div key={server.id} className="space-y-2">
+                  {renderServerCard(server)}
+                  {hostedVms.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground ml-6">
+                        Virtual Machines ({hostedVms.length})
+                      </p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {hostedVms.map((vm) => renderServerCard(vm, true))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Orphan VMs (no host assigned) */}
+      {orphanVms.length > 0 && (
+        <div>
+          <h3 className="text-sm font-semibold mb-3 text-blue-600 dark:text-blue-400">
+            Virtual Servers ({orphanVms.length})
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {orphanVms.map((server) => renderServerCard(server))}
+          </div>
+        </div>
+      )}
+
+      {/* Other servers (cloud, other) */}
+      {otherServers.length > 0 && (
+        <div>
+          <h3 className="text-sm font-semibold mb-3">
+            Other Servers ({otherServers.length})
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {otherServers.map((server) => renderServerCard(server))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

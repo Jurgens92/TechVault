@@ -86,8 +86,23 @@ export const PasswordForm: React.FC = () => {
               <Input type="text" name="username" value={formData.username || ''} onChange={handleChange} className="bg-input border-input text-foreground" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-muted-foreground mb-2">Password *</label>
-              <Input type="password" name="password" value={formData.password || ''} onChange={handleChange} required className="bg-input border-input text-foreground" />
+              <label className="block text-sm font-medium text-muted-foreground mb-2">
+                Password {!isEditMode && '*'}
+              </label>
+              <Input
+                type="password"
+                name="password"
+                value={formData.password || ''}
+                onChange={handleChange}
+                required={!isEditMode}
+                placeholder={isEditMode ? '(leave blank to keep existing)' : ''}
+                className="bg-input border-input text-foreground"
+              />
+              {isEditMode && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Leave blank to keep the existing password
+                </p>
+              )}
             </div>
           </div>
 

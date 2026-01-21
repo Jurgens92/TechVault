@@ -69,6 +69,11 @@ class Server(BaseModel):
     cpu = models.CharField(max_length=255, blank=True, help_text='Processor details')
     ram = models.CharField(max_length=100, blank=True, help_text='e.g., 64GB DDR4')
     storage = models.CharField(max_length=255, blank=True, help_text='e.g., 2TB SSD RAID 10')
+    storage_drives = models.CharField(max_length=255, blank=True, help_text='e.g., 4x 1TB SSD, 8x 2TB HDD')
+    raid_configuration = models.CharField(max_length=100, blank=True, help_text='e.g., RAID 5, RAID 10, ZFS Mirror')
+
+    # Virtual server host linking
+    host_server = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='virtual_machines', help_text='Physical host server for virtual machines')
 
     # Software
     operating_system = models.CharField(max_length=255, blank=True, help_text='e.g., Ubuntu 22.04 LTS')

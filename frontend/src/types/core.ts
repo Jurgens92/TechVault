@@ -208,6 +208,10 @@ export interface Server {
   cpu: string;
   ram: string;
   storage: string;
+  storage_drives: string;
+  raid_configuration: string;
+  host_server: string | null;
+  host_server_name: string | null;
   operating_system: string;
   software_installed: string;
   ip_address: string;

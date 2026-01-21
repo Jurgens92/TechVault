@@ -93,6 +93,11 @@ export const Passwords: React.FC = () => {
                   </div>
                   <p className="text-gray-400 text-sm">{pwd.category} • {pwd.organization_name}</p>
                   {pwd.username && <p className="text-gray-500 text-sm mt-1">{pwd.username}</p>}
+                  {pwd.notes && (
+                    <p className="text-gray-500 text-sm mt-2 line-clamp-2 italic">
+                      {pwd.notes}
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   <Button onClick={(e) => { e.stopPropagation(); navigate(`/passwords/${pwd.id}/edit`); }} className="p-2 hover:bg-gray-700"><Edit className="w-4 h-4" /></Button>

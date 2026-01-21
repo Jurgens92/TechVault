@@ -89,7 +89,13 @@ class PasswordEntrySerializer(OrganizationOwnedSerializer):
     Use the retrieve_password action to get the decrypted password.
     """
     # Password is write-only - never returned in API responses for security
-    password = serializers.CharField(write_only=True, required=True, style={'input_type': 'password'})
+    # Required on create, optional on update (blank/empty means keep existing)
+    password = serializers.CharField(
+        write_only=True,
+        required=False,
+        allow_blank=True,
+        style={'input_type': 'password'}
+    )
     # Indicator that password exists (without exposing it)
     has_password = serializers.SerializerMethodField()
 
@@ -108,6 +114,13 @@ class PasswordEntrySerializer(OrganizationOwnedSerializer):
         """Indicate if a password is set without exposing it."""
         return bool(obj.password)
 
+    def validate_password(self, value):
+        """Validate password - required on create, optional on update."""
+        # On create (no instance), password is required
+        if self.instance is None and not value:
+            raise serializers.ValidationError("Password is required when creating a new entry.")
+        return value
+
     def create(self, validated_data):
         """Encrypt password before saving."""
         if 'password' in validated_data and validated_data['password']:
@@ -116,8 +129,12 @@ class PasswordEntrySerializer(OrganizationOwnedSerializer):
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
-        """Encrypt password if being updated."""
-        if 'password' in validated_data and validated_data['password']:
+        """Encrypt password if being updated, otherwise keep existing."""
+        # If password is not provided or is empty, keep the existing password
+        if 'password' not in validated_data or not validated_data.get('password'):
+            validated_data.pop('password', None)  # Remove from validated_data to keep existing
+        else:
+            # New password provided - encrypt it
             validated_data['password'] = encrypt_password(validated_data['password'])
             validated_data['is_encrypted'] = True
         return super().update(instance, validated_data)
@@ -204,11 +221,14 @@ class EndpointUserSerializer(LocationOwnedSerializer):
 
 
 class ServerSerializer(LocationOwnedSerializer):
+    host_server_name = serializers.CharField(source='host_server.name', read_only=True, allow_null=True)
+
     class Meta(LocationOwnedSerializer.Meta):
         model = Server
         fields = [
             'id', 'organization', 'organization_name', 'name', 'server_type',
             'role', 'manufacturer', 'model', 'cpu', 'ram', 'storage',
+            'storage_drives', 'raid_configuration', 'host_server', 'host_server_name',
             'operating_system', 'software_installed', 'ip_address', 'mac_address',
             'hostname', 'serial_number', 'location', 'location_name', 'notes',
             'is_active', 'created_by', 'created_at', 'updated_at',
@@ -381,21 +401,31 @@ class DocumentationVersionSerializer(VersionSerializer):
 class PasswordEntryVersionSerializer(VersionSerializer):
     """
     Serializer for password entry versions.
-    Passwords are never exposed in version history for security.
+    Includes decrypted password for version history viewing.
     """
-    # Password is hidden in version history
+    # Include decrypted password for version history
+    password = serializers.SerializerMethodField()
     has_password = serializers.SerializerMethodField()
 
     class Meta(VersionSerializer.Meta):
         model = PasswordEntryVersion
         fields = [
             'id', 'password_entry', 'version_number', 'name', 'username',
-            'has_password', 'url', 'notes', 'category', 'is_encrypted',
+            'password', 'has_password', 'url', 'notes', 'category', 'is_encrypted',
             'change_note', 'created_at', 'created_by'
         ]
 
+    def get_password(self, obj):
+        """Return decrypted password for version history viewing."""
+        if obj.password and obj.is_encrypted:
+            try:
+                return decrypt_password(obj.password)
+            except Exception:
+                return '(decryption failed)'
+        return obj.password or ''
+
     def get_has_password(self, obj):
-        """Indicate if a password was set in this version without exposing it."""
+        """Indicate if a password was set in this version."""
         return bool(obj.password)
 
 
