@@ -67,7 +67,7 @@ export const ConfigurationForm: React.FC = () => {
     <div className="space-y-6 max-w-4xl">
       <div className="flex items-center gap-4 mb-8">
         <Button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-700"><ArrowLeft className="w-5 h-5" /></Button>
-        <h1 className="text-3xl font-bold text-white">{isEditMode ? 'Edit Configuration' : 'Create Configuration'}</h1>
+        <h1 className="text-3xl font-bold text-foreground">{isEditMode ? 'Edit Configuration' : 'Create Configuration'}</h1>
       </div>
 
       <Card className="p-6">
@@ -75,14 +75,14 @@ export const ConfigurationForm: React.FC = () => {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Configuration Name *</label>
-            <Input type="text" name="name" value={formData.name || ''} onChange={handleChange} required className="bg-gray-700 border-gray-600 text-white" />
+            <label className="block text-sm font-medium text-muted-foreground mb-2">Configuration Name *</label>
+            <Input type="text" name="name" value={formData.name || ''} onChange={handleChange} required className="bg-input border-input text-foreground" />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Type *</label>
-              <select name="config_type" value={formData.config_type || 'other'} onChange={handleChange} className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white">
+              <label className="block text-sm font-medium text-muted-foreground mb-2">Type *</label>
+              <select name="config_type" value={formData.config_type || 'other'} onChange={handleChange} className="w-full px-4 py-2 bg-input border border-input rounded-lg text-foreground">
                 <option value="network">Network</option>
                 <option value="server">Server</option>
                 <option value="application">Application</option>
@@ -92,28 +92,28 @@ export const ConfigurationForm: React.FC = () => {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Version</label>
-              <Input type="text" name="version" value={formData.version || ''} onChange={handleChange} placeholder="1.0.0" className="bg-gray-700 border-gray-600 text-white" />
+              <label className="block text-sm font-medium text-muted-foreground mb-2">Version</label>
+              <Input type="text" name="version" value={formData.version || ''} onChange={handleChange} placeholder="1.0.0" className="bg-input border-input text-foreground" />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Description</label>
-            <textarea name="description" value={formData.description || ''} onChange={handleChange} rows={3} className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white" />
+            <label className="block text-sm font-medium text-muted-foreground mb-2">Description</label>
+            <textarea name="description" value={formData.description || ''} onChange={handleChange} rows={3} className="w-full px-4 py-2 bg-input border border-input rounded-lg text-foreground" />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Configuration Content *</label>
+            <label className="block text-sm font-medium text-muted-foreground mb-2">Configuration Content *</label>
             <textarea name="content" value={formData.content || ''} onChange={handleChange} required rows={10} className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white font-mono" />
           </div>
 
           <div className="flex items-center gap-3">
             <input type="checkbox" name="is_active" checked={formData.is_active || false} onChange={handleChange} className="w-4 h-4 rounded" />
-            <label className="text-sm font-medium text-gray-300">Configuration is Active</label>
+            <label className="text-sm font-medium text-muted-foreground">Configuration is Active</label>
           </div>
 
           <div className="flex gap-4 pt-6 border-t border-gray-700">
-            <Button type="button" onClick={() => navigate(-1)} className="flex-1 bg-gray-700 hover:bg-gray-600">Cancel</Button>
+            <Button type="button" onClick={() => navigate(-1)} className="flex-1 bg-secondary hover:bg-secondary/80 text-secondary-foreground">Cancel</Button>
             <Button type="submit" disabled={submitting} className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50">
               {submitting ? 'Saving...' : (isEditMode ? 'Update' : 'Create')}
             </Button>
@@ -157,7 +157,7 @@ export const ConfigurationForm: React.FC = () => {
                 )}
                 <div>
                   <span className="font-medium text-gray-400">Content:</span>
-                  <pre className="mt-1 p-2 bg-gray-800 rounded text-gray-300 whitespace-pre-wrap text-xs font-mono">
+                  <pre className="mt-1 p-2 bg-secondary rounded text-foreground whitespace-pre-wrap text-xs font-mono">
                     {version.content}
                   </pre>
                 </div>

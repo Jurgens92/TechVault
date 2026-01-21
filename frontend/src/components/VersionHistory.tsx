@@ -72,7 +72,7 @@ export function VersionHistory<T extends Version>({
   if (loading) {
     return (
       <div className="p-4">
-        <p className="text-gray-600">Loading version history...</p>
+        <p className="text-muted-foreground">Loading version history...</p>
       </div>
     );
   }
@@ -88,14 +88,14 @@ export function VersionHistory<T extends Version>({
   if (versions.length === 0) {
     return (
       <div className="p-4">
-        <p className="text-gray-600">No version history available yet.</p>
+        <p className="text-muted-foreground">No version history available yet.</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-white">Version History</h3>
+      <h3 className="text-lg font-semibold text-foreground">Version History</h3>
 
       <div className="space-y-3">
         {versions.map((version) => (
@@ -105,10 +105,10 @@ export function VersionHistory<T extends Version>({
           >
             <div className="flex justify-between items-start mb-2">
               <div>
-                <h4 className="font-medium text-white">
+                <h4 className="font-medium text-foreground">
                   Version {version.version_number}
                 </h4>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-muted-foreground">
                   {formatDate(version.created_at)}
                   {version.created_by && (
                     <span className="ml-2">
@@ -117,7 +117,7 @@ export function VersionHistory<T extends Version>({
                   )}
                 </p>
                 {version.change_note && (
-                  <p className="text-sm text-gray-700 mt-1 italic">
+                  <p className="text-sm text-muted-foreground mt-1 italic">
                     "{version.change_note}"
                   </p>
                 )}
@@ -129,7 +129,7 @@ export function VersionHistory<T extends Version>({
                       selectedVersion?.id === version.id ? null : version
                     )
                   }
-                  className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded"
+                  className="px-3 py-1 text-sm bg-secondary hover:bg-secondary/80 text-secondary-foreground rounded"
                 >
                   {selectedVersion?.id === version.id ? 'Hide' : 'View'}
                 </button>

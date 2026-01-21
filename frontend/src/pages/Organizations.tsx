@@ -80,12 +80,12 @@ export const Organizations: React.FC = () => {
       {loading ? (
         <div className="text-center py-12">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-          <p className="mt-4 text-gray-400">Loading organizations...</p>
+          <p className="mt-4 text-muted-foreground">Loading organizations...</p>
         </div>
       ) : organizations.length === 0 ? (
         <Card className="p-8 text-center">
           <Building2 className="w-12 h-12 text-gray-500 mx-auto mb-4" />
-          <p className="text-gray-400 mb-4">No organizations found</p>
+          <p className="text-muted-foreground mb-4">No organizations found</p>
           <Button
             onClick={() => navigate('/organizations/new')}
             className="bg-blue-600 hover:bg-blue-700"
@@ -115,9 +115,9 @@ export const Organizations: React.FC = () => {
                     )}
                   </div>
                   {org.description && (
-                    <p className="text-gray-400 text-sm mb-3">{org.description}</p>
+                    <p className="text-muted-foreground text-sm mb-3">{org.description}</p>
                   )}
-                  <div className="flex flex-wrap gap-4 text-sm text-gray-400">
+                  <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
                     {org.email && (
                       <div>
                         <span className="text-gray-500">Email:</span> {org.email}
