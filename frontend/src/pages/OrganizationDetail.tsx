@@ -84,7 +84,7 @@ export const OrganizationDetail: React.FC = () => {
           >
             <ArrowLeft className="w-5 h-5" />
           </Button>
-          <h1 className="text-3xl font-bold text-white">{organization.name}</h1>
+          <h1 className="text-3xl font-bold text-foreground">{organization.name}</h1>
           {!organization.is_active && (
             <span className="text-xs bg-gray-700 text-gray-300 px-2 py-1 rounded">Inactive</span>
           )}
@@ -147,7 +147,7 @@ export const OrganizationDetail: React.FC = () => {
 
       {/* Contact Information */}
       <Card className="p-6 space-y-4">
-        <h2 className="text-xl font-semibold text-white mb-4">Contact Information</h2>
+        <h2 className="text-xl font-semibold text-foreground mb-4">Contact Information</h2>
         <div className="grid md:grid-cols-2 gap-4">
           {organization.email && (
             <div className="flex items-start gap-3">
@@ -188,7 +188,7 @@ export const OrganizationDetail: React.FC = () => {
       {/* Address */}
       {(organization.address || organization.city || organization.country) && (
         <Card className="p-6 space-y-4">
-          <h2 className="text-xl font-semibold text-white mb-4">Address</h2>
+          <h2 className="text-xl font-semibold text-foreground mb-4">Address</h2>
           <div className="flex items-start gap-3">
             <MapPin className="w-5 h-5 text-red-500 mt-1" />
             <div className="text-gray-300">
@@ -206,7 +206,7 @@ export const OrganizationDetail: React.FC = () => {
 
       {/* Related Items */}
       <Card className="p-6">
-        <h2 className="text-xl font-semibold text-white mb-4">Related Items</h2>
+        <h2 className="text-xl font-semibold text-foreground mb-4">Related Items</h2>
         <div className="grid md:grid-cols-3 gap-4">
           <Button
             onClick={() => navigate(`/locations?org=${id}`)}
@@ -248,7 +248,7 @@ export const OrganizationDetail: React.FC = () => {
 
       {/* Metadata */}
       <Card className="p-6">
-        <h2 className="text-xl font-semibold text-white mb-4">Information</h2>
+        <h2 className="text-xl font-semibold text-foreground mb-4">Information</h2>
         <div className="grid md:grid-cols-2 gap-4 text-sm text-gray-400">
           <div>
             <span className="text-gray-500">Created:</span> {new Date(organization.created_at).toLocaleDateString()}

@@ -51,7 +51,7 @@ export const LocationDetail: React.FC = () => {
       <div className="flex items-center justify-between gap-4 mb-8">
         <div className="flex items-center gap-4">
           <Button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-700"><ArrowLeft className="w-5 h-5" /></Button>
-          <h1 className="text-3xl font-bold text-white">{location.name}</h1>
+          <h1 className="text-3xl font-bold text-foreground">{location.name}</h1>
         </div>
         <div className="flex gap-2">
           <Button onClick={() => navigate(`/locations/${id}/edit`)} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"><Edit className="w-4 h-4" /> Edit</Button>
@@ -62,40 +62,40 @@ export const LocationDetail: React.FC = () => {
       {error && <div className="p-4 bg-red-900/20 border border-red-700 rounded-lg text-red-200">{error}</div>}
 
       <Card className="p-6 space-y-4">
-        <h2 className="text-xl font-semibold text-white mb-4">Details</h2>
+        <h2 className="text-xl font-semibold text-foreground mb-4">Details</h2>
         <div className="grid md:grid-cols-2 gap-4">
           <div>
-            <div className="text-sm text-gray-400">Organization</div>
-            <p className="text-white">{location.organization_name}</p>
+            <div className="text-sm text-muted-foreground">Organization</div>
+            <p className="text-foreground">{location.organization_name}</p>
           </div>
           <div>
-            <div className="text-sm text-gray-400">Address</div>
-            <p className="text-white">{location.address}</p>
+            <div className="text-sm text-muted-foreground">Address</div>
+            <p className="text-foreground">{location.address}</p>
           </div>
           <div>
-            <div className="text-sm text-gray-400">City</div>
-            <p className="text-white">{location.city}, {location.state_province}</p>
+            <div className="text-sm text-muted-foreground">City</div>
+            <p className="text-foreground">{location.city}, {location.state_province}</p>
           </div>
           <div>
-            <div className="text-sm text-gray-400">Country</div>
-            <p className="text-white">{location.country}</p>
+            <div className="text-sm text-muted-foreground">Country</div>
+            <p className="text-foreground">{location.country}</p>
           </div>
           {location.phone && (
             <div>
-              <div className="text-sm text-gray-400">Phone</div>
-              <p className="text-white">{location.phone}</p>
+              <div className="text-sm text-muted-foreground">Phone</div>
+              <p className="text-foreground">{location.phone}</p>
             </div>
           )}
           <div>
-            <div className="text-sm text-gray-400">Status</div>
-            <p className="text-white">{location.is_active ? 'Active' : 'Inactive'}</p>
+            <div className="text-sm text-muted-foreground">Status</div>
+            <p className="text-foreground">{location.is_active ? 'Active' : 'Inactive'}</p>
           </div>
         </div>
       </Card>
 
       {location.description && (
         <Card className="p-6">
-          <h2 className="text-xl font-semibold text-white mb-4">Description</h2>
+          <h2 className="text-xl font-semibold text-foreground mb-4">Description</h2>
           <p className="text-gray-300">{location.description}</p>
         </Card>
       )}
