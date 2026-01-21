@@ -19,7 +19,7 @@ export const DocumentationDetail: React.FC = () => {
   }, [id]);
 
   if (loading) return <div className="text-center py-12"><div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div></div>;
-  if (!doc) return <Card className="p-8 text-center"><p className="text-gray-400">Documentation not found</p></Card>;
+  if (!doc) return <Card className="p-8 text-center"><p className="text-muted-foreground">Documentation not found</p></Card>;
 
   return (
     <div className="space-y-6">
@@ -33,12 +33,12 @@ export const DocumentationDetail: React.FC = () => {
       </div>
 
       <Card className="p-6">
-        <div className="flex gap-4 mb-6 text-sm text-gray-400">
+        <div className="flex gap-4 mb-6 text-sm text-muted-foreground">
           <span>{doc.category}</span>
           <span>v{doc.version}</span>
           <span>{new Date(doc.created_at).toLocaleDateString()}</span>
         </div>
-        <div className="prose prose-invert max-w-none text-gray-300 whitespace-pre-wrap">{doc.content}</div>
+        <div className="prose dark:prose-invert max-w-none text-foreground whitespace-pre-wrap">{doc.content}</div>
       </Card>
     </div>
   );
