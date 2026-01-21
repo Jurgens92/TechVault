@@ -26,7 +26,7 @@ export const ConfigurationDetail: React.FC = () => {
       <div className="flex items-center justify-between gap-4 mb-8">
         <div className="flex items-center gap-4">
           <Button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-700"><ArrowLeft className="w-5 h-5" /></Button>
-          <h1 className="text-3xl font-bold text-white">{config.name}</h1>
+          <h1 className="text-3xl font-bold text-foreground">{config.name}</h1>
         </div>
         <Button onClick={() => navigate(`/configurations/${id}/edit`)} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"><Edit className="w-4 h-4" /> Edit</Button>
       </div>
@@ -34,36 +34,36 @@ export const ConfigurationDetail: React.FC = () => {
       <Card className="p-6 space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <span className="text-gray-400">Organization:</span>
-            <span className="text-white ml-2">{config.organization_name}</span>
+            <span className="text-muted-foreground">Organization:</span>
+            <span className="text-foreground ml-2">{config.organization_name}</span>
           </div>
           <div>
-            <span className="text-gray-400">Type:</span>
-            <span className="text-white ml-2">{config.config_type}</span>
+            <span className="text-muted-foreground">Type:</span>
+            <span className="text-foreground ml-2">{config.config_type}</span>
           </div>
           {config.version && (
             <div>
-              <span className="text-gray-400">Version:</span>
-              <span className="text-white ml-2">{config.version}</span>
+              <span className="text-muted-foreground">Version:</span>
+              <span className="text-foreground ml-2">{config.version}</span>
             </div>
           )}
           <div>
-            <span className="text-gray-400">Status:</span>
-            <span className="text-white ml-2">{config.is_active ? 'Active' : 'Inactive'}</span>
+            <span className="text-muted-foreground">Status:</span>
+            <span className="text-foreground ml-2">{config.is_active ? 'Active' : 'Inactive'}</span>
           </div>
         </div>
       </Card>
 
       {config.description && (
         <Card className="p-6">
-          <h2 className="text-lg font-semibold text-white mb-3">Description</h2>
-          <p className="text-gray-300">{config.description}</p>
+          <h2 className="text-lg font-semibold text-foreground mb-3">Description</h2>
+          <p className="text-muted-foreground">{config.description}</p>
         </Card>
       )}
 
       <Card className="p-6">
-        <h2 className="text-lg font-semibold text-white mb-3">Configuration Content</h2>
-        <pre className="bg-gray-900 p-4 rounded overflow-x-auto text-gray-300 text-sm"><code>{config.content}</code></pre>
+        <h2 className="text-lg font-semibold text-foreground mb-3">Configuration Content</h2>
+        <pre className="bg-secondary p-4 rounded overflow-x-auto text-foreground text-sm"><code>{config.content}</code></pre>
       </Card>
     </div>
   );

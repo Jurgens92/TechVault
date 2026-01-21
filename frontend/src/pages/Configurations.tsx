@@ -88,7 +88,7 @@ export const Configurations: React.FC = () => {
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <h3 className="text-lg font-semibold text-foreground group-hover:text-primary">{config.name}</h3>
-                  <p className="text-gray-400 text-sm">{config.config_type} • {config.organization_name}</p>
+                  <p className="text-muted-foreground text-sm">{config.config_type} • {config.organization_name}</p>
                   {config.description && <p className="text-gray-500 text-sm mt-1 line-clamp-1">{config.description}</p>}
                 </div>
                 <div className="flex items-center gap-2">

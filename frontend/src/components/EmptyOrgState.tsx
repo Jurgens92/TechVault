@@ -12,8 +12,8 @@ export const EmptyOrgState: React.FC<EmptyOrgStateProps> = ({
   return (
     <Card className="p-12 text-center">
       <Building2 className="w-16 h-16 text-gray-500 mx-auto mb-4" />
-      <h3 className="text-lg font-semibold text-white mb-2">No Organization Selected</h3>
-      <p className="text-gray-400">{message}</p>
+      <h3 className="text-lg font-semibold text-foreground mb-2">No Organization Selected</h3>
+      <p className="text-muted-foreground">{message}</p>
     </Card>
   );
 };

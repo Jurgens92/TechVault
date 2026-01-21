@@ -182,7 +182,7 @@ export const Contacts: React.FC = () => {
       ) : contacts.length === 0 ? (
         <Card className="p-8 text-center">
           <Users className="w-12 h-12 text-gray-500 mx-auto mb-4" />
-          <p className="text-gray-400 mb-4">No contacts found</p>
+          <p className="text-muted-foreground mb-4">No contacts found</p>
           <Button onClick={() => navigate('/contacts/new')} className="bg-blue-600 hover:bg-blue-700">Create First Contact</Button>
         </Card>
       ) : (
@@ -192,9 +192,9 @@ export const Contacts: React.FC = () => {
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <h3 className="text-lg font-semibold text-foreground group-hover:text-primary">{contact.full_name}</h3>
-                  {contact.title && <p className="text-gray-400 text-sm">{contact.title}</p>}
-                  {contact.location_name && <p className="text-gray-400 text-sm">📍 {contact.location_name}</p>}
-                  <div className="flex gap-4 mt-2 text-sm text-gray-400">
+                  {contact.title && <p className="text-muted-foreground text-sm">{contact.title}</p>}
+                  {contact.location_name && <p className="text-muted-foreground text-sm">📍 {contact.location_name}</p>}
+                  <div className="flex gap-4 mt-2 text-sm text-muted-foreground">
                     <a href={`mailto:${contact.email}`} className="hover:text-blue-400">{contact.email}</a>
                     {contact.phone && <span>{contact.phone}</span>}
                   </div>

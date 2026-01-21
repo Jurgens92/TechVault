@@ -87,7 +87,7 @@ export const OrganizationForm: React.FC = () => {
     return (
       <div className="text-center py-12">
         <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-        <p className="mt-4 text-gray-400">Loading...</p>
+        <p className="mt-4 text-muted-foreground">Loading...</p>
       </div>
     );
   }
@@ -101,7 +101,7 @@ export const OrganizationForm: React.FC = () => {
         >
           <ArrowLeft className="w-5 h-5" />
         </Button>
-        <h1 className="text-3xl font-bold text-white">
+        <h1 className="text-3xl font-bold text-foreground">
           {isEditMode ? 'Edit Organization' : 'Create Organization'}
         </h1>
       </div>
@@ -116,10 +116,10 @@ export const OrganizationForm: React.FC = () => {
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Basic Info */}
           <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-white">Basic Information</h2>
+            <h2 className="text-lg font-semibold text-foreground">Basic Information</h2>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-muted-foreground mb-2">
                 Organization Name *
               </label>
               <Input
@@ -129,12 +129,12 @@ export const OrganizationForm: React.FC = () => {
                 onChange={handleChange}
                 placeholder="Enter organization name"
                 required
-                className="bg-gray-700 border-gray-600 text-white"
+                className="bg-input border-input text-foreground"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-muted-foreground mb-2">
                 Description
               </label>
               <textarea
@@ -143,49 +143,49 @@ export const OrganizationForm: React.FC = () => {
                 onChange={handleChange}
                 placeholder="Enter organization description"
                 rows={4}
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:border-blue-500 focus:outline-none"
+                className="w-full px-4 py-2 bg-input border border-input rounded-lg text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none"
               />
             </div>
           </div>
 
           {/* Contact Info */}
           <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-white">Contact Information</h2>
+            <h2 className="text-lg font-semibold text-foreground">Contact Information</h2>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Email</label>
+                <label className="block text-sm font-medium text-muted-foreground mb-2">Email</label>
                 <Input
                   type="email"
                   name="email"
                   value={formData.email || ''}
                   onChange={handleChange}
                   placeholder="organization@example.com"
-                  className="bg-gray-700 border-gray-600 text-white"
+                  className="bg-input border-input text-foreground"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Phone</label>
+                <label className="block text-sm font-medium text-muted-foreground mb-2">Phone</label>
                 <Input
                   type="tel"
                   name="phone"
                   value={formData.phone || ''}
                   onChange={handleChange}
                   placeholder="+1 (555) 000-0000"
-                  className="bg-gray-700 border-gray-600 text-white"
+                  className="bg-input border-input text-foreground"
                 />
               </div>
 
               <div className="col-span-2">
-                <label className="block text-sm font-medium text-gray-300 mb-2">Website</label>
+                <label className="block text-sm font-medium text-muted-foreground mb-2">Website</label>
                 <Input
                   type="url"
                   name="website"
                   value={formData.website || ''}
                   onChange={handleChange}
                   placeholder="https://example.com"
-                  className="bg-gray-700 border-gray-600 text-white"
+                  className="bg-input border-input text-foreground"
                 />
               </div>
             </div>
@@ -193,66 +193,66 @@ export const OrganizationForm: React.FC = () => {
 
           {/* Address */}
           <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-white">Address</h2>
+            <h2 className="text-lg font-semibold text-foreground">Address</h2>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Street Address</label>
+              <label className="block text-sm font-medium text-muted-foreground mb-2">Street Address</label>
               <Input
                 type="text"
                 name="address"
                 value={formData.address || ''}
                 onChange={handleChange}
                 placeholder="123 Business St"
-                className="bg-gray-700 border-gray-600 text-white"
+                className="bg-input border-input text-foreground"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">City</label>
+                <label className="block text-sm font-medium text-muted-foreground mb-2">City</label>
                 <Input
                   type="text"
                   name="city"
                   value={formData.city || ''}
                   onChange={handleChange}
                   placeholder="San Francisco"
-                  className="bg-gray-700 border-gray-600 text-white"
+                  className="bg-input border-input text-foreground"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">State/Province</label>
+                <label className="block text-sm font-medium text-muted-foreground mb-2">State/Province</label>
                 <Input
                   type="text"
                   name="state_province"
                   value={formData.state_province || ''}
                   onChange={handleChange}
                   placeholder="California"
-                  className="bg-gray-700 border-gray-600 text-white"
+                  className="bg-input border-input text-foreground"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Postal Code</label>
+                <label className="block text-sm font-medium text-muted-foreground mb-2">Postal Code</label>
                 <Input
                   type="text"
                   name="postal_code"
                   value={formData.postal_code || ''}
                   onChange={handleChange}
                   placeholder="94105"
-                  className="bg-gray-700 border-gray-600 text-white"
+                  className="bg-input border-input text-foreground"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Country</label>
+                <label className="block text-sm font-medium text-muted-foreground mb-2">Country</label>
                 <Input
                   type="text"
                   name="country"
                   value={formData.country || ''}
                   onChange={handleChange}
                   placeholder="United States"
-                  className="bg-gray-700 border-gray-600 text-white"
+                  className="bg-input border-input text-foreground"
                 />
               </div>
             </div>
@@ -267,7 +267,7 @@ export const OrganizationForm: React.FC = () => {
               onChange={handleChange}
               className="w-4 h-4 rounded border-gray-600 text-blue-600 focus:ring-blue-500"
             />
-            <label className="text-sm font-medium text-gray-300">Organization is Active</label>
+            <label className="text-sm font-medium text-muted-foreground">Organization is Active</label>
           </div>
 
           {/* Actions */}
@@ -275,7 +275,7 @@ export const OrganizationForm: React.FC = () => {
             <Button
               type="button"
               onClick={() => navigate(-1)}
-              className="flex-1 bg-gray-700 hover:bg-gray-600 text-white"
+              className="flex-1 bg-secondary hover:bg-secondary/80 text-secondary-foreground"
             >
               Cancel
             </Button>

@@ -68,7 +68,7 @@ export const DocumentationForm: React.FC = () => {
     <div className="space-y-6 max-w-4xl">
       <div className="flex items-center gap-4 mb-8">
         <Button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-700"><ArrowLeft className="w-5 h-5" /></Button>
-        <h1 className="text-3xl font-bold text-white">{isEditMode ? 'Edit Documentation' : 'Create Documentation'}</h1>
+        <h1 className="text-3xl font-bold text-foreground">{isEditMode ? 'Edit Documentation' : 'Create Documentation'}</h1>
       </div>
 
       <Card className="p-6">
@@ -76,19 +76,19 @@ export const DocumentationForm: React.FC = () => {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Title *</label>
-            <Input type="text" name="title" value={formData.title || ''} onChange={handleChange} required className="bg-gray-700 border-gray-600 text-white" />
+            <label className="block text-sm font-medium text-muted-foreground mb-2">Title *</label>
+            <Input type="text" name="title" value={formData.title || ''} onChange={handleChange} required className="bg-input border-input text-foreground" />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Content *</label>
-            <textarea name="content" value={formData.content || ''} onChange={handleChange} required rows={10} className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white" />
+            <label className="block text-sm font-medium text-muted-foreground mb-2">Content *</label>
+            <textarea name="content" value={formData.content || ''} onChange={handleChange} required rows={10} className="w-full px-4 py-2 bg-input border border-input rounded-lg text-foreground" />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Category</label>
-              <select name="category" value={formData.category || 'other'} onChange={handleChange} className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white">
+              <label className="block text-sm font-medium text-muted-foreground mb-2">Category</label>
+              <select name="category" value={formData.category || 'other'} onChange={handleChange} className="w-full px-4 py-2 bg-input border border-input rounded-lg text-foreground">
                 {/* Single Source of Truth: Options fetched from /api/meta/choices/ */}
                 {getChoicesForField('documentation_category').map(choice => (
                   <option key={choice.value} value={choice.value}>{choice.label}</option>
@@ -96,18 +96,18 @@ export const DocumentationForm: React.FC = () => {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Tags</label>
-              <Input type="text" name="tags" value={formData.tags || ''} onChange={handleChange} placeholder="comma, separated, tags" className="bg-gray-700 border-gray-600 text-white" />
+              <label className="block text-sm font-medium text-muted-foreground mb-2">Tags</label>
+              <Input type="text" name="tags" value={formData.tags || ''} onChange={handleChange} placeholder="comma, separated, tags" className="bg-input border-input text-foreground" />
             </div>
           </div>
 
           <div className="flex items-center gap-3">
             <input type="checkbox" name="is_published" checked={formData.is_published || false} onChange={handleChange} className="w-4 h-4 rounded" />
-            <label className="text-sm font-medium text-gray-300">Publish this documentation</label>
+            <label className="text-sm font-medium text-muted-foreground">Publish this documentation</label>
           </div>
 
           <div className="flex gap-4 pt-6 border-t border-gray-700">
-            <Button type="button" onClick={() => navigate(-1)} className="flex-1 bg-gray-700 hover:bg-gray-600">Cancel</Button>
+            <Button type="button" onClick={() => navigate(-1)} className="flex-1 bg-secondary hover:bg-secondary/80 text-secondary-foreground">Cancel</Button>
             <Button type="submit" disabled={submitting} className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50">
               {submitting ? 'Saving...' : (isEditMode ? 'Update' : 'Create')}
             </Button>
@@ -141,7 +141,7 @@ export const DocumentationForm: React.FC = () => {
                 </div>
                 <div>
                   <span className="font-medium text-gray-400">Content:</span>
-                  <pre className="mt-1 p-2 bg-gray-800 rounded text-gray-300 whitespace-pre-wrap text-xs">
+                  <pre className="mt-1 p-2 bg-secondary rounded text-foreground whitespace-pre-wrap text-xs">
                     {version.content}
                   </pre>
                 </div>
