@@ -11,6 +11,7 @@ export function ServerForm() {
   const { selectedOrg } = useOrganization();
   const [loading, setLoading] = useState(false);
   const [locations, setLocations] = useState<Location[]>([]);
+  const [physicalServers, setPhysicalServers] = useState<Server[]>([]);
   const [formData, setFormData] = useState({
     name: '',
     server_type: 'physical' as Server['server_type'],
@@ -20,6 +21,9 @@ export function ServerForm() {
     cpu: '',
     ram: '',
     storage: '',
+    storage_drives: '',
+    raid_configuration: '',
+    host_server: '',
     operating_system: '',
     software_installed: '',
     ip_address: '',
@@ -34,6 +38,7 @@ export function ServerForm() {
   useEffect(() => {
     if (selectedOrg) {
       loadLocations();
+      loadPhysicalServers();
     }
     if (id) {
       loadServer();
@@ -59,6 +64,20 @@ export function ServerForm() {
     }
   };
 
+  const loadPhysicalServers = async () => {
+    if (!selectedOrg) return;
+    try {
+      const response = await serverAPI.byOrganization(selectedOrg.id);
+      // Filter to only physical servers (potential VM hosts)
+      const physical = response.data.filter(
+        (s: Server) => s.server_type === 'physical' && s.id !== id
+      );
+      setPhysicalServers(physical);
+    } catch (error) {
+      console.error('Failed to load physical servers:', error);
+    }
+  };
+
   const loadServer = async () => {
     if (!id) return;
     try {
@@ -74,6 +93,9 @@ export function ServerForm() {
         cpu: server.cpu,
         ram: server.ram,
         storage: server.storage,
+        storage_drives: server.storage_drives || '',
+        raid_configuration: server.raid_configuration || '',
+        host_server: server.host_server || '',
         operating_system: server.operating_system,
         software_installed: server.software_installed,
         ip_address: server.ip_address,
@@ -101,6 +123,7 @@ export function ServerForm() {
         ...formData,
         organization: selectedOrg.id,
         location: formData.location || null,
+        host_server: formData.host_server || null,
       };
 
       if (id) {
@@ -166,7 +189,7 @@ export function ServerForm() {
               </label>
               <select
                 value={formData.server_type}
-                onChange={(e) => setFormData({ ...formData, server_type: e.target.value as Server['server_type'] })}
+                onChange={(e) => setFormData({ ...formData, server_type: e.target.value as Server['server_type'], host_server: '' })}
                 className="w-full px-3 py-2 border border-input rounded-md bg-background"
                 required
               >
@@ -188,6 +211,27 @@ export function ServerForm() {
               />
             </div>
           </div>
+
+          {(formData.server_type === 'virtual' || formData.server_type === 'container') && (
+            <div>
+              <label className="block text-sm font-medium mb-2">Host Server (Physical)</label>
+              <select
+                value={formData.host_server}
+                onChange={(e) => setFormData({ ...formData, host_server: e.target.value })}
+                className="w-full px-3 py-2 border border-input rounded-md bg-background"
+              >
+                <option value="">Select host server (optional)</option>
+                {physicalServers.map((server) => (
+                  <option key={server.id} value={server.id}>
+                    {server.name} {server.hostname ? `(${server.hostname})` : ''}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground mt-1">
+                Link this virtual server to its physical host for better infrastructure visibility
+              </p>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -238,13 +282,36 @@ export function ServerForm() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">Storage</label>
+              <label className="block text-sm font-medium mb-2">Total Storage</label>
               <input
                 type="text"
                 value={formData.storage}
                 onChange={(e) => setFormData({ ...formData, storage: e.target.value })}
                 className="w-full px-3 py-2 border border-input rounded-md bg-background"
-                placeholder="e.g., 2TB SSD RAID 10"
+                placeholder="e.g., 3TB usable"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Storage Drives</label>
+              <input
+                type="text"
+                value={formData.storage_drives}
+                onChange={(e) => setFormData({ ...formData, storage_drives: e.target.value })}
+                className="w-full px-3 py-2 border border-input rounded-md bg-background"
+                placeholder="e.g., 4x 1TB SSD, 8x 2TB HDD"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">RAID Configuration</label>
+              <input
+                type="text"
+                value={formData.raid_configuration}
+                onChange={(e) => setFormData({ ...formData, raid_configuration: e.target.value })}
+                className="w-full px-3 py-2 border border-input rounded-md bg-background"
+                placeholder="e.g., RAID 5, RAID 10, ZFS Mirror"
               />
             </div>
           </div>

@@ -572,6 +572,12 @@ class ContactViewSet(SecureQuerySetMixin, LocationFilterMixin, SoftDeleteViewSet
                 status=status.HTTP_404_NOT_FOUND
             )
 
+        # Get the default location for this organization (oldest/first created)
+        default_location = Location.objects.filter(
+            organization=organization,
+            is_deleted=False
+        ).order_by('created_at').first()
+
         # Read and decode CSV file
         try:
             # Use utf-8-sig to handle BOM (Byte Order Mark) from Excel-exported CSV files
@@ -599,9 +605,10 @@ class ContactViewSet(SecureQuerySetMixin, LocationFilterMixin, SoftDeleteViewSet
                     email = row.get('email', '').strip()[:254]
                     phone = row.get('phone', '').strip()[:20]
 
-                    # Create contact (is_active always set to True)
+                    # Create contact with default location if available
                     Contact.objects.create(
                         organization=organization,
+                        location=default_location,  # Use default location if exists, else None
                         first_name=first_name,
                         last_name=last_name,
                         title=title,
