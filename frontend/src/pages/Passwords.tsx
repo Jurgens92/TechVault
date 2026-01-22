@@ -15,6 +15,7 @@ export const Passwords: React.FC = () => {
   const [passwords, setPasswords] = useState<PasswordEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   useEffect(() => {
     if (selectedOrg) {
@@ -43,6 +44,27 @@ export const Passwords: React.FC = () => {
     }
   };
 
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+  };
+
+  const getFilteredPasswords = (): PasswordEntry[] => {
+    if (!searchQuery.trim()) {
+      return passwords;
+    }
+    const query = searchQuery.toLowerCase();
+    return passwords.filter(pwd =>
+      pwd.name?.toLowerCase().includes(query) ||
+      pwd.username?.toLowerCase().includes(query) ||
+      pwd.url?.toLowerCase().includes(query) ||
+      pwd.category?.toLowerCase().includes(query) ||
+      pwd.notes?.toLowerCase().includes(query) ||
+      pwd.organization_name?.toLowerCase().includes(query)
+    );
+  };
+
+  const filteredPasswords = getFilteredPasswords();
+
   const handleDelete = async (id: string) => {
     if (window.confirm('Delete this password entry?')) {
       try {
@@ -65,7 +87,7 @@ export const Passwords: React.FC = () => {
         }}
         search={{
           placeholder: 'Search passwords...',
-          onSearch: () => {},
+          onSearch: handleSearch,
         }}
       />
 
@@ -76,14 +98,15 @@ export const Passwords: React.FC = () => {
           {error && <div className="p-4 bg-red-900/20 border border-red-700 rounded-lg text-red-200">{error}</div>}
           {loading ? (
         <div className="text-center py-12"><div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div></div>
-      ) : passwords.length === 0 ? (
+      ) : filteredPasswords.length === 0 ? (
         <Card className="p-8 text-center">
           <Lock className="w-12 h-12 text-gray-500 mx-auto mb-4" />
-          <Button onClick={() => navigate('/passwords/new')} className="mt-4 bg-blue-600 hover:bg-blue-700">Add Password</Button>
+          <p className="text-muted-foreground mb-4">{searchQuery ? 'No passwords match your search' : 'No passwords found'}</p>
+          {!searchQuery && <Button onClick={() => navigate('/passwords/new')} className="mt-4 bg-blue-600 hover:bg-blue-700">Add Password</Button>}
         </Card>
       ) : (
         <div className="grid gap-4">
-          {passwords.map(pwd => (
+          {filteredPasswords.map(pwd => (
             <Card key={pwd.id} className="p-6 hover:border-blue-500 cursor-pointer group" onClick={() => navigate(`/passwords/${pwd.id}`)}>
               <div className="flex items-start justify-between">
                 <div className="flex-1">
