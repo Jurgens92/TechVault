@@ -15,6 +15,7 @@ export const Locations: React.FC = () => {
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   useEffect(() => {
     if (selectedOrg) {
@@ -44,10 +45,25 @@ export const Locations: React.FC = () => {
     }
   };
 
-  const handleSearch = (_query: string) => {
-    // TODO: Implement search functionality
-    fetchLocations();
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
   };
+
+  const getFilteredLocations = (): Location[] => {
+    if (!searchQuery.trim()) {
+      return locations;
+    }
+    const query = searchQuery.toLowerCase();
+    return locations.filter(loc =>
+      loc.name?.toLowerCase().includes(query) ||
+      loc.address?.toLowerCase().includes(query) ||
+      loc.city?.toLowerCase().includes(query) ||
+      loc.country?.toLowerCase().includes(query) ||
+      loc.organization_name?.toLowerCase().includes(query)
+    );
+  };
+
+  const filteredLocations = getFilteredLocations();
 
   const handleDelete = async (id: string) => {
     if (window.confirm('Delete this location?')) {
@@ -88,17 +104,17 @@ export const Locations: React.FC = () => {
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
           <p className="mt-4 text-muted-foreground">Loading locations...</p>
         </div>
-      ) : locations.length === 0 ? (
+      ) : filteredLocations.length === 0 ? (
         <Card className="p-8 text-center">
           <MapPin className="w-12 h-12 text-gray-500 mx-auto mb-4" />
-          <p className="text-muted-foreground mb-4">No locations found</p>
-          <Button onClick={() => navigate('/locations/new')} className="bg-blue-600 hover:bg-blue-700">
+          <p className="text-muted-foreground mb-4">{searchQuery ? 'No locations match your search' : 'No locations found'}</p>
+          {!searchQuery && <Button onClick={() => navigate('/locations/new')} className="bg-blue-600 hover:bg-blue-700">
             Create First Location
-          </Button>
+          </Button>}
         </Card>
       ) : (
         <div className="grid gap-4">
-          {locations.map(loc => (
+          {filteredLocations.map(loc => (
             <Card
               key={loc.id}
               className="p-6 hover:border-blue-500 transition-colors cursor-pointer group"
