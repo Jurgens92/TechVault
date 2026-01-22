@@ -15,6 +15,7 @@ export const Contacts: React.FC = () => {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{
     created: number;
@@ -49,6 +50,28 @@ export const Contacts: React.FC = () => {
       setLoading(false);
     }
   };
+
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+  };
+
+  const getFilteredContacts = (): Contact[] => {
+    if (!searchQuery.trim()) {
+      return contacts;
+    }
+    const query = searchQuery.toLowerCase();
+    return contacts.filter(contact =>
+      contact.full_name?.toLowerCase().includes(query) ||
+      contact.first_name?.toLowerCase().includes(query) ||
+      contact.last_name?.toLowerCase().includes(query) ||
+      contact.email?.toLowerCase().includes(query) ||
+      contact.title?.toLowerCase().includes(query) ||
+      contact.phone?.toLowerCase().includes(query) ||
+      contact.location_name?.toLowerCase().includes(query)
+    );
+  };
+
+  const filteredContacts = getFilteredContacts();
 
   const handleDelete = async (id: string) => {
     if (window.confirm('Delete this contact?')) {
@@ -122,7 +145,7 @@ export const Contacts: React.FC = () => {
         }}
         search={{
           placeholder: 'Search contacts...',
-          onSearch: () => {},
+          onSearch: handleSearch,
         }}
       />
 
@@ -179,15 +202,15 @@ export const Contacts: React.FC = () => {
 
           {loading ? (
         <div className="text-center py-12"><div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div></div>
-      ) : contacts.length === 0 ? (
+      ) : filteredContacts.length === 0 ? (
         <Card className="p-8 text-center">
           <Users className="w-12 h-12 text-gray-500 mx-auto mb-4" />
-          <p className="text-muted-foreground mb-4">No contacts found</p>
-          <Button onClick={() => navigate('/contacts/new')} className="bg-blue-600 hover:bg-blue-700">Create First Contact</Button>
+          <p className="text-muted-foreground mb-4">{searchQuery ? 'No contacts match your search' : 'No contacts found'}</p>
+          {!searchQuery && <Button onClick={() => navigate('/contacts/new')} className="bg-blue-600 hover:bg-blue-700">Create First Contact</Button>}
         </Card>
       ) : (
         <div className="grid gap-4">
-          {contacts.map(contact => (
+          {filteredContacts.map(contact => (
             <Card key={contact.id} className="p-6 hover:border-blue-500 cursor-pointer group" onClick={() => navigate(`/contacts/${contact.id}`)}>
               <div className="flex items-start justify-between">
                 <div className="flex-1">

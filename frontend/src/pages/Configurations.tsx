@@ -15,6 +15,7 @@ export const Configurations: React.FC = () => {
   const [configs, setConfigs] = useState<Configuration[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   useEffect(() => {
     if (selectedOrg) {
@@ -43,6 +44,26 @@ export const Configurations: React.FC = () => {
     }
   };
 
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+  };
+
+  const getFilteredConfigs = (): Configuration[] => {
+    if (!searchQuery.trim()) {
+      return configs;
+    }
+    const query = searchQuery.toLowerCase();
+    return configs.filter(config =>
+      config.name?.toLowerCase().includes(query) ||
+      config.description?.toLowerCase().includes(query) ||
+      config.content?.toLowerCase().includes(query) ||
+      config.config_type?.toLowerCase().includes(query) ||
+      config.organization_name?.toLowerCase().includes(query)
+    );
+  };
+
+  const filteredConfigs = getFilteredConfigs();
+
   const handleDelete = async (id: string) => {
     if (window.confirm('Delete this configuration?')) {
       try {
@@ -65,7 +86,7 @@ export const Configurations: React.FC = () => {
         }}
         search={{
           placeholder: 'Search configurations...',
-          onSearch: () => {},
+          onSearch: handleSearch,
         }}
       />
 
@@ -76,14 +97,15 @@ export const Configurations: React.FC = () => {
           {error && <div className="p-4 bg-red-900/20 border border-red-700 rounded-lg text-red-200">{error}</div>}
           {loading ? (
         <div className="text-center py-12"><div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div></div>
-      ) : configs.length === 0 ? (
+      ) : filteredConfigs.length === 0 ? (
         <Card className="p-8 text-center">
           <Settings className="w-12 h-12 text-gray-500 mx-auto mb-4" />
-          <Button onClick={() => navigate('/configurations/new')} className="mt-4 bg-blue-600 hover:bg-blue-700">Create Configuration</Button>
+          <p className="text-muted-foreground mb-4">{searchQuery ? 'No configurations match your search' : 'No configurations found'}</p>
+          {!searchQuery && <Button onClick={() => navigate('/configurations/new')} className="mt-4 bg-blue-600 hover:bg-blue-700">Create Configuration</Button>}
         </Card>
       ) : (
         <div className="grid gap-4">
-          {configs.map(config => (
+          {filteredConfigs.map(config => (
             <Card key={config.id} className="p-6 hover:border-blue-500 cursor-pointer group" onClick={() => navigate(`/configurations/${config.id}`)}>
               <div className="flex items-start justify-between">
                 <div className="flex-1">
