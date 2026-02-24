@@ -296,11 +296,12 @@ def system_health(request):
 
     # 4. Data statistics - Use aggregation to reduce queries
     try:
-        # Use a helper to get active/inactive counts in single query per model
+        # Use a helper to get active/deleted counts in single query per model
+        # Use all_objects to include soft-deleted records in the count
         def get_counts(model):
-            result = model.objects.aggregate(
-                active=Count('id', filter=Q(is_active=True)),
-                deleted=Count('id', filter=Q(is_active=False)),
+            result = model.all_objects.aggregate(
+                active=Count('id', filter=Q(deleted_at__isnull=True)),
+                deleted=Count('id', filter=Q(deleted_at__isnull=False)),
             )
             return result['active'], result['deleted']
 

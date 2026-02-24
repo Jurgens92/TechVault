@@ -68,9 +68,6 @@ class OrganizationExportImportService:
 
     def _export_organization(self, org: Organization, include_deleted: bool) -> Dict[str, Any]:
         """Export a single organization with all related data."""
-        # Get the appropriate manager based on include_deleted
-        manager_suffix = '.all_objects' if include_deleted else '.objects'
-
         org_data = {
             'organization': {
                 'id': str(org.id),
