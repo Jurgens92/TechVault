@@ -82,9 +82,10 @@ class ReportViewSet(viewsets.ViewSet):
                 {'error': str(e)},
                 status=status.HTTP_404_NOT_FOUND
             )
-        except Exception as e:
+        except Exception:
+            logger.exception("Error generating organization report")
             return Response(
-                {'error': f'Error generating report: {str(e)}'},
+                {'error': 'Error generating report. Please try again.'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -137,10 +138,10 @@ class ReportViewSet(viewsets.ViewSet):
                 {'error': str(e)},
                 status=status.HTTP_404_NOT_FOUND
             )
-        except Exception as e:
+        except Exception:
             logger.exception("Error generating location report")
             return Response(
-                {'error': f'Error generating report: {str(e)}'},
+                {'error': 'Error generating report. Please try again.'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -187,9 +188,10 @@ class ReportViewSet(viewsets.ViewSet):
                 {'error': str(e)},
                 status=status.HTTP_404_NOT_FOUND
             )
-        except Exception as e:
+        except Exception:
+            logger.exception("Error generating asset inventory report")
             return Response(
-                {'error': f'Error generating report: {str(e)}'},
+                {'error': 'Error generating report. Please try again.'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -233,9 +235,10 @@ class ReportViewSet(viewsets.ViewSet):
                 {'error': str(e)},
                 status=status.HTTP_404_NOT_FOUND
             )
-        except Exception as e:
+        except Exception:
+            logger.exception("Error generating software license report")
             return Response(
-                {'error': f'Error generating report: {str(e)}'},
+                {'error': 'Error generating report. Please try again.'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -300,9 +303,10 @@ class ReportViewSet(viewsets.ViewSet):
             response['Content-Disposition'] = f'attachment; filename="{filename}"'
             return response
 
-        except Exception as e:
+        except Exception:
+            logger.exception("Error exporting organizations")
             return Response(
-                {'error': f'Error exporting organizations: {str(e)}'},
+                {'error': 'Error exporting organizations. Please try again.'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -369,9 +373,10 @@ class ReportViewSet(viewsets.ViewSet):
 
             return Response(results, status=status.HTTP_200_OK)
 
-        except Exception as e:
+        except Exception:
+            logger.exception("Error importing organizations")
             return Response(
-                {'error': f'Error importing organizations: {str(e)}'},
+                {'error': 'Error importing organizations. Please try again.'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 

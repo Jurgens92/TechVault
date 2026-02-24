@@ -253,9 +253,9 @@ class UnifiedVersionHistoryMixin:
                 'detail': f'Successfully restored to version {version_number}',
                 'data': serializer.data
             })
-        except Exception as e:
+        except Exception:
             return Response(
-                {'detail': f'Error restoring version: {str(e)}'},
+                {'detail': 'Error restoring version. Please try again.'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 

@@ -401,28 +401,18 @@ class DocumentationVersionSerializer(VersionSerializer):
 class PasswordEntryVersionSerializer(VersionSerializer):
     """
     Serializer for password entry versions.
-    Includes decrypted password for version history viewing.
+    Passwords are never exposed in version history responses for security.
+    Use the retrieve_password action on the main PasswordEntry endpoint instead.
     """
-    # Include decrypted password for version history
-    password = serializers.SerializerMethodField()
     has_password = serializers.SerializerMethodField()
 
     class Meta(VersionSerializer.Meta):
         model = PasswordEntryVersion
         fields = [
             'id', 'password_entry', 'version_number', 'name', 'username',
-            'password', 'has_password', 'url', 'notes', 'category', 'is_encrypted',
+            'has_password', 'url', 'notes', 'category', 'is_encrypted',
             'change_note', 'created_at', 'created_by'
         ]
-
-    def get_password(self, obj):
-        """Return decrypted password for version history viewing."""
-        if obj.password and obj.is_encrypted:
-            try:
-                return decrypt_password(obj.password)
-            except Exception:
-                return '(decryption failed)'
-        return obj.password or ''
 
     def get_has_password(self, obj):
         """Indicate if a password was set in this version."""
