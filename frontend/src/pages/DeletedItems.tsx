@@ -10,6 +10,7 @@ import {
   serverAPI, peripheralAPI
 } from '../services/core';
 import { Organization } from '../types/core';
+import { useAuth } from '../contexts/AuthContext';
 
 type EntityType =
   | 'organizations'
@@ -24,6 +25,8 @@ type EntityType =
   | 'peripherals';
 
 const DeletedItems: React.FC = () => {
+  const { user } = useAuth();
+  const isAdmin = user?.is_staff || false;
   const [activeTab, setActiveTab] = useState<EntityType>('organizations');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -339,15 +342,17 @@ const DeletedItems: React.FC = () => {
                             <RefreshCw className="h-4 w-4" />
                             Restore
                           </Button>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => handleHardDelete(item.id, activeTab)}
-                            className="flex items-center gap-1"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            Delete Forever
-                          </Button>
+                          {isAdmin && (
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => handleHardDelete(item.id, activeTab)}
+                              className="flex items-center gap-1"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              Delete Forever
+                            </Button>
+                          )}
                         </div>
                       </td>
                     </tr>
