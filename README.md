@@ -114,7 +114,7 @@ This automated script installs all dependencies, configures the database, deploy
 
 **Default credentials after installation:**
 - Email: `admin@techvault.local`
-- Password: `TechVault2024!`
+- Password: `Adm1n@Secure#2026!`
 
 ### 🔒 Secure Install with HTTPS (Production)
 
