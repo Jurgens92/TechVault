@@ -24,7 +24,7 @@ if not DEBUG and SECRET_KEY == 'django-insecure-change-this-in-production':
 # Production Security Settings
 if not DEBUG:
     # HTTPS Security
-    SECURE_SSL_REDIRECT = True
+    SECURE_SSL_REDIRECT = config('SECURE_SSL_REDIRECT', default=False, cast=bool)
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
     # HSTS (HTTP Strict Transport Security)
