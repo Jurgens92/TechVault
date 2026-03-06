@@ -27,7 +27,7 @@
 #
 # Default admin credentials:
 #   Email: admin@techvault.local
-#   Password: TechVault2024!
+#   Password: Adm1n@Secure#2026!
 #   (You should change this after first login!)
 ################################################################################
 
@@ -196,6 +196,9 @@ DB_PORT=5432
 # The API is protected by authentication, so this is safe
 CORS_ALLOW_ALL_ORIGINS=True
 
+# HTTPS redirect - only enable if HTTPS is configured
+SECURE_SSL_REDIRECT=${USE_HTTPS}
+
 # JWT Settings
 ACCESS_TOKEN_LIFETIME_MINUTES=60
 REFRESH_TOKEN_LIFETIME_DAYS=7
@@ -212,8 +215,9 @@ log_success "Database migrations completed"
 
 # Create Django superuser (non-interactive)
 log_info "Creating Django superuser..."
-DJANGO_SUPERUSER_PASSWORD="$ADMIN_PASSWORD" python manage.py createsuperuser \
+python manage.py createsuperuser \
     --email "$ADMIN_EMAIL" \
+    --password "$ADMIN_PASSWORD" \
     --first_name "$ADMIN_FIRSTNAME" \
     --last_name "$ADMIN_LASTNAME" \
     --noinput
