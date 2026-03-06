@@ -204,6 +204,13 @@ if not CORS_ALLOW_ALL_ORIGINS:
 
 CORS_ALLOW_CREDENTIALS = True
 
+# Safety check: wildcard CORS with credentials is a security vulnerability
+if not DEBUG and CORS_ALLOW_ALL_ORIGINS and CORS_ALLOW_CREDENTIALS:
+    raise ValueError(
+        "CORS_ALLOW_ALL_ORIGINS must be False in production when "
+        "CORS_ALLOW_CREDENTIALS is True. Set CORS_ALLOWED_ORIGINS instead."
+    )
+
 # CSRF Trusted Origins - required by Django 4+ for HTTPS
 # Without this, all POST requests fail with CSRF errors when using HTTPS
 _csrf_trusted = config('CSRF_TRUSTED_ORIGINS', default='', cast=str)

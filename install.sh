@@ -182,8 +182,8 @@ cat > "$INSTALL_DIR/backend/.env" <<EOF
 SECRET_KEY=$SECRET_KEY
 DEBUG=False
 ENVIRONMENT=production
-# Allow all hosts for self-hosted deployments (change if you want to restrict)
-ALLOWED_HOSTS=*
+# Restrict to the configured domain/IP for security
+ALLOWED_HOSTS=$DOMAIN,localhost,127.0.0.1
 
 # Database
 DB_NAME=$DB_NAME
@@ -192,9 +192,11 @@ DB_PASSWORD=$DB_PASSWORD
 DB_HOST=localhost
 DB_PORT=5432
 
-# CORS - Allow all origins for self-hosted deployments
-# The API is protected by authentication, so this is safe
-CORS_ALLOW_ALL_ORIGINS=True
+# CORS - Restrict to the deployment origin for security
+# Wildcard CORS with credentials enabled is dangerous
+CORS_ALLOW_ALL_ORIGINS=False
+CORS_ALLOWED_ORIGINS=http://$DOMAIN
+CORS_ALLOW_CREDENTIALS=True
 
 # HTTPS - will be enabled after SSL certificate is obtained
 SECURE_SSL_REDIRECT=False
@@ -369,6 +371,9 @@ if [ "$USE_HTTPS" = "true" ]; then
         echo "" >> "$INSTALL_DIR/backend/.env"
         echo "# CSRF trusted origins for HTTPS" >> "$INSTALL_DIR/backend/.env"
         echo "CSRF_TRUSTED_ORIGINS=https://$DOMAIN" >> "$INSTALL_DIR/backend/.env"
+
+        # Update CORS_ALLOWED_ORIGINS to use HTTPS
+        sed -i "s|^CORS_ALLOWED_ORIGINS=http://$DOMAIN\$|CORS_ALLOWED_ORIGINS=https://$DOMAIN|" "$INSTALL_DIR/backend/.env"
 
         # Restart backend to pick up HTTPS settings
         systemctl restart techvault-backend
