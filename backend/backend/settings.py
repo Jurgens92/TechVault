@@ -28,14 +28,20 @@ if not DEBUG:
     SECURE_SSL_REDIRECT = config('SECURE_SSL_REDIRECT', default=False, cast=bool)
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-    # HSTS (HTTP Strict Transport Security)
-    SECURE_HSTS_SECONDS = 31536000  # 1 year
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-    SECURE_HSTS_PRELOAD = True
+    # HTTPS-dependent settings - only enable when SSL is actually configured
+    if SECURE_SSL_REDIRECT:
+        # HSTS (HTTP Strict Transport Security)
+        SECURE_HSTS_SECONDS = 31536000  # 1 year
+        SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+        SECURE_HSTS_PRELOAD = True
 
-    # Cookie Security
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
+        # Cookie Security - secure cookies only work over HTTPS
+        SESSION_COOKIE_SECURE = True
+        CSRF_COOKIE_SECURE = True
+    else:
+        # No HTTPS - disable secure-only cookies so auth works over HTTP
+        SESSION_COOKIE_SECURE = False
+        CSRF_COOKIE_SECURE = False
 
     # Content Security
     SECURE_CONTENT_TYPE_NOSNIFF = True
@@ -198,6 +204,12 @@ if not CORS_ALLOW_ALL_ORIGINS:
 
 CORS_ALLOW_CREDENTIALS = True
 
+# CSRF Trusted Origins - required by Django 4+ for HTTPS
+# Without this, all POST requests fail with CSRF errors when using HTTPS
+_csrf_trusted = config('CSRF_TRUSTED_ORIGINS', default='', cast=str)
+if _csrf_trusted:
+    CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in _csrf_trusted.split(',') if origin.strip()]
+
 # REST Framework Settings
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
@@ -299,7 +311,7 @@ REST_AUTH = {
     'JWT_AUTH_REFRESH_COOKIE': 'techvault-refresh-token',
     # Security: Use HttpOnly cookies to prevent XSS token theft
     'JWT_AUTH_HTTPONLY': True,
-    'JWT_AUTH_SECURE': not DEBUG,  # Secure cookies in production
+    'JWT_AUTH_SECURE': not DEBUG and config('SECURE_SSL_REDIRECT', default=False, cast=bool),  # Secure cookies only when HTTPS is configured
     'JWT_AUTH_SAMESITE': 'Lax',  # Prevent CSRF while allowing same-site requests
     'USER_DETAILS_SERIALIZER': 'users.serializers.UserSerializer',
     'LOGIN_SERIALIZER': 'users.serializers.LoginSerializer',
