@@ -78,7 +78,7 @@ DB_USER="techvault"
 DB_PASSWORD=$(openssl rand -base64 32)
 SECRET_KEY=$(openssl rand -base64 64)
 ADMIN_PASSWORD="Adm1n@Secure#2026!"
-ADMIN_EMAIL="admin@techvault.local"
+ADMIN_EMAIL="${ADMIN_EMAIL:-admin@techvault.local}"
 ADMIN_FIRSTNAME="Admin"
 ADMIN_LASTNAME="User"
 GITHUB_REPO="https://github.com/Jurgens92/TechVault.git"
@@ -196,8 +196,8 @@ DB_PORT=5432
 # The API is protected by authentication, so this is safe
 CORS_ALLOW_ALL_ORIGINS=True
 
-# HTTPS redirect - only enable if HTTPS is configured
-SECURE_SSL_REDIRECT=${USE_HTTPS}
+# HTTPS - will be enabled after SSL certificate is obtained
+SECURE_SSL_REDIRECT=False
 
 # JWT Settings
 ACCESS_TOKEN_LIFETIME_MINUTES=60
@@ -360,6 +360,18 @@ if [ "$USE_HTTPS" = "true" ]; then
         log_success "SSL certificate obtained and configured successfully!"
         log_info "Certbot will automatically renew certificates before they expire"
         PROTOCOL="https"
+
+        # Now that HTTPS is confirmed working, enable SSL settings in backend .env
+        log_info "Enabling HTTPS settings in backend configuration..."
+        sed -i 's/^SECURE_SSL_REDIRECT=False$/SECURE_SSL_REDIRECT=True/' "$INSTALL_DIR/backend/.env"
+
+        # Add CSRF_TRUSTED_ORIGINS for the HTTPS domain (required by Django 4+)
+        echo "" >> "$INSTALL_DIR/backend/.env"
+        echo "# CSRF trusted origins for HTTPS" >> "$INSTALL_DIR/backend/.env"
+        echo "CSRF_TRUSTED_ORIGINS=https://$DOMAIN" >> "$INSTALL_DIR/backend/.env"
+
+        # Restart backend to pick up HTTPS settings
+        systemctl restart techvault-backend
     else
         log_error "Failed to obtain SSL certificate. Check that:"
         log_error "  1. Domain $DOMAIN points to this server's public IP"
