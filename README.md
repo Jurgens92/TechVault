@@ -127,6 +127,10 @@ ADMIN_EMAIL=admin@yourdomain.com \
 sudo -E bash install.sh
 ```
 
+**Default credentials after HTTPS installation:**
+- Email: The `ADMIN_EMAIL` you provided (e.g. `admin@yourdomain.com`)
+- Password: `Adm1n@Secure#2026!`
+
 **Requirements:**
 - Valid domain name pointing to your server's public IP
 - Ports 80 and 443 open and accessible
