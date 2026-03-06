@@ -215,9 +215,8 @@ log_success "Database migrations completed"
 
 # Create Django superuser (non-interactive)
 log_info "Creating Django superuser..."
-python manage.py createsuperuser \
+DJANGO_SUPERUSER_PASSWORD="$ADMIN_PASSWORD" python manage.py createsuperuser \
     --email "$ADMIN_EMAIL" \
-    --password "$ADMIN_PASSWORD" \
     --first_name "$ADMIN_FIRSTNAME" \
     --last_name "$ADMIN_LASTNAME" \
     --noinput

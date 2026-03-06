@@ -1,4 +1,6 @@
-from django.core.management.commands.createsuperuser import Command as BaseCommand
+import os
+
+from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -7,10 +9,12 @@ User = get_user_model()
 class Command(BaseCommand):
     """
     Custom createsuperuser command that works with email-based User model.
+    Supports DJANGO_SUPERUSER_PASSWORD env var for non-interactive use.
     """
 
+    help = 'Create a superuser with email-based authentication'
+
     def add_arguments(self, parser):
-        super().add_arguments(parser)
         parser.add_argument(
             '--email',
             dest='email',
@@ -27,24 +31,31 @@ class Command(BaseCommand):
             help='Specifies the last name for the superuser.',
         )
         parser.add_argument(
-            '--password',
-            dest='password',
-            help='Specifies the password for the superuser.',
+            '--noinput', '--no-input',
+            action='store_false',
+            dest='interactive',
+            help='Tells Django to NOT prompt the user for input of any kind.',
+        )
+        parser.add_argument(
+            '--database',
+            default='default',
+            help='Specifies the database to use. Default is "default".',
         )
 
     def handle(self, *args, **options):
         email = options.get('email')
-        password = options.get('password')
+        password = os.environ.get('DJANGO_SUPERUSER_PASSWORD')
         first_name = options.get('first_name', 'Admin')
         last_name = options.get('last_name', 'User')
 
         if not email:
-            email = self.get_input_data(
-                'Email',
-                input_msg='Email: ',
-                default=None,
-                validate=lambda x: x and '@' in x,
-            )
+            if not options.get('interactive', True):
+                self.stderr.write('Error: --email is required for non-interactive mode.')
+                return
+            email = input('Email: ')
+            if not email or '@' not in email:
+                self.stderr.write('Error: A valid email address is required.')
+                return
 
         if User.objects.filter(email=email).exists():
             self.stdout.write(
@@ -53,27 +64,23 @@ class Command(BaseCommand):
             return
 
         if not password:
-            password = self.get_input_data(
-                'Password',
-                input_msg='Password: ',
-                default=None,
-                validate=lambda x: len(x) >= 8 if x else False,
-                input_type=self.PASSWORD_INPUT,
-            )
+            if not options.get('interactive', True):
+                self.stderr.write(
+                    'Error: You must set DJANGO_SUPERUSER_PASSWORD env var '
+                    'for non-interactive superuser creation.'
+                )
+                return
+            import getpass
+            password = getpass.getpass('Password: ')
+            if not password or len(password) < 8:
+                self.stderr.write('Error: Password must be at least 8 characters.')
+                return
 
         if not first_name:
-            first_name = self.get_input_data(
-                'First name',
-                input_msg='First name [Admin]: ',
-                default='Admin',
-            )
+            first_name = input('First name [Admin]: ') or 'Admin'
 
         if not last_name:
-            last_name = self.get_input_data(
-                'Last name',
-                input_msg='Last name [User]: ',
-                default='User',
-            )
+            last_name = input('Last name [User]: ') or 'User'
 
         User.objects.create_superuser(
             email=email,
