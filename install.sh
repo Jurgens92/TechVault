@@ -182,8 +182,8 @@ cat > "$INSTALL_DIR/backend/.env" <<EOF
 SECRET_KEY=$SECRET_KEY
 DEBUG=False
 ENVIRONMENT=production
-# Allow all hosts for self-hosted deployments (change if you want to restrict)
-ALLOWED_HOSTS=*
+# Restrict to deployment domain for security
+ALLOWED_HOSTS=$DOMAIN,localhost,127.0.0.1
 
 # Database
 DB_NAME=$DB_NAME
@@ -192,9 +192,10 @@ DB_PASSWORD=$DB_PASSWORD
 DB_HOST=localhost
 DB_PORT=5432
 
-# CORS - Allow all origins for self-hosted deployments
-# The API is protected by authentication, so this is safe
-CORS_ALLOW_ALL_ORIGINS=True
+# CORS - Restrict to deployment origin for security
+CORS_ALLOW_ALL_ORIGINS=False
+CORS_ALLOWED_ORIGINS=http://$DOMAIN
+CORS_ALLOW_CREDENTIALS=True
 
 # HTTPS - will be enabled after SSL certificate is obtained
 SECURE_SSL_REDIRECT=False
@@ -364,6 +365,9 @@ if [ "$USE_HTTPS" = "true" ]; then
         # Now that HTTPS is confirmed working, enable SSL settings in backend .env
         log_info "Enabling HTTPS settings in backend configuration..."
         sed -i 's/^SECURE_SSL_REDIRECT=False$/SECURE_SSL_REDIRECT=True/' "$INSTALL_DIR/backend/.env"
+
+        # Update CORS origin to HTTPS now that SSL is confirmed working
+        sed -i "s|^CORS_ALLOWED_ORIGINS=http://$DOMAIN$|CORS_ALLOWED_ORIGINS=https://$DOMAIN|" "$INSTALL_DIR/backend/.env"
 
         # Add CSRF_TRUSTED_ORIGINS for the HTTPS domain (required by Django 4+)
         echo "" >> "$INSTALL_DIR/backend/.env"
