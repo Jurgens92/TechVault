@@ -298,15 +298,6 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    # Django Admin
-    location /admin/ {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
     # Django Static Files
     location /static/ {
         alias INSTALL_DIR_PLACEHOLDER/backend/staticfiles/;
@@ -417,7 +408,6 @@ log_info "Installation Summary:"
 echo "  - Installation directory: $INSTALL_DIR"
 echo "  - Database: PostgreSQL ($DB_NAME)"
 echo "  - Application URL: $PROTOCOL://$DOMAIN"
-echo "  - Admin panel: $PROTOCOL://$DOMAIN/admin"
 if [ "$USE_HTTPS" = "true" ] && [ "$PROTOCOL" = "https" ]; then
     echo "  - HTTPS: Enabled (Let's Encrypt SSL certificate configured)"
     echo "  - Auto-renewal: Enabled (certbot timer running)"
@@ -462,7 +452,6 @@ TechVault Installation Credentials
 Generated: $(date)
 
 Application URL: $PROTOCOL://$DOMAIN
-Admin Panel: $PROTOCOL://$DOMAIN/admin
 $(if [ "$USE_HTTPS" = "true" ] && [ "$PROTOCOL" = "https" ]; then echo "HTTPS: Enabled (Let's Encrypt)"; fi)
 
 Database Credentials:
