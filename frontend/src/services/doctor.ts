@@ -66,6 +66,19 @@ export interface DiskSpaceHealth extends HealthCheck {
   error?: string;
 }
 
+export interface SslCertificateHealth extends HealthCheck {
+  hostname?: string;
+  issuer?: Record<string, string>;
+  subject?: Record<string, string>;
+  valid_from?: string;
+  valid_until?: string;
+  days_remaining?: number;
+  serial_number?: string;
+  version?: number;
+  message?: string;
+  error?: string;
+}
+
 export interface SystemHealthResponse {
   status: 'healthy' | 'warning' | 'unhealthy';
   timestamp: string;
@@ -77,6 +90,7 @@ export interface SystemHealthResponse {
     security?: SecurityHealth;
     storage?: StorageHealth;
     disk_space?: DiskSpaceHealth;
+    ssl_certificate?: SslCertificateHealth;
   };
 }
 

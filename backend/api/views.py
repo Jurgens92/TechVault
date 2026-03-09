@@ -11,6 +11,8 @@ import django
 import sys
 import os
 import shutil
+import ssl
+import socket
 from core.models import (
     Organization, Location, Contact, Documentation,
     PasswordEntry, Configuration, NetworkDevice, EndpointUser, Server, Peripheral, Software, Backup, VoIP
@@ -453,6 +455,47 @@ def system_health(request):
     except Exception as e:
         health_data['checks']['disk_space'] = {
             'status': 'warning',
+            'error': str(e),
+        }
+
+    # 8. SSL Certificate check
+    try:
+        host = request.get_host().split(':')[0]
+        ssl_info = {'status': 'healthy', 'hostname': host}
+
+        # Skip SSL check for localhost/development
+        if host in ('localhost', '127.0.0.1', '0.0.0.0'):
+            ssl_info['status'] = 'warning'
+            ssl_info['message'] = 'SSL not applicable for localhost'
+        else:
+            context = ssl.create_default_context()
+            with socket.create_connection((host, 443), timeout=5) as sock:
+                with context.wrap_socket(sock, server_hostname=host) as ssock:
+                    cert = ssock.getpeercert()
+                    from datetime import datetime
+                    not_before = datetime.strptime(cert['notBefore'], '%b %d %H:%M:%S %Y %Z')
+                    not_after = datetime.strptime(cert['notAfter'], '%b %d %H:%M:%S %Y %Z')
+                    days_remaining = (not_after - datetime.utcnow()).days
+
+                    ssl_info['issuer'] = dict(x[0] for x in cert.get('issuer', []))
+                    ssl_info['subject'] = dict(x[0] for x in cert.get('subject', []))
+                    ssl_info['valid_from'] = not_before.isoformat()
+                    ssl_info['valid_until'] = not_after.isoformat()
+                    ssl_info['days_remaining'] = days_remaining
+                    ssl_info['serial_number'] = cert.get('serialNumber', 'N/A')
+                    ssl_info['version'] = cert.get('version', 'N/A')
+
+                    # Determine status based on days remaining
+                    if days_remaining <= 0:
+                        ssl_info['status'] = 'unhealthy'
+                    elif days_remaining <= 30:
+                        ssl_info['status'] = 'warning'
+
+        health_data['checks']['ssl_certificate'] = ssl_info
+    except Exception as e:
+        health_data['checks']['ssl_certificate'] = {
+            'status': 'warning',
+            'hostname': request.get_host().split(':')[0],
             'error': str(e),
         }
 
