@@ -16,10 +16,18 @@ const emptyConnection: Omit<InternetConnection, 'id' | 'created_at' | 'updated_a
   is_active: true,
 };
 
-export function NetworkDeviceForm() {
-  const { id } = useParams<{ id: string }>();
+interface NetworkDeviceFormProps {
+  editId?: string;
+  onSave?: () => void;
+  onCancel?: () => void;
+  isModal?: boolean;
+}
+
+export function NetworkDeviceForm({ editId, onSave, onCancel, isModal }: NetworkDeviceFormProps = {}) {
+  const { id: paramId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { selectedOrg } = useOrganization();
+  const id = editId ?? paramId;
   const [loading, setLoading] = useState(false);
   const [locations, setLocations] = useState<Location[]>([]);
   const [formData, setFormData] = useState({
@@ -160,7 +168,11 @@ export function NetworkDeviceForm() {
         await networkDeviceAPI.create(data);
       }
 
-      navigate('/endpoints?tab=network');
+      if (onSave) {
+        onSave();
+      } else {
+        navigate('/endpoints?tab=network');
+      }
     } catch (error) {
       console.error('Failed to save device:', error);
     } finally {
@@ -179,16 +191,18 @@ export function NetworkDeviceForm() {
   }
 
   return (
-    <div className="p-6 max-w-3xl">
-      <button
-        onClick={() => navigate('/endpoints')}
-        className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to Endpoints
-      </button>
+    <div className={isModal ? 'space-y-6' : 'p-6 max-w-3xl'}>
+      {!isModal && (
+        <button
+          onClick={() => navigate('/endpoints')}
+          className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Endpoints
+        </button>
+      )}
 
-      <h1 className="text-3xl font-bold mb-6">
+      <h1 className={isModal ? 'text-xl font-bold mb-4' : 'text-3xl font-bold mb-6'}>
         {id ? 'Edit Network Device' : 'Add Network Device'}
       </h1>
 
@@ -489,7 +503,7 @@ export function NetworkDeviceForm() {
           </button>
           <button
             type="button"
-            onClick={() => navigate('/endpoints')}
+            onClick={() => onCancel ? onCancel() : navigate('/endpoints')}
             className="px-6 py-2 border border-border rounded-md hover:bg-accent"
           >
             Cancel

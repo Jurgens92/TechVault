@@ -5,10 +5,18 @@ import { voipAPI, contactAPI } from '@/services/core';
 import type { VoIP, Contact } from '@/types/core';
 import { ArrowLeft, Loader2, X } from 'lucide-react';
 
-export function VoIPForm() {
-  const { id } = useParams<{ id: string }>();
+interface VoIPFormProps {
+  editId?: string;
+  onSave?: () => void;
+  onCancel?: () => void;
+  isModal?: boolean;
+}
+
+export function VoIPForm({ editId, onSave, onCancel, isModal }: VoIPFormProps = {}) {
+  const { id: paramId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { selectedOrg } = useOrganization();
+  const id = editId ?? paramId;
   const [loading, setLoading] = useState(false);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -97,7 +105,11 @@ export function VoIPForm() {
         await voipAPI.create(data);
       }
 
-      navigate('/endpoints?tab=voip');
+      if (onSave) {
+        onSave();
+      } else {
+        navigate('/endpoints?tab=voip');
+      }
     } catch (error) {
       console.error('Failed to save VoIP:', error);
     } finally {
@@ -144,16 +156,18 @@ export function VoIPForm() {
   }
 
   return (
-    <div className="p-6 max-w-3xl">
-      <button
-        onClick={() => navigate('/endpoints?tab=voip')}
-        className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to VoIP
-      </button>
+    <div className={isModal ? 'space-y-6' : 'p-6 max-w-3xl'}>
+      {!isModal && (
+        <button
+          onClick={() => navigate('/endpoints?tab=voip')}
+          className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to VoIP
+        </button>
+      )}
 
-      <h1 className="text-3xl font-bold mb-6">
+      <h1 className={isModal ? 'text-xl font-bold mb-4' : 'text-3xl font-bold mb-6'}>
         {id ? 'Edit VoIP Service' : 'Add VoIP Service'}
       </h1>
 
@@ -423,7 +437,7 @@ export function VoIPForm() {
           </button>
           <button
             type="button"
-            onClick={() => navigate('/endpoints?tab=voip')}
+            onClick={() => onCancel ? onCancel() : navigate('/endpoints?tab=voip')}
             className="px-6 py-2 border border-border rounded-md hover:bg-accent"
           >
             Cancel
