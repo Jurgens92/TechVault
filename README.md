@@ -121,10 +121,7 @@ This automated script installs all dependencies, configures the database, deploy
 For production deployments, enable HTTPS with Let's Encrypt:
 
 ```bash
-PUBLIC_DOMAIN=techvault.yourdomain.com \
-ENABLE_HTTPS=true \
-ADMIN_EMAIL=admin@yourdomain.com \
-sudo -E bash install.sh
+PUBLIC_DOMAIN=techvault.yourdomain.com ENABLE_HTTPS=true ADMIN_EMAIL=you@example.com sudo -E bash install.sh
 ```
 
 **Default credentials after HTTPS installation:**
