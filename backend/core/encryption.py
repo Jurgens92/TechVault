@@ -127,3 +127,80 @@ def decrypt_password(ciphertext: str) -> str:
 def is_encrypted(value: str) -> bool:
     """Convenience function to check if a value is encrypted."""
     return password_encryption.is_encrypted(value)
+
+
+def _derive_fernet_from_key(key_material: str) -> Fernet:
+    """Derive a Fernet instance from arbitrary key material."""
+    salt = b'TechVault_Password_Encryption_Salt_v1'
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=100000,
+    )
+    key = base64.urlsafe_b64encode(kdf.derive(key_material.encode()))
+    return Fernet(key)
+
+
+def protect_encryption_key(backup_password: str) -> dict:
+    """
+    Encrypt the current FIELD_ENCRYPTION_KEY with a user-provided backup password.
+    Returns a dict to embed in the backup file.
+    """
+    encryption_key = getattr(settings, 'FIELD_ENCRYPTION_KEY', settings.SECRET_KEY)
+    salt = os.urandom(16)
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=200000,
+    )
+    fernet = Fernet(base64.urlsafe_b64encode(kdf.derive(backup_password.encode())))
+    encrypted_key = fernet.encrypt(encryption_key.encode())
+    return {
+        'salt': base64.urlsafe_b64encode(salt).decode(),
+        'encrypted_key': base64.urlsafe_b64encode(encrypted_key).decode(),
+    }
+
+
+def recover_encryption_key(backup_password: str, key_data: dict) -> str:
+    """
+    Recover the original FIELD_ENCRYPTION_KEY from a backup using the backup password.
+    Returns the original encryption key string.
+    """
+    salt = base64.urlsafe_b64decode(key_data['salt'].encode())
+    encrypted_key = base64.urlsafe_b64decode(key_data['encrypted_key'].encode())
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=200000,
+    )
+    fernet = Fernet(base64.urlsafe_b64encode(kdf.derive(backup_password.encode())))
+    try:
+        return fernet.decrypt(encrypted_key).decode()
+    except InvalidToken:
+        raise EncryptionError("Incorrect backup password")
+
+
+def re_encrypt_value(ciphertext: str, old_key: str) -> str:
+    """
+    Decrypt a value with the old encryption key and re-encrypt with the current key.
+    Returns the re-encrypted value, or the original if it's not encrypted.
+    """
+    if not ciphertext or not password_encryption.is_encrypted(ciphertext):
+        return ciphertext
+
+    prefix = PasswordEncryption.ENCRYPTED_PREFIX
+    encrypted_str = ciphertext[len(prefix):]
+    encrypted_bytes = base64.urlsafe_b64decode(encrypted_str.encode('utf-8'))
+
+    # Decrypt with old key
+    old_fernet = _derive_fernet_from_key(old_key)
+    try:
+        plaintext = old_fernet.decrypt(encrypted_bytes).decode('utf-8')
+    except InvalidToken:
+        raise EncryptionError("Failed to re-encrypt: old key does not match encrypted data")
+
+    # Re-encrypt with current key
+    return password_encryption.encrypt(plaintext)
