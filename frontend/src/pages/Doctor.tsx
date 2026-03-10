@@ -21,6 +21,8 @@ import {
   Trash2,
   FileText,
   Disc,
+  ShieldCheck,
+  CalendarClock,
 } from 'lucide-react';
 import { doctorService, SystemHealthResponse } from '@/services/doctor';
 
@@ -394,6 +396,67 @@ const Doctor: React.FC = () => {
                         </span>
                       </div>
                     ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* SSL Certificate */}
+            {healthData.checks.ssl_certificate && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <ShieldCheck className="h-5 w-5" />
+                      SSL Certificate
+                    </CardTitle>
+                    <StatusIcon status={healthData.checks.ssl_certificate.status} />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Hostname</span>
+                      <span className="font-medium font-mono text-xs">{healthData.checks.ssl_certificate.hostname}</span>
+                    </div>
+                    {healthData.checks.ssl_certificate.message && (
+                      <div className="text-sm text-muted-foreground">{healthData.checks.ssl_certificate.message}</div>
+                    )}
+                    {healthData.checks.ssl_certificate.issuer && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Issuer</span>
+                        <span className="font-medium text-xs">
+                          {healthData.checks.ssl_certificate.issuer.organizationName || healthData.checks.ssl_certificate.issuer.commonName || 'N/A'}
+                        </span>
+                      </div>
+                    )}
+                    {healthData.checks.ssl_certificate.valid_from && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Valid From</span>
+                        <span className="font-medium">{new Date(healthData.checks.ssl_certificate.valid_from).toLocaleDateString()}</span>
+                      </div>
+                    )}
+                    {healthData.checks.ssl_certificate.valid_until && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Expires</span>
+                        <span className="font-medium">{new Date(healthData.checks.ssl_certificate.valid_until).toLocaleDateString()}</span>
+                      </div>
+                    )}
+                    {healthData.checks.ssl_certificate.days_remaining !== undefined && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Days Remaining</span>
+                        <span className={`font-medium flex items-center gap-1 ${
+                          healthData.checks.ssl_certificate.days_remaining <= 0 ? 'text-red-500' :
+                          healthData.checks.ssl_certificate.days_remaining <= 30 ? 'text-amber-500' : 'text-green-500'
+                        }`}>
+                          <CalendarClock className="h-3.5 w-3.5" />
+                          {healthData.checks.ssl_certificate.days_remaining} days
+                        </span>
+                      </div>
+                    )}
+                    {healthData.checks.ssl_certificate.error && (
+                      <div className="text-sm text-red-500">{healthData.checks.ssl_certificate.error}</div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
