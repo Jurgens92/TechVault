@@ -143,11 +143,11 @@ export function Diagram() {
     }
   };
 
-  const loadDiagramData = async () => {
+  const loadDiagramData = async (showLoader = true) => {
     if (!selectedOrg) return;
 
     try {
-      setLoading(true);
+      if (showLoader) setLoading(true);
       const response = await diagramAPI.getData(
         selectedOrg.id,
         selectedLocation || undefined
@@ -156,9 +156,11 @@ export function Diagram() {
     } catch (error) {
       console.error('Failed to load diagram data:', error);
     } finally {
-      setLoading(false);
+      if (showLoader) setLoading(false);
     }
   };
+
+  const refreshDiagramData = () => loadDiagramData(false);
 
   if (!selectedOrg) {
     return (
@@ -415,7 +417,7 @@ export function Diagram() {
       <QuickEditModal
         entity={quickEditEntity}
         onClose={() => setQuickEditEntity(null)}
-        onSaved={loadDiagramData}
+        onSaved={refreshDiagramData}
       />
     </div>
   );
