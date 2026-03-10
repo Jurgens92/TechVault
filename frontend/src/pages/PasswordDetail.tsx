@@ -14,6 +14,7 @@ export const PasswordDetail: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [decryptedPassword, setDecryptedPassword] = useState<string | null>(null);
   const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -25,22 +26,23 @@ export const PasswordDetail: React.FC = () => {
     if (showPassword) {
       // Hide password
       setShowPassword(false);
-    } else {
-      // Show password - fetch from secure endpoint if not already fetched
-      if (!decryptedPassword && id) {
-        setPasswordLoading(true);
-        try {
-          const response = await passwordAPI.retrievePassword(id);
-          setDecryptedPassword(response.data.password);
-          setShowPassword(true);
-        } catch {
-          // Handle error silently or show error message
-        } finally {
-          setPasswordLoading(false);
-        }
-      } else {
+      return;
+    }
+    // Show password - fetch from secure endpoint if not already fetched
+    if (!decryptedPassword && id) {
+      setPasswordLoading(true);
+      setPasswordError(null);
+      try {
+        const response = await passwordAPI.retrievePassword(id);
+        setDecryptedPassword(response.data.password);
         setShowPassword(true);
+      } catch {
+        setPasswordError('Failed to retrieve password. Please try again.');
+      } finally {
+        setPasswordLoading(false);
       }
+    } else {
+      setShowPassword(true);
     }
   };
 
@@ -82,6 +84,7 @@ export const PasswordDetail: React.FC = () => {
               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </Button>
           </div>
+          {passwordError && <p className="text-red-400 text-sm mt-1">{passwordError}</p>}
         </div>
         {pwd.url && (
           <div>
