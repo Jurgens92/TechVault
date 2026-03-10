@@ -14,7 +14,10 @@ from core.models import (
     Documentation, Configuration, PasswordEntry,
     SoftwareAssignment, VoIPAssignment
 )
-from core.encryption import encrypt_password, is_encrypted
+from core.encryption import (
+    encrypt_password, is_encrypted,
+    protect_encryption_key, recover_encryption_key, re_encrypt_value
+)
 from .export_import_service import OrganizationExportImportService
 
 User = get_user_model()
@@ -30,12 +33,13 @@ class SystemBackupService:
         self.user = user
         self.org_export_service = OrganizationExportImportService(user)
 
-    def create_backup(self, include_deleted: bool = False) -> Dict[str, Any]:
+    def create_backup(self, include_deleted: bool = False, backup_password: str = None) -> Dict[str, Any]:
         """
         Create a complete system backup including all data.
 
         Args:
             include_deleted: Whether to include soft-deleted records
+            backup_password: Password to protect the encryption key in the backup
 
         Returns:
             Dictionary containing complete system backup data
@@ -49,6 +53,9 @@ class SystemBackupService:
             'users': self._export_users(),
             'organizations': self._export_all_organizations(include_deleted),
         }
+
+        if backup_password:
+            backup_data['encryption_key_data'] = protect_encryption_key(backup_password)
 
         return backup_data
 
@@ -98,7 +105,8 @@ class SystemBackupService:
         backup_data: Dict[str, Any],
         restore_users: bool = True,
         restore_organizations: bool = True,
-        overwrite_existing: bool = False
+        overwrite_existing: bool = False,
+        backup_password: str = None
     ) -> Dict[str, Any]:
         """
         Restore system from a backup file.
@@ -108,6 +116,7 @@ class SystemBackupService:
             restore_users: Whether to restore user data
             restore_organizations: Whether to restore organization data
             overwrite_existing: Whether to overwrite existing records
+            backup_password: Password to decrypt the encryption key from the backup
 
         Returns:
             Dictionary with restore results
@@ -133,6 +142,22 @@ class SystemBackupService:
             results['error'] = f'Unsupported backup version: {backup_version}. Expected: {self.BACKUP_VERSION}'
             return results
 
+        # Recover old encryption key if backup contains key data
+        old_encryption_key = None
+        if backup_data.get('encryption_key_data'):
+            if not backup_password:
+                results['success'] = False
+                results['error'] = 'This backup is password-protected. Please provide the backup password.'
+                return results
+            try:
+                old_encryption_key = recover_encryption_key(
+                    backup_password, backup_data['encryption_key_data']
+                )
+            except Exception as e:
+                results['success'] = False
+                results['error'] = f'Failed to unlock backup: {str(e)}'
+                return results
+
         # Restore users first (organizations may reference them)
         if restore_users and 'users' in backup_data:
             user_results = self._restore_users(
@@ -149,11 +174,39 @@ class SystemBackupService:
             )
             results['organizations'] = org_results
 
+        # Re-encrypt passwords with current server's key if old key was recovered
+        if old_encryption_key:
+            reencrypt_results = self._re_encrypt_passwords(old_encryption_key)
+            results['passwords_re_encrypted'] = reencrypt_results
+
         # Determine overall success
         results['success'] = (
             len(results['users'].get('errors', [])) == 0 and
             len(results['organizations'].get('errors', [])) == 0
         )
+
+        return results
+
+    def _re_encrypt_passwords(self, old_key: str) -> Dict[str, Any]:
+        """
+        Re-encrypt all password entries from the old encryption key to the current key.
+        """
+        results = {'re_encrypted': 0, 'skipped': 0, 'errors': []}
+
+        for pwd in PasswordEntry.all_objects.all():
+            if not pwd.password or not is_encrypted(pwd.password):
+                results['skipped'] += 1
+                continue
+            try:
+                pwd.password = re_encrypt_value(pwd.password, old_key)
+                pwd.save(update_fields=['password'])
+                results['re_encrypted'] += 1
+            except Exception as e:
+                results['errors'].append({
+                    'id': str(pwd.id),
+                    'name': pwd.name,
+                    'error': str(e)
+                })
 
         return results
 

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Download, Upload, HardDrive, CheckCircle, XCircle, AlertTriangle, Users, Building2, Shield } from 'lucide-react';
+import { Download, Upload, HardDrive, CheckCircle, XCircle, AlertTriangle, Users, Building2, Shield, Lock, Key } from 'lucide-react';
 import { reportsAPI } from '@/services/core';
 
 interface BackupRestoreProps {
@@ -20,6 +20,11 @@ interface RestoreResult {
     skipped: Array<{ name: string; reason: string }>;
     errors: Array<{ organization: string; error: string }>;
   };
+  passwords_re_encrypted?: {
+    re_encrypted: number;
+    skipped: number;
+    errors: Array<{ id: string; name: string; error: string }>;
+  };
 }
 
 const BackupRestore: React.FC<BackupRestoreProps> = ({ isAdmin }) => {
@@ -30,11 +35,26 @@ const BackupRestore: React.FC<BackupRestoreProps> = ({ isAdmin }) => {
   const [restoreOrganizations, setRestoreOrganizations] = useState(true);
   const [overwriteExisting, setOverwriteExisting] = useState(false);
   const [restoreResult, setRestoreResult] = useState<RestoreResult | null>(null);
+  const [backupPassword, setBackupPassword] = useState('');
+  const [confirmBackupPassword, setConfirmBackupPassword] = useState('');
+  const [restorePassword, setRestorePassword] = useState('');
 
   const handleBackup = async () => {
+    if (!backupPassword) {
+      alert('Please enter a backup password to protect your encryption keys.');
+      return;
+    }
+    if (backupPassword !== confirmBackupPassword) {
+      alert('Backup passwords do not match.');
+      return;
+    }
+    if (backupPassword.length < 8) {
+      alert('Backup password must be at least 8 characters.');
+      return;
+    }
     try {
       setLoading(true);
-      const response = await reportsAPI.createSystemBackup(includeDeleted);
+      const response = await reportsAPI.createSystemBackup(includeDeleted, backupPassword);
 
       // Create a download link for the blob
       const blob = new Blob([response.data], { type: 'application/json' });
@@ -46,6 +66,8 @@ const BackupRestore: React.FC<BackupRestoreProps> = ({ isAdmin }) => {
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
+      setBackupPassword('');
+      setConfirmBackupPassword('');
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to create backup');
     } finally {
@@ -81,10 +103,12 @@ const BackupRestore: React.FC<BackupRestoreProps> = ({ isAdmin }) => {
         restoreUsers,
         restoreOrganizations,
         overwriteExisting,
+        backupPassword: restorePassword || undefined,
       });
 
       setRestoreResult(result.data);
       setRestoreFile(null);
+      setRestorePassword('');
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to restore backup');
     } finally {
@@ -152,6 +176,31 @@ const BackupRestore: React.FC<BackupRestoreProps> = ({ isAdmin }) => {
                   </ul>
                 </div>
 
+                {/* Backup Password */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium flex items-center gap-1">
+                    <Lock className="h-3 w-3" />
+                    Backup Password
+                  </label>
+                  <input
+                    type="password"
+                    value={backupPassword}
+                    onChange={(e) => setBackupPassword(e.target.value)}
+                    placeholder="Enter a password to protect this backup"
+                    className="w-full px-3 py-2 text-sm rounded-md border border-input bg-background"
+                  />
+                  <input
+                    type="password"
+                    value={confirmBackupPassword}
+                    onChange={(e) => setConfirmBackupPassword(e.target.value)}
+                    placeholder="Confirm backup password"
+                    className="w-full px-3 py-2 text-sm rounded-md border border-input bg-background"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    You will need this password when restoring on another server. It protects your encryption keys so passwords can be restored.
+                  </p>
+                </div>
+
                 {/* Include Deleted */}
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
@@ -166,7 +215,7 @@ const BackupRestore: React.FC<BackupRestoreProps> = ({ isAdmin }) => {
                 {/* Backup Button */}
                 <Button
                   onClick={handleBackup}
-                  disabled={loading}
+                  disabled={loading || !backupPassword || backupPassword !== confirmBackupPassword}
                   className="w-full"
                 >
                   <Download className="h-4 w-4 mr-2" />
@@ -241,6 +290,24 @@ const BackupRestore: React.FC<BackupRestoreProps> = ({ isAdmin }) => {
                   />
                   <span className="text-sm">Overwrite existing records</span>
                 </label>
+
+                {/* Restore Password */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium flex items-center gap-1">
+                    <Key className="h-3 w-3" />
+                    Backup Password
+                  </label>
+                  <input
+                    type="password"
+                    value={restorePassword}
+                    onChange={(e) => setRestorePassword(e.target.value)}
+                    placeholder="Enter the password used when creating the backup"
+                    className="w-full px-3 py-2 text-sm rounded-md border border-input bg-background"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Required to restore encrypted passwords on a new server.
+                  </p>
+                </div>
 
                 {/* Restore Button */}
                 <Button
@@ -370,6 +437,33 @@ const BackupRestore: React.FC<BackupRestoreProps> = ({ isAdmin }) => {
                                 <ul className="text-xs list-disc list-inside max-h-20 overflow-y-auto text-red-500">
                                   {restoreResult.organizations.errors.map((item, idx) => (
                                     <li key={idx}>{item.organization}: {item.error}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Password Re-encryption Section */}
+                        {restoreResult.passwords_re_encrypted && (
+                          <div className="mt-3">
+                            <p className="text-sm font-medium mb-1 flex items-center gap-1">
+                              <Lock className="h-3 w-3" /> Password Re-encryption
+                            </p>
+                            <p className="text-xs">
+                              {restoreResult.passwords_re_encrypted.re_encrypted} passwords re-encrypted for this server
+                              {restoreResult.passwords_re_encrypted.skipped > 0 && (
+                                <> | {restoreResult.passwords_re_encrypted.skipped} skipped</>
+                              )}
+                            </p>
+                            {restoreResult.passwords_re_encrypted.errors.length > 0 && (
+                              <div className="mt-1">
+                                <p className="text-xs font-medium text-red-500">
+                                  Errors ({restoreResult.passwords_re_encrypted.errors.length}):
+                                </p>
+                                <ul className="text-xs list-disc list-inside max-h-20 overflow-y-auto text-red-500">
+                                  {restoreResult.passwords_re_encrypted.errors.map((item, idx) => (
+                                    <li key={idx}>{item.name}: {item.error}</li>
                                   ))}
                                 </ul>
                               </div>

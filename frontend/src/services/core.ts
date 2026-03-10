@@ -429,9 +429,10 @@ export const reportsAPI = {
     });
   },
   // System Backup & Restore APIs
-  createSystemBackup: (includeDeleted: boolean = false) =>
+  createSystemBackup: (includeDeleted: boolean = false, backupPassword: string = '') =>
     api.post('/api/reports/system-backup/', {
-      include_deleted: includeDeleted
+      include_deleted: includeDeleted,
+      backup_password: backupPassword
     }, {
       responseType: 'blob'
     }),
@@ -441,6 +442,7 @@ export const reportsAPI = {
       restoreUsers?: boolean;
       restoreOrganizations?: boolean;
       overwriteExisting?: boolean;
+      backupPassword?: string;
     } = {}
   ) => {
     const formData = new FormData();
@@ -448,6 +450,9 @@ export const reportsAPI = {
     formData.append('restore_users', (options.restoreUsers ?? true).toString());
     formData.append('restore_organizations', (options.restoreOrganizations ?? true).toString());
     formData.append('overwrite_existing', (options.overwriteExisting ?? false).toString());
+    if (options.backupPassword) {
+      formData.append('backup_password', options.backupPassword);
+    }
     return api.post<{
       success: boolean;
       users: {
@@ -459,6 +464,11 @@ export const reportsAPI = {
         imported: string[];
         skipped: Array<{ name: string; reason: string }>;
         errors: Array<{ organization: string; error: string }>;
+      };
+      passwords_re_encrypted?: {
+        re_encrypted: number;
+        skipped: number;
+        errors: Array<{ id: string; name: string; error: string }>;
       };
     }>('/api/reports/system-restore/', formData, {
       headers: {

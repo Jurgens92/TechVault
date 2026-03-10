@@ -400,10 +400,20 @@ class ReportViewSet(viewsets.ViewSet):
             )
 
         include_deleted = request.data.get('include_deleted', False)
+        backup_password = request.data.get('backup_password', None)
+
+        if not backup_password:
+            return Response(
+                {'error': 'A backup password is required to protect the encryption keys.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         try:
             service = SystemBackupService(request.user)
-            backup_data = service.create_backup(include_deleted=include_deleted)
+            backup_data = service.create_backup(
+                include_deleted=include_deleted,
+                backup_password=backup_password
+            )
 
             # Return as downloadable JSON file
             response = HttpResponse(
@@ -448,10 +458,11 @@ class ReportViewSet(viewsets.ViewSet):
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        # Parse boolean options
+        # Parse options
         restore_users = request.data.get('restore_users', 'true')
         restore_organizations = request.data.get('restore_organizations', 'true')
         overwrite_existing = request.data.get('overwrite_existing', 'false')
+        backup_password = request.data.get('backup_password', '')
 
         # Convert string booleans to actual booleans
         if isinstance(restore_users, str):
@@ -492,7 +503,8 @@ class ReportViewSet(viewsets.ViewSet):
                 backup_data=backup_data,
                 restore_users=restore_users,
                 restore_organizations=restore_organizations,
-                overwrite_existing=overwrite_existing
+                overwrite_existing=overwrite_existing,
+                backup_password=backup_password if backup_password else None
             )
 
             return Response(results, status=status.HTTP_200_OK)

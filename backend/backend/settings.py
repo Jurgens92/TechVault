@@ -14,6 +14,11 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-change-this-in-produc
 DEBUG = config('DEBUG', default=False, cast=bool)
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv())
 
+# Encryption key for password/sensitive data encryption (Fernet)
+# This MUST remain stable once set - changing it will make existing encrypted data unreadable.
+# Defaults to SECRET_KEY for backwards compatibility, but should be set independently in production.
+FIELD_ENCRYPTION_KEY = config('FIELD_ENCRYPTION_KEY', default=SECRET_KEY)
+
 # Security: Fail if using insecure SECRET_KEY in production
 if not DEBUG and SECRET_KEY == 'django-insecure-change-this-in-production':
     raise ValueError(
