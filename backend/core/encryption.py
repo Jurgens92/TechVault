@@ -29,10 +29,10 @@ class PasswordEncryption:
         self._fernet = self._create_fernet()
 
     def _create_fernet(self):
-        """Create a Fernet instance using a key derived from SECRET_KEY."""
-        # Use PBKDF2 to derive a proper encryption key from SECRET_KEY
+        """Create a Fernet instance using a key derived from FIELD_ENCRYPTION_KEY."""
+        # Use PBKDF2 to derive a proper encryption key from FIELD_ENCRYPTION_KEY
         # This ensures the key is the correct length and adds additional security
-        secret_key = settings.SECRET_KEY.encode()
+        secret_key = getattr(settings, 'FIELD_ENCRYPTION_KEY', settings.SECRET_KEY).encode()
 
         # Use a static salt derived from the app name
         # In production, this could be stored separately for additional security
