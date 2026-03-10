@@ -2,8 +2,83 @@ import { useEffect, useState, useRef } from 'react';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { diagramAPI, locationAPI } from '@/services/core';
 import type { DiagramData, Location } from '@/types/core';
-import { Loader2, Network, Monitor, HardDrive, Printer, Globe, Shield, Wifi, Cpu, MemoryStick, Database, FileDown, ChevronDown, Package, User, Phone, MapPin } from 'lucide-react';
+import { Loader2, Network, Monitor, HardDrive, Printer, Globe, Shield, Wifi, Cpu, MemoryStick, Database, FileDown, ChevronDown, Package, User, Phone, MapPin, Pencil, X } from 'lucide-react';
 import { exportAsPNG, exportAsJSON, exportAsSVG, exportAsPDF, printDiagram } from '@/utils/diagramExport';
+import { NetworkDeviceForm } from '@/pages/NetworkDeviceForm';
+import { EndpointUserForm } from '@/pages/EndpointUserForm';
+import { ServerForm } from '@/pages/ServerForm';
+import { PeripheralForm } from '@/pages/PeripheralForm';
+import { BackupForm } from '@/pages/BackupForm';
+import { SoftwareForm } from '@/pages/SoftwareForm';
+import { VoIPForm } from '@/pages/VoIPForm';
+
+type QuickEditEntity = {
+  type: 'network_device' | 'endpoint_user' | 'server' | 'peripheral' | 'backup' | 'software' | 'voip';
+  id: string;
+  name: string;
+} | null;
+
+function QuickEditModal({ entity, onClose, onSaved }: { entity: QuickEditEntity; onClose: () => void; onSaved: () => void }) {
+  if (!entity) return null;
+
+  const handleSave = () => {
+    onSaved();
+    onClose();
+  };
+
+  const formProps = {
+    editId: entity.id,
+    onSave: handleSave,
+    onCancel: onClose,
+    isModal: true,
+  };
+
+  const renderForm = () => {
+    switch (entity.type) {
+      case 'network_device': return <NetworkDeviceForm {...formProps} />;
+      case 'endpoint_user': return <EndpointUserForm {...formProps} />;
+      case 'server': return <ServerForm {...formProps} />;
+      case 'peripheral': return <PeripheralForm {...formProps} />;
+      case 'backup': return <BackupForm {...formProps} />;
+      case 'software': return <SoftwareForm {...formProps} />;
+      case 'voip': return <VoIPForm {...formProps} />;
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      {/* Slide-out panel */}
+      <div className="relative w-full max-w-2xl bg-background shadow-xl border-l border-border overflow-y-auto animate-in slide-in-from-right duration-300">
+        <div className="sticky top-0 z-10 bg-background border-b border-border px-6 py-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Quick Edit: {entity.name}</h2>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-md hover:bg-accent transition-colors"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="p-6">
+          {renderForm()}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EditButton({ onClick }: { onClick: (e: React.MouseEvent) => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="p-1 rounded-md hover:bg-accent text-muted-foreground hover:text-primary transition-colors print:hidden"
+      title="Quick Edit"
+    >
+      <Pencil className="h-3.5 w-3.5" />
+    </button>
+  );
+}
 
 export function Diagram() {
   const { selectedOrg } = useOrganization();
@@ -14,6 +89,7 @@ export function Diagram() {
   const [locationsLoading, setLocationsLoading] = useState(true);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [quickEditEntity, setQuickEditEntity] = useState<QuickEditEntity>(null);
   const diagramRef = useRef<HTMLDivElement>(null);
 
   // Load locations when organization changes
@@ -276,7 +352,7 @@ export function Diagram() {
               <Network className="h-5 w-5" />
               Network Infrastructure
             </h2>
-            <NetworkDiagram devices={data.network_devices} />
+            <NetworkDiagram devices={data.network_devices} onEdit={setQuickEditEntity} />
           </div>
 
           {/* User Endpoints Diagram */}
@@ -285,7 +361,7 @@ export function Diagram() {
               <Monitor className="h-5 w-5" />
               User Endpoints
             </h2>
-            <UserEndpointsDiagram endpoints={data.endpoint_users} />
+            <UserEndpointsDiagram endpoints={data.endpoint_users} onEdit={setQuickEditEntity} />
           </div>
 
           {/* Servers Diagram */}
@@ -294,7 +370,7 @@ export function Diagram() {
               <HardDrive className="h-5 w-5" />
               Servers
             </h2>
-            <ServersDiagram servers={data.servers} />
+            <ServersDiagram servers={data.servers} onEdit={setQuickEditEntity} />
           </div>
 
           {/* Peripherals Diagram */}
@@ -303,7 +379,7 @@ export function Diagram() {
               <Printer className="h-5 w-5" />
               Peripherals
             </h2>
-            <PeripheralsDiagram peripherals={data.peripherals} />
+            <PeripheralsDiagram peripherals={data.peripherals} onEdit={setQuickEditEntity} />
           </div>
 
           {/* Backups Diagram */}
@@ -312,7 +388,7 @@ export function Diagram() {
               <Database className="h-5 w-5" />
               Backups
             </h2>
-            <BackupsDiagram backups={data.backups} />
+            <BackupsDiagram backups={data.backups} onEdit={setQuickEditEntity} />
           </div>
 
           {/* Software Diagram */}
@@ -321,7 +397,7 @@ export function Diagram() {
               <Package className="h-5 w-5" />
               Software
             </h2>
-            <SoftwareDiagram software={data.software} />
+            <SoftwareDiagram software={data.software} onEdit={setQuickEditEntity} />
           </div>
 
           {/* VoIP Diagram */}
@@ -330,15 +406,22 @@ export function Diagram() {
               <Phone className="h-5 w-5" />
               VoIP Services
             </h2>
-            <VoIPDiagram voip={data.voip} />
+            <VoIPDiagram voip={data.voip} onEdit={setQuickEditEntity} />
           </div>
         </div>
       )}
+
+      {/* Quick Edit Modal */}
+      <QuickEditModal
+        entity={quickEditEntity}
+        onClose={() => setQuickEditEntity(null)}
+        onSaved={loadDiagramData}
+      />
     </div>
   );
 }
 
-function NetworkDiagram({ devices }: { devices: DiagramData['network_devices'] }) {
+function NetworkDiagram({ devices, onEdit }: { devices: DiagramData['network_devices']; onEdit: (entity: QuickEditEntity) => void }) {
   const firewalls = devices.filter((d) => d.device_type === 'firewall' || d.device_type === 'firewall_router' || d.device_type === 'router');
   const switches = devices.filter((d) => d.device_type === 'switch');
   const wifiDevices = devices.filter((d) => d.device_type === 'wifi');
@@ -371,8 +454,11 @@ function NetworkDiagram({ devices }: { devices: DiagramData['network_devices'] }
             {firewalls.map((device) => (
               <div
                 key={device.id}
-                className="flex flex-col items-center p-4 rounded-lg border border-border hover:border-primary transition-colors bg-card min-w-[180px]"
+                className="relative flex flex-col items-center p-4 rounded-lg border border-border hover:border-primary transition-colors bg-card min-w-[180px] group"
               >
+                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <EditButton onClick={(e) => { e.stopPropagation(); onEdit({ type: 'network_device', id: device.id, name: device.name }); }} />
+                </div>
                 <div className="w-12 h-12 rounded-lg bg-red-500/10 flex items-center justify-center">
                   <Shield className="h-6 w-6 text-red-500" />
                 </div>
@@ -427,8 +513,11 @@ function NetworkDiagram({ devices }: { devices: DiagramData['network_devices'] }
             {switches.map((device) => (
               <div
                 key={device.id}
-                className="flex flex-col items-center p-4 rounded-lg border border-border hover:border-primary transition-colors bg-card min-w-[160px]"
+                className="relative flex flex-col items-center p-4 rounded-lg border border-border hover:border-primary transition-colors bg-card min-w-[160px] group"
               >
+                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <EditButton onClick={(e) => { e.stopPropagation(); onEdit({ type: 'network_device', id: device.id, name: device.name }); }} />
+                </div>
                 <div className="w-12 h-12 rounded-lg bg-green-500/10 flex items-center justify-center">
                   <Network className="h-6 w-6 text-green-500" />
                 </div>
@@ -450,8 +539,11 @@ function NetworkDiagram({ devices }: { devices: DiagramData['network_devices'] }
                 {wifiDevices.map((wifi) => (
                   <div
                     key={wifi.id}
-                    className="flex items-center gap-3 p-3 rounded-lg border border-border hover:border-primary transition-colors bg-card"
+                    className="relative flex items-center gap-3 p-3 rounded-lg border border-border hover:border-primary transition-colors bg-card group"
                   >
+                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <EditButton onClick={(e) => { e.stopPropagation(); onEdit({ type: 'network_device', id: wifi.id, name: wifi.name }); }} />
+                    </div>
                     <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center flex-shrink-0">
                       <Wifi className="h-5 w-5 text-purple-500" />
                     </div>
@@ -484,7 +576,7 @@ function NetworkDiagram({ devices }: { devices: DiagramData['network_devices'] }
   );
 }
 
-function UserEndpointsDiagram({ endpoints }: { endpoints: DiagramData['endpoint_users'] }) {
+function UserEndpointsDiagram({ endpoints, onEdit }: { endpoints: DiagramData['endpoint_users']; onEdit: (entity: QuickEditEntity) => void }) {
   const desktops = endpoints.filter((e) => e.device_type === 'desktop');
   const laptops = endpoints.filter((e) => e.device_type === 'laptop');
   const workstations = endpoints.filter((e) => e.device_type === 'workstation');
@@ -500,8 +592,11 @@ function UserEndpointsDiagram({ endpoints }: { endpoints: DiagramData['endpoint_
   const renderEndpoint = (endpoint: DiagramData['endpoint_users'][0]) => (
     <div
       key={endpoint.id}
-      className="p-3 rounded-lg border border-border hover:border-primary transition-colors bg-card"
+      className="relative p-3 rounded-lg border border-border hover:border-primary transition-colors bg-card group"
     >
+      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <EditButton onClick={(e) => { e.stopPropagation(); onEdit({ type: 'endpoint_user', id: endpoint.id, name: endpoint.name }); }} />
+      </div>
       <div className="flex items-start gap-2 mb-2">
         <Monitor className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
         <div className="min-w-0 flex-1">
@@ -587,7 +682,7 @@ function UserEndpointsDiagram({ endpoints }: { endpoints: DiagramData['endpoint_
   );
 }
 
-function ServersDiagram({ servers }: { servers: DiagramData['servers'] }) {
+function ServersDiagram({ servers, onEdit }: { servers: DiagramData['servers']; onEdit: (entity: QuickEditEntity) => void }) {
   if (servers.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
@@ -604,8 +699,11 @@ function ServersDiagram({ servers }: { servers: DiagramData['servers'] }) {
   const renderServerCard = (server: DiagramData['servers'][0], isVm = false) => (
     <div
       key={server.id}
-      className={`p-4 rounded-lg border border-border hover:border-primary transition-colors bg-card ${isVm ? 'ml-6 border-l-2 border-l-blue-500' : ''}`}
+      className={`relative p-4 rounded-lg border border-border hover:border-primary transition-colors bg-card group ${isVm ? 'ml-6 border-l-2 border-l-blue-500' : ''}`}
     >
+      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <EditButton onClick={(e) => { e.stopPropagation(); onEdit({ type: 'server', id: server.id, name: server.name }); }} />
+      </div>
       <div className="flex items-start gap-3 mb-3">
         <div className={`w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 ${
           server.server_type === 'physical' ? 'bg-green-500/10' :
@@ -741,7 +839,7 @@ function ServersDiagram({ servers }: { servers: DiagramData['servers'] }) {
   );
 }
 
-function PeripheralsDiagram({ peripherals }: { peripherals: DiagramData['peripherals'] }) {
+function PeripheralsDiagram({ peripherals, onEdit }: { peripherals: DiagramData['peripherals']; onEdit: (entity: QuickEditEntity) => void }) {
   if (peripherals.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
@@ -755,8 +853,11 @@ function PeripheralsDiagram({ peripherals }: { peripherals: DiagramData['periphe
       {peripherals.map((peripheral) => (
         <div
           key={peripheral.id}
-          className="p-4 rounded-lg border border-border hover:border-primary transition-colors bg-card"
+          className="relative p-4 rounded-lg border border-border hover:border-primary transition-colors bg-card group"
         >
+          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <EditButton onClick={(e) => { e.stopPropagation(); onEdit({ type: 'peripheral', id: peripheral.id, name: peripheral.name }); }} />
+          </div>
           <div className="flex items-start gap-3">
             <div className="w-10 h-10 rounded-lg bg-accent flex items-center justify-center flex-shrink-0">
               <Printer className="h-5 w-5 text-foreground" />
@@ -783,7 +884,7 @@ function PeripheralsDiagram({ peripherals }: { peripherals: DiagramData['periphe
 }
 
 // Backups Diagram Component
-function BackupsDiagram({ backups }: { backups: DiagramData['backups'] }) {
+function BackupsDiagram({ backups, onEdit }: { backups: DiagramData['backups']; onEdit: (entity: QuickEditEntity) => void }) {
   const formatDate = (dateString: string | null) => {
     if (!dateString) return null;
     return new Date(dateString).toLocaleString('en-US', {
@@ -808,8 +909,11 @@ function BackupsDiagram({ backups }: { backups: DiagramData['backups'] }) {
       {backups.map((backup) => (
         <div
           key={backup.id}
-          className="p-4 rounded-lg border border-border hover:border-primary transition-colors bg-card"
+          className="relative p-4 rounded-lg border border-border hover:border-primary transition-colors bg-card group"
         >
+          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+            <EditButton onClick={(e) => { e.stopPropagation(); onEdit({ type: 'backup', id: backup.id, name: backup.name }); }} />
+          </div>
           <div className="flex items-start gap-3">
             <div className="w-12 h-12 rounded-lg bg-accent flex items-center justify-center flex-shrink-0">
               <Database className="h-6 w-6 text-foreground" />
@@ -877,7 +981,7 @@ function BackupsDiagram({ backups }: { backups: DiagramData['backups'] }) {
 }
 
 // Software Diagram Component
-function SoftwareDiagram({ software }: { software: DiagramData['software'] }) {
+function SoftwareDiagram({ software, onEdit }: { software: DiagramData['software']; onEdit: (entity: QuickEditEntity) => void }) {
   if (software.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
@@ -891,8 +995,11 @@ function SoftwareDiagram({ software }: { software: DiagramData['software'] }) {
       {software.map((item) => (
         <div
           key={item.id}
-          className="p-4 rounded-lg border border-border hover:border-primary transition-colors bg-card"
+          className="relative p-4 rounded-lg border border-border hover:border-primary transition-colors bg-card group"
         >
+          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <EditButton onClick={(e) => { e.stopPropagation(); onEdit({ type: 'software', id: item.id, name: item.name }); }} />
+          </div>
           <div className="flex items-start gap-3">
             <div className="w-10 h-10 rounded-lg bg-accent flex items-center justify-center flex-shrink-0">
               <Package className="h-5 w-5 text-foreground" />
@@ -929,7 +1036,7 @@ function SoftwareDiagram({ software }: { software: DiagramData['software'] }) {
 }
 
 // VoIP Diagram Component
-function VoIPDiagram({ voip }: { voip: DiagramData['voip'] }) {
+function VoIPDiagram({ voip, onEdit }: { voip: DiagramData['voip']; onEdit: (entity: QuickEditEntity) => void }) {
   if (voip.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
@@ -943,8 +1050,11 @@ function VoIPDiagram({ voip }: { voip: DiagramData['voip'] }) {
       {voip.map((item) => (
         <div
           key={item.id}
-          className="p-4 rounded-lg border border-border hover:border-primary transition-colors bg-card"
+          className="relative p-4 rounded-lg border border-border hover:border-primary transition-colors bg-card group"
         >
+          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <EditButton onClick={(e) => { e.stopPropagation(); onEdit({ type: 'voip', id: item.id, name: item.name }); }} />
+          </div>
           <div className="flex items-start gap-3">
             <div className="w-10 h-10 rounded-lg bg-accent flex items-center justify-center flex-shrink-0">
               <Phone className="h-5 w-5 text-foreground" />

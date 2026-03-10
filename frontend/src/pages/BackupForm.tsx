@@ -5,10 +5,18 @@ import { backupAPI, locationAPI } from '@/services/core';
 import type { Backup, Location } from '@/types/core';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 
-export function BackupForm() {
-  const { id } = useParams<{ id: string }>();
+interface BackupFormProps {
+  editId?: string;
+  onSave?: () => void;
+  onCancel?: () => void;
+  isModal?: boolean;
+}
+
+export function BackupForm({ editId, onSave, onCancel, isModal }: BackupFormProps = {}) {
+  const { id: paramId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { selectedOrg } = useOrganization();
+  const id = editId ?? paramId;
   const [loading, setLoading] = useState(false);
   const [locations, setLocations] = useState<Location[]>([]);
   const [formData, setFormData] = useState({
@@ -114,7 +122,11 @@ export function BackupForm() {
         await backupAPI.create(data);
       }
 
-      navigate('/endpoints?tab=backups');
+      if (onSave) {
+        onSave();
+      } else {
+        navigate('/endpoints?tab=backups');
+      }
     } catch (error) {
       console.error('Failed to save backup:', error);
     } finally {
@@ -133,16 +145,18 @@ export function BackupForm() {
   }
 
   return (
-    <div className="p-6 max-w-3xl">
-      <button
-        onClick={() => navigate('/endpoints?tab=backups')}
-        className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to Backups
-      </button>
+    <div className={isModal ? 'space-y-6' : 'p-6 max-w-3xl'}>
+      {!isModal && (
+        <button
+          onClick={() => navigate('/endpoints?tab=backups')}
+          className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Backups
+        </button>
+      )}
 
-      <h1 className="text-3xl font-bold mb-6">
+      <h1 className={isModal ? 'text-xl font-bold mb-4' : 'text-3xl font-bold mb-6'}>
         {id ? 'Edit Backup' : 'Add Backup'}
       </h1>
 
@@ -336,7 +350,7 @@ export function BackupForm() {
           </button>
           <button
             type="button"
-            onClick={() => navigate('/endpoints?tab=backups')}
+            onClick={() => onCancel ? onCancel() : navigate('/endpoints?tab=backups')}
             className="px-6 py-2 border border-border rounded-md hover:bg-accent"
           >
             Cancel
