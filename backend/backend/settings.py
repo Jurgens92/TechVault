@@ -74,6 +74,7 @@ INSTALLED_APPS = [
     'drf_spectacular',  # OpenAPI Schema - Single Source of Truth for API
     'allauth',
     'allauth.account',
+    'allauth.socialaccount',
     'dj_rest_auth',
     'dj_rest_auth.registration',
 
