@@ -5,7 +5,7 @@ Tests that authenticated users without 2FA enabled are blocked from accessing
 protected endpoints until they enable 2FA.
 """
 import pyotp
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 from rest_framework import status
@@ -14,11 +14,21 @@ from users.auth_views import hash_backup_code
 User = get_user_model()
 
 
+@override_settings(REST_FRAMEWORK={
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+    'DEFAULT_THROTTLE_CLASSES': [],
+    'DEFAULT_THROTTLE_RATES': {},
+})
 class Enforce2FAMiddlewareTestCase(TestCase):
     """Test suite for 2FA enforcement middleware."""
 
     def setUp(self):
         """Set up test fixtures."""
+        from django.core.cache import cache
+        cache.clear()
         self.client = APIClient()
         self.login_url = '/api/auth/login/'
 
@@ -77,7 +87,7 @@ class Enforce2FAMiddlewareTestCase(TestCase):
         # Test various protected endpoints (not including /api/user/* or /api/auth/* which are allowed)
         protected_endpoints = [
             '/api/organizations/',
-            '/api/devices/',
+            '/api/network-devices/',
             '/api/servers/',
         ]
 
@@ -90,9 +100,12 @@ class Enforce2FAMiddlewareTestCase(TestCase):
                 status.HTTP_403_FORBIDDEN,
                 f"Endpoint {endpoint} should be blocked"
             )
-            self.assertIn('error', response.data)
-            self.assertIn('2FA', response.data['error'])
-            self.assertTrue(response.data.get('requires_2fa_setup'))
+            # Middleware returns JsonResponse, not DRF Response
+            import json
+            data = json.loads(response.content)
+            self.assertIn('error', data)
+            self.assertIn('2FA', data['error'])
+            self.assertTrue(data.get('requires_2fa_setup'))
 
     def test_user_without_2fa_can_access_user_profile(self):
         """Test that users without 2FA can access their user profile."""
