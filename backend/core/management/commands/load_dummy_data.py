@@ -19,7 +19,7 @@ from django.utils import timezone
 from core.models import (
     Organization, OrganizationMember, Location, Contact, Documentation, PasswordEntry,
     Configuration, NetworkDevice, EndpointUser, Server, Peripheral,
-    Software, SoftwareAssignment, Backup
+    Software, SoftwareAssignment, Backup, VoIP, VoIPAssignment
 )
 
 User = get_user_model()
@@ -107,10 +107,16 @@ class Command(BaseCommand):
             backups = self.create_backups(organizations, locations, servers, users)
             self.stdout.write(self.style.SUCCESS(f'Created {len(backups)} backup entries'))
 
+            # Create VoIP services and assignments
+            voip_services = self.create_voip(organizations, contacts, users)
+            self.stdout.write(self.style.SUCCESS(f'Created {len(voip_services)} VoIP entries'))
+
         self.stdout.write(self.style.SUCCESS('\nDummy data loaded successfully!'))
 
     def clear_data(self):
         """Clear all data from the database (except users)."""
+        VoIPAssignment.objects.all().delete()
+        VoIP.objects.all().delete()
         Backup.objects.all().delete()
         Software.objects.all().delete()
         Peripheral.objects.all().delete()
@@ -2871,3 +2877,139 @@ echo Backup completed: %DATE%''',
             backups.append(backup)
 
         return backups
+
+    def create_voip(self, organizations, contacts, users):
+        """Create VoIP services and assignments."""
+        voip_list = []
+
+        today = timezone.now().date()
+
+        voip_data = [
+            # Tech Solutions Inc - Microsoft Teams
+            {
+                'org_index': 0,
+                'name': 'Microsoft Teams Phone System',
+                'voip_type': 'teams',
+                'license_key': 'TEAMS-PHONE-TS-001',
+                'version': 'Business Voice',
+                'license_type': 'subscription',
+                'purchase_date': today - timedelta(days=300),
+                'expiry_date': today + timedelta(days=65),
+                'vendor': 'Microsoft',
+                'quantity': 50,
+                'phone_numbers': '+1-555-0100, +1-555-0101, +1-555-0102',
+                'extensions': '100, 101, 102, 103, 104',
+                'notes': 'Teams Phone System with calling plan for all office staff',
+                'is_active': True,
+                'assignments': [
+                    {'contact_index': 0, 'extension': '100', 'phone_number': '+1-555-0100'},
+                    {'contact_index': 1, 'extension': '101', 'phone_number': '+1-555-0101'},
+                ],
+            },
+            # Digital Innovations Ltd - 3CX
+            {
+                'org_index': 1,
+                'name': '3CX Phone System',
+                'voip_type': '3cx',
+                'license_key': '3CX-ENT-DI-001',
+                'version': 'Enterprise',
+                'license_type': 'subscription',
+                'purchase_date': today - timedelta(days=200),
+                'expiry_date': today + timedelta(days=165),
+                'vendor': '3CX',
+                'quantity': 30,
+                'phone_numbers': '+1-555-0200, +1-555-0201',
+                'extensions': '200, 201, 202',
+                'notes': 'Self-hosted 3CX system on local server',
+                'is_active': True,
+                'assignments': [
+                    {'contact_index': 2, 'extension': '200', 'phone_number': '+1-555-0200'},
+                ],
+            },
+            # Cloud Systems Corp - Microsoft Teams
+            {
+                'org_index': 2,
+                'name': 'Microsoft Teams Enterprise Voice',
+                'voip_type': 'teams',
+                'license_key': 'TEAMS-VOICE-CS-001',
+                'version': 'Enterprise E5',
+                'license_type': 'subscription',
+                'purchase_date': today - timedelta(days=150),
+                'expiry_date': today + timedelta(days=215),
+                'vendor': 'Microsoft',
+                'quantity': 100,
+                'phone_numbers': '+1-555-0300, +1-555-0301',
+                'extensions': '300, 301',
+                'notes': 'Enterprise voice with direct routing and auto-attendant',
+                'is_active': True,
+                'assignments': [
+                    {'contact_index': 3, 'extension': '300', 'phone_number': '+1-555-0300'},
+                ],
+            },
+            # TechGuard MSP - Yeastar
+            {
+                'org_index': 3,
+                'name': 'Yeastar P-Series PBX',
+                'voip_type': 'yeastar',
+                'license_key': 'YEASTAR-TG-MSP-001',
+                'version': 'P570',
+                'license_type': 'perpetual',
+                'purchase_date': today - timedelta(days=400),
+                'expiry_date': None,
+                'vendor': 'Yeastar',
+                'quantity': 40,
+                'phone_numbers': '+1-555-0400, +1-555-0401, +1-555-0402',
+                'extensions': '400, 401, 402, 403',
+                'notes': 'On-premise PBX with mobile app and CRM integration',
+                'is_active': True,
+                'assignments': [
+                    {'contact_index': 4, 'extension': '400', 'phone_number': '+1-555-0400'},
+                    {'contact_index': 5, 'extension': '401', 'phone_number': '+1-555-0401'},
+                    {'contact_index': 6, 'extension': '402', 'phone_number': '+1-555-0402'},
+                ],
+            },
+            # Acme Manufacturing - Microsoft Teams
+            {
+                'org_index': 4,
+                'name': 'Microsoft Teams Phone',
+                'voip_type': 'teams',
+                'license_key': 'TEAMS-PHONE-ACME-001',
+                'version': 'Business Basic',
+                'license_type': 'subscription',
+                'purchase_date': today - timedelta(days=100),
+                'expiry_date': today + timedelta(days=265),
+                'vendor': 'Microsoft',
+                'quantity': 25,
+                'phone_numbers': '+1-555-0510, +1-555-0511, +1-555-0512',
+                'extensions': '500, 501, 502, 503, 504',
+                'notes': 'Teams calling for all 25 employees bundled with M365 subscription',
+                'is_active': True,
+                'assignments': [
+                    {'contact_index': 7, 'extension': '500', 'phone_number': '+1-555-0510'},
+                    {'contact_index': 8, 'extension': '501', 'phone_number': '+1-555-0511'},
+                    {'contact_index': 9, 'extension': '502', 'phone_number': '+1-555-0512'},
+                ],
+            },
+        ]
+
+        for voip_item in voip_data:
+            org_index = voip_item.pop('org_index')
+            assignments_data = voip_item.pop('assignments', [])
+            voip = VoIP.objects.create(
+                organization=organizations[org_index],
+                created_by=random.choice(users),
+                **voip_item
+            )
+            voip_list.append(voip)
+
+            # Create assignments
+            for assignment in assignments_data:
+                contact_index = assignment.pop('contact_index')
+                VoIPAssignment.objects.create(
+                    voip=voip,
+                    contact=contacts[contact_index],
+                    created_by=random.choice(users),
+                    **assignment
+                )
+
+        return voip_list
