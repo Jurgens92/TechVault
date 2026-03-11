@@ -198,10 +198,12 @@ class Command(BaseCommand):
 
         organizations = []
         for org_data in organizations_data:
-            org, created = Organization.objects.get_or_create(
+            org, created = Organization.all_objects.get_or_create(
                 name=org_data['name'],
                 defaults={**org_data, 'created_by': random.choice(users)}
             )
+            if not created and org.is_deleted:
+                org.restore()
             organizations.append(org)
 
         return organizations
@@ -211,7 +213,7 @@ class Command(BaseCommand):
         memberships = []
         for org in organizations:
             for user in users:
-                membership, created = OrganizationMember.objects.get_or_create(
+                membership, created = OrganizationMember.all_objects.get_or_create(
                     organization=org,
                     user=user,
                     defaults={
@@ -220,6 +222,8 @@ class Command(BaseCommand):
                         'created_by': user
                     }
                 )
+                if not created and membership.is_deleted:
+                    membership.restore()
                 if created:
                     memberships.append(membership)
         return memberships
@@ -315,11 +319,13 @@ class Command(BaseCommand):
 
         for loc_data in locations_data:
             org_index = loc_data.pop('org_index')
-            location, created = Location.objects.get_or_create(
+            location, created = Location.all_objects.get_or_create(
                 organization=organizations[org_index],
                 name=loc_data['name'],
                 defaults={**loc_data, 'created_by': random.choice(users)}
             )
+            if not created and location.is_deleted:
+                location.restore()
             locations.append(location)
 
         return locations
@@ -688,7 +694,7 @@ class Command(BaseCommand):
         for contact_data in contacts_data:
             org_index = contact_data.pop('org_index')
             location_index = contact_data.pop('location_index')
-            contact, created = Contact.objects.get_or_create(
+            contact, created = Contact.all_objects.get_or_create(
                 organization=organizations[org_index],
                 email=contact_data['email'],
                 defaults={
@@ -697,6 +703,8 @@ class Command(BaseCommand):
                     'created_by': random.choice(users)
                 }
             )
+            if not created and contact.is_deleted:
+                contact.restore()
             contacts.append(contact)
 
         return contacts
