@@ -673,6 +673,12 @@ function EndpointUsersList({
               {user.operating_system && (
                 <p className="text-sm text-muted-foreground mt-1">{user.operating_system}</p>
               )}
+                {/* Location display */}
+                {(user.location_name || user.location) && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Location: {user.location_name || user.location}
+                  </p>
+                )}
             </div>
           ))}
         </div>
