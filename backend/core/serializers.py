@@ -284,6 +284,25 @@ class AssignableSerializer(OrganizationOwnedSerializer):
         request = self.context.get('request')
         return request.user if request else None
 
+    def validate(self, data):
+        """Ensure the number of assigned contacts does not exceed the license quantity."""
+        data = super().validate(data)
+        contact_ids = data.get('assigned_contact_ids')
+        if contact_ids is not None:
+            quantity = data.get('quantity')
+            if quantity is None and self.instance:
+                quantity = self.instance.quantity
+            if quantity is None:
+                quantity = 1
+            if len(contact_ids) > quantity:
+                raise serializers.ValidationError({
+                    'assigned_contact_ids': (
+                        f'Cannot assign {len(contact_ids)} users. '
+                        f'Only {quantity} license(s) available.'
+                    )
+                })
+        return data
+
     def create(self, validated_data):
         contact_ids = validated_data.pop('assigned_contact_ids', [])
         instance = self.Meta.model.objects.create(**validated_data)

@@ -1017,13 +1017,17 @@ function SoftwareList({
 
                 <div className="mb-3 p-2 bg-accent/30 rounded">
                   <p className="text-sm font-medium">
-                    License Usage: <span className="text-primary">{sw.assigned_count}/{sw.quantity}</span>
+                    License Usage:{' '}
+                    <span className={sw.assigned_count > sw.quantity ? 'text-destructive' : 'text-primary'}>
+                      {sw.assigned_count}/{sw.quantity}
+                      {sw.assigned_count > sw.quantity && ' (over-allocated)'}
+                    </span>
                   </p>
                   <div className="w-full bg-accent rounded-full h-1.5 mt-1">
                     <div
-                      className="bg-primary h-1.5 rounded-full transition-all"
+                      className={`h-1.5 rounded-full transition-all ${sw.assigned_count > sw.quantity ? 'bg-destructive' : 'bg-primary'}`}
                       style={{
-                        width: `${sw.quantity > 0 ? (sw.assigned_count / sw.quantity) * 100 : 0}%`,
+                        width: `${sw.quantity > 0 ? Math.min((sw.assigned_count / sw.quantity) * 100, 100) : 0}%`,
                       }}
                     />
                   </div>
@@ -1157,13 +1161,17 @@ function VoIPList({
 
                 <div className="mb-3 p-2 bg-accent/30 rounded">
                   <p className="text-sm font-medium">
-                    License Usage: <span className="text-primary">{v.assigned_count}/{v.quantity}</span>
+                    License Usage:{' '}
+                    <span className={v.assigned_count > v.quantity ? 'text-destructive' : 'text-primary'}>
+                      {v.assigned_count}/{v.quantity}
+                      {v.assigned_count > v.quantity && ' (over-allocated)'}
+                    </span>
                   </p>
                   <div className="w-full bg-accent rounded-full h-1.5 mt-1">
                     <div
-                      className="bg-primary h-1.5 rounded-full transition-all"
+                      className={`h-1.5 rounded-full transition-all ${v.assigned_count > v.quantity ? 'bg-destructive' : 'bg-primary'}`}
                       style={{
-                        width: `${v.quantity > 0 ? (v.assigned_count / v.quantity) * 100 : 0}%`,
+                        width: `${v.quantity > 0 ? Math.min((v.assigned_count / v.quantity) * 100, 100) : 0}%`,
                       }}
                     />
                   </div>

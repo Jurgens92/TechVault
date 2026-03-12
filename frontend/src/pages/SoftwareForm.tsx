@@ -115,6 +115,9 @@ export function SoftwareForm({ editId, onSave, onCancel, isModal }: SoftwareForm
 
   const handleAddContact = (contactId: string) => {
     if (!formData.assigned_contact_ids.includes(contactId)) {
+      if (formData.assigned_contact_ids.length >= formData.quantity) {
+        return;
+      }
       setFormData({
         ...formData,
         assigned_contact_ids: [...formData.assigned_contact_ids, contactId],
@@ -205,7 +208,12 @@ export function SoftwareForm({ editId, onSave, onCancel, isModal }: SoftwareForm
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">Assign To Users</label>
+            <label className="block text-sm font-medium mb-2">
+              Assign To Users
+              <span className="text-muted-foreground font-normal ml-2">
+                ({formData.assigned_contact_ids.length}/{formData.quantity} licenses used)
+              </span>
+            </label>
             <div className="relative">
               <div
                 className="w-full px-3 py-2 border border-input rounded-md bg-background min-h-[42px] cursor-pointer flex items-center justify-between"
@@ -255,23 +263,30 @@ export function SoftwareForm({ editId, onSave, onCancel, isModal }: SoftwareForm
                         No users found
                       </div>
                     ) : (
-                      filteredContacts.map((contact) => (
+                      filteredContacts.map((contact) => {
+                        const isAssigned = formData.assigned_contact_ids.includes(contact.id);
+                        const atCapacity = !isAssigned && formData.assigned_contact_ids.length >= formData.quantity;
+                        return (
                         <div
                           key={contact.id}
-                          className={`px-3 py-2 text-sm cursor-pointer flex items-center justify-between hover:bg-accent ${
-                            formData.assigned_contact_ids.includes(contact.id) ? 'bg-primary/10' : ''
+                          className={`px-3 py-2 text-sm flex items-center justify-between ${
+                            isAssigned ? 'bg-primary/10 cursor-pointer hover:bg-accent' : atCapacity ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-accent'
                           }`}
-                          onClick={() => handleAddContact(contact.id)}
+                          onClick={() => !atCapacity && handleAddContact(contact.id)}
                         >
                           <div>
                             <p className="font-medium">{contact.full_name}</p>
                             <p className="text-xs text-muted-foreground">{contact.email}</p>
                           </div>
-                          {formData.assigned_contact_ids.includes(contact.id) && (
+                          {isAssigned && (
                             <span className="text-primary">✓</span>
                           )}
+                          {atCapacity && (
+                            <span className="text-xs text-muted-foreground">No licenses available</span>
+                          )}
                         </div>
-                      ))
+                        );
+                      })
                     )}
                   </div>
                 </div>
