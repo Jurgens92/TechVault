@@ -18,6 +18,7 @@ export function VoIPForm({ editId, onSave, onCancel, isModal }: VoIPFormProps = 
   const { selectedOrg } = useOrganization();
   const id = editId ?? paramId;
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
@@ -90,8 +91,16 @@ export function VoIPForm({ editId, onSave, onCancel, isModal }: VoIPFormProps = 
     e.preventDefault();
     if (!selectedOrg) return;
 
+    if (formData.assigned_contact_ids.length > formData.quantity) {
+      setError(
+        `Cannot save: ${formData.assigned_contact_ids.length} users are assigned but only ${formData.quantity} license(s) available. Remove ${formData.assigned_contact_ids.length - formData.quantity} user(s) or increase the license quantity.`
+      );
+      return;
+    }
+
     try {
       setLoading(true);
+      setError(null);
       const data = {
         ...formData,
         organization: selectedOrg.id,
@@ -110,8 +119,22 @@ export function VoIPForm({ editId, onSave, onCancel, isModal }: VoIPFormProps = 
       } else {
         navigate('/endpoints?tab=voip');
       }
-    } catch (error) {
-      console.error('Failed to save VoIP:', error);
+    } catch (err: unknown) {
+      console.error('Failed to save VoIP:', err);
+      if (err && typeof err === 'object' && 'response' in err) {
+        const axiosErr = err as { response?: { data?: Record<string, unknown> } };
+        const data = axiosErr.response?.data;
+        if (data) {
+          const messages = Object.entries(data)
+            .map(([key, val]) => `${key}: ${Array.isArray(val) ? val.join(', ') : val}`)
+            .join('. ');
+          setError(messages);
+        } else {
+          setError('Failed to save VoIP service. Please try again.');
+        }
+      } else {
+        setError('Failed to save VoIP service. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -378,10 +401,25 @@ export function VoIPForm({ editId, onSave, onCancel, isModal }: VoIPFormProps = 
             <input
               type="number"
               value={formData.quantity}
-              onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 1 })}
-              className="w-full px-3 py-2 border border-input rounded-md bg-background"
+              onChange={(e) => {
+                const newQuantity = parseInt(e.target.value) || 1;
+                setFormData({ ...formData, quantity: newQuantity });
+                if (formData.assigned_contact_ids.length > newQuantity) {
+                  setError(
+                    `${formData.assigned_contact_ids.length} users are currently assigned. Remove ${formData.assigned_contact_ids.length - newQuantity} user(s) before reducing to ${newQuantity} license(s).`
+                  );
+                } else {
+                  setError(null);
+                }
+              }}
+              className={`w-full px-3 py-2 border rounded-md bg-background ${formData.assigned_contact_ids.length > formData.quantity ? 'border-destructive' : 'border-input'}`}
               min="1"
             />
+            {formData.assigned_contact_ids.length > formData.quantity && (
+              <p className="mt-1 text-xs text-destructive">
+                {formData.assigned_contact_ids.length} users assigned, exceeds {formData.quantity} license(s)
+              </p>
+            )}
           </div>
         </div>
 
@@ -441,10 +479,16 @@ export function VoIPForm({ editId, onSave, onCancel, isModal }: VoIPFormProps = 
           </div>
         </div>
 
+        {error && (
+          <div className="p-4 border border-destructive/50 bg-destructive/10 rounded-lg">
+            <p className="text-sm text-destructive">{error}</p>
+          </div>
+        )}
+
         <div className="flex gap-4">
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || formData.assigned_contact_ids.length > formData.quantity}
             className="flex items-center gap-2 px-6 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50"
           >
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
