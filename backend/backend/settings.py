@@ -220,7 +220,7 @@ if not DEBUG and CORS_ALLOW_ALL_ORIGINS:
 # CSRF Trusted Origins - required by Django 4+ for HTTPS
 # Without this, all POST requests fail with CSRF errors when using HTTPS
 _csrf_trusted = config('CSRF_TRUSTED_ORIGINS', default='', cast=str)
-if _csrf_trusted:
+if isinstance(_csrf_trusted, str) and _csrf_trusted:
     CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in _csrf_trusted.split(',') if origin.strip()]
 
 # REST Framework Settings
