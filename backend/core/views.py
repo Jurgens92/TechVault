@@ -3,23 +3,84 @@ import io
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from django.db.models import Q
 from django.http import HttpResponse
 from .models import (
     Organization, Location, Contact, Documentation,
     PasswordEntry, Configuration, NetworkDevice, EndpointUser, Server, Peripheral, Software, Backup, VoIP,
     DocumentationVersion, PasswordEntryVersion, ConfigurationVersion,
-    OrganizationMember, EntityVersion
+    OrganizationMember, EntityVersion, AuditLog
 )
 from .serializers import (
     OrganizationSerializer, LocationSerializer, ContactSerializer,
     DocumentationSerializer, PasswordEntrySerializer, ConfigurationSerializer,
     NetworkDeviceSerializer, EndpointUserSerializer, ServerSerializer, PeripheralSerializer, SoftwareSerializer, BackupSerializer, VoIPSerializer,
     DocumentationVersionSerializer, PasswordEntryVersionSerializer, ConfigurationVersionSerializer,
-    EntityVersionSerializer
+    EntityVersionSerializer, AuditLogSerializer
 )
 from .permissions import IsOrganizationMember, IsOrganizationAdmin
+
+
+def _get_client_ip(request):
+    """Extract client IP from request."""
+    x_forwarded = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded:
+        return x_forwarded.split(',')[0].strip()
+    return request.META.get('REMOTE_ADDR')
+
+
+def _get_entity_name(instance):
+    """Get a human-readable name for an entity."""
+    for attr in ('name', 'title', 'full_name', 'email'):
+        val = getattr(instance, attr, None)
+        if val:
+            return str(val)
+    return str(instance.pk)
+
+
+def _get_org_name(instance):
+    """Get the organization name for an entity, if applicable."""
+    if isinstance(instance, Organization):
+        return instance.name
+    org = getattr(instance, 'organization', None)
+    if org:
+        return org.name
+    return ''
+
+
+class AuditLogMixin:
+    """Mixin that automatically logs create, update, and delete actions.
+
+    Place this FIRST in the MRO so its perform_* methods wrap the real ones.
+    """
+
+    def _log_action(self, action, instance):
+        request = getattr(self, 'request', None)
+        if not request:
+            return
+        entity_type = instance.__class__.__name__
+        AuditLog.log(
+            user=request.user,
+            action=action,
+            entity_type=entity_type,
+            entity_id=str(instance.pk),
+            entity_name=_get_entity_name(instance),
+            organization_name=_get_org_name(instance),
+            ip_address=_get_client_ip(request),
+        )
+
+    def perform_create(self, serializer):
+        super().perform_create(serializer)
+        self._log_action('create', serializer.instance)
+
+    def perform_update(self, serializer):
+        super().perform_update(serializer)
+        self._log_action('update', serializer.instance)
+
+    def perform_destroy(self, instance):
+        self._log_action('delete', instance)
+        super().perform_destroy(instance)
 
 
 class SecureQuerySetMixin:
@@ -282,6 +343,9 @@ class SoftDeleteViewSetMixin:
     def destroy(self, request, *args, **kwargs):
         """Override destroy to perform soft delete instead of hard delete."""
         instance = self.get_object()
+        # Audit log the delete action
+        if hasattr(self, '_log_action'):
+            self._log_action('delete', instance)
         instance.delete(user=request.user)
         return Response(
             {'detail': 'Item moved to deleted items. You can restore it from the Deleted Items section.'},
@@ -309,6 +373,9 @@ class SoftDeleteViewSetMixin:
                     status=status.HTTP_400_BAD_REQUEST
                 )
             instance.restore()
+            # Audit log the restore action
+            if hasattr(self, '_log_action'):
+                self._log_action('restore', instance)
             serializer = self.get_serializer(instance)
             return Response(
                 {'detail': 'Item restored successfully.', 'data': serializer.data},
@@ -403,7 +470,7 @@ class LocationFilterMixin(OrganizationFilterMixin):
         return Response([], status=status.HTTP_400_BAD_REQUEST)
 
 
-class OrganizationViewSet(SecureQuerySetMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+class OrganizationViewSet(AuditLogMixin, SecureQuerySetMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for Organization CRUD operations."""
     serializer_class = OrganizationSerializer
     permission_classes = [IsAuthenticated, IsOrganizationMember]
@@ -469,7 +536,7 @@ class OrganizationViewSet(SecureQuerySetMixin, SoftDeleteViewSetMixin, viewsets.
         })
 
 
-class LocationViewSet(SecureQuerySetMixin, OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+class LocationViewSet(AuditLogMixin, SecureQuerySetMixin, OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for Location CRUD operations."""
     serializer_class = LocationSerializer
     permission_classes = [IsAuthenticated, IsOrganizationMember]
@@ -487,7 +554,7 @@ class LocationViewSet(SecureQuerySetMixin, OrganizationFilterMixin, SoftDeleteVi
         serializer.save(created_by=self.request.user)
 
 
-class ContactViewSet(SecureQuerySetMixin, LocationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+class ContactViewSet(AuditLogMixin, SecureQuerySetMixin, LocationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for Contact CRUD operations."""
     serializer_class = ContactSerializer
     permission_classes = [IsAuthenticated, IsOrganizationMember]
@@ -644,7 +711,7 @@ class ContactViewSet(SecureQuerySetMixin, LocationFilterMixin, SoftDeleteViewSet
             )
 
 
-class DocumentationViewSet(SecureQuerySetMixin, OrganizationFilterMixin, VersionHistoryMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+class DocumentationViewSet(AuditLogMixin, SecureQuerySetMixin, OrganizationFilterMixin, VersionHistoryMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for Documentation CRUD operations."""
     serializer_class = DocumentationSerializer
     permission_classes = [IsAuthenticated, IsOrganizationMember]
@@ -684,7 +751,7 @@ class DocumentationViewSet(SecureQuerySetMixin, OrganizationFilterMixin, Version
         return Response({'status': 'documentation unpublished'})
 
 
-class PasswordEntryViewSet(SecureQuerySetMixin, OrganizationFilterMixin, VersionHistoryMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+class PasswordEntryViewSet(AuditLogMixin, SecureQuerySetMixin, OrganizationFilterMixin, VersionHistoryMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for PasswordEntry CRUD operations."""
     serializer_class = PasswordEntrySerializer
     permission_classes = [IsAuthenticated, IsOrganizationMember]
@@ -748,7 +815,7 @@ class PasswordEntryViewSet(SecureQuerySetMixin, OrganizationFilterMixin, Version
             )
 
 
-class ConfigurationViewSet(SecureQuerySetMixin, OrganizationFilterMixin, VersionHistoryMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+class ConfigurationViewSet(AuditLogMixin, SecureQuerySetMixin, OrganizationFilterMixin, VersionHistoryMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for Configuration CRUD operations."""
     serializer_class = ConfigurationSerializer
     permission_classes = [IsAuthenticated, IsOrganizationMember]
@@ -774,7 +841,7 @@ class ConfigurationViewSet(SecureQuerySetMixin, OrganizationFilterMixin, Version
         self._create_version(instance, 'Initial version')
 
 
-class NetworkDeviceViewSet(SecureQuerySetMixin, OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+class NetworkDeviceViewSet(AuditLogMixin, SecureQuerySetMixin, OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for NetworkDevice CRUD operations."""
     serializer_class = NetworkDeviceSerializer
     permission_classes = [IsAuthenticated, IsOrganizationMember]
@@ -792,7 +859,7 @@ class NetworkDeviceViewSet(SecureQuerySetMixin, OrganizationFilterMixin, SoftDel
         serializer.save(created_by=self.request.user)
 
 
-class EndpointUserViewSet(SecureQuerySetMixin, OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+class EndpointUserViewSet(AuditLogMixin, SecureQuerySetMixin, OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for EndpointUser CRUD operations."""
     serializer_class = EndpointUserSerializer
     permission_classes = [IsAuthenticated, IsOrganizationMember]
@@ -943,7 +1010,7 @@ class EndpointUserViewSet(SecureQuerySetMixin, OrganizationFilterMixin, SoftDele
             return Response({'error': 'Error processing CSV file'}, status=status.HTTP_400_BAD_REQUEST)
 
 
-class ServerViewSet(SecureQuerySetMixin, OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+class ServerViewSet(AuditLogMixin, SecureQuerySetMixin, OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for Server CRUD operations."""
     serializer_class = ServerSerializer
     permission_classes = [IsAuthenticated, IsOrganizationMember]
@@ -961,7 +1028,7 @@ class ServerViewSet(SecureQuerySetMixin, OrganizationFilterMixin, SoftDeleteView
         serializer.save(created_by=self.request.user)
 
 
-class PeripheralViewSet(SecureQuerySetMixin, OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+class PeripheralViewSet(AuditLogMixin, SecureQuerySetMixin, OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for Peripheral CRUD operations."""
     serializer_class = PeripheralSerializer
     permission_classes = [IsAuthenticated, IsOrganizationMember]
@@ -979,7 +1046,7 @@ class PeripheralViewSet(SecureQuerySetMixin, OrganizationFilterMixin, SoftDelete
         serializer.save(created_by=self.request.user)
 
 
-class SoftwareViewSet(SecureQuerySetMixin, OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+class SoftwareViewSet(AuditLogMixin, SecureQuerySetMixin, OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for Software CRUD operations."""
     serializer_class = SoftwareSerializer
     permission_classes = [IsAuthenticated, IsOrganizationMember]
@@ -1000,7 +1067,7 @@ class SoftwareViewSet(SecureQuerySetMixin, OrganizationFilterMixin, SoftDeleteVi
         serializer.save(created_by=self.request.user)
 
 
-class BackupViewSet(SecureQuerySetMixin, OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+class BackupViewSet(AuditLogMixin, SecureQuerySetMixin, OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for Backup CRUD operations."""
     serializer_class = BackupSerializer
     permission_classes = [IsAuthenticated, IsOrganizationMember]
@@ -1018,7 +1085,7 @@ class BackupViewSet(SecureQuerySetMixin, OrganizationFilterMixin, SoftDeleteView
         serializer.save(created_by=self.request.user)
 
 
-class VoIPViewSet(SecureQuerySetMixin, OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+class VoIPViewSet(AuditLogMixin, SecureQuerySetMixin, OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for VoIP CRUD operations."""
     serializer_class = VoIPSerializer
     permission_classes = [IsAuthenticated, IsOrganizationMember]
@@ -1037,3 +1104,16 @@ class VoIPViewSet(SecureQuerySetMixin, OrganizationFilterMixin, SoftDeleteViewSe
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
+
+
+class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
+    """Read-only viewset for audit logs. Admin only."""
+    serializer_class = AuditLogSerializer
+    permission_classes = [IsAuthenticated, IsAdminUser]
+    filterset_fields = ['action', 'entity_type', 'user']
+    search_fields = ['entity_name', 'entity_type', 'details', 'user__email', 'user__first_name', 'user__last_name']
+    ordering_fields = ['timestamp', 'action', 'entity_type']
+    ordering = ['-timestamp']
+
+    def get_queryset(self):
+        return AuditLog.objects.select_related('user').all()

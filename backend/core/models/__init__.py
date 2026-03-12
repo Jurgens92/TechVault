@@ -37,6 +37,9 @@ from .backup import Backup
 # VoIP models
 from .voip import VoIP, VoIPAssignment
 
+# Audit models
+from .audit import AuditLog
+
 __all__ = [
     # Base
     'SoftDeleteManager',
@@ -74,4 +77,6 @@ __all__ = [
     # VoIP
     'VoIP',
     'VoIPAssignment',
+    # Audit
+    'AuditLog',
 ]
