@@ -489,6 +489,6 @@ class AuditLogSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'user', 'user_email', 'user_name', 'action',
             'entity_type', 'entity_id', 'entity_name',
-            'organization_name', 'details', 'ip_address', 'timestamp',
+            'organization_name', 'details', 'changes', 'ip_address', 'timestamp',
         ]
         read_only_fields = fields

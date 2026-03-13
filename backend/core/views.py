@@ -53,9 +53,69 @@ class AuditLogMixin:
     """Mixin that automatically logs create, update, and delete actions.
 
     Place this FIRST in the MRO so its perform_* methods wrap the real ones.
+    Captures field-level changes for update actions.
     """
 
-    def _log_action(self, action, instance):
+    # Fields that should never appear in audit change data
+    SENSITIVE_FIELDS = frozenset({
+        'password', 'password_hash', 'secret_key', 'encryption_key',
+        'token', 'api_key', 'secret',
+    })
+
+    # Internal/meta fields to exclude from change tracking
+    EXCLUDED_FIELDS = frozenset({
+        'id', 'pk', 'created_at', 'updated_at', 'created_by',
+        'deleted_at', 'deleted_by', '_state',
+    })
+
+    def _get_trackable_fields(self, instance):
+        """Get model field names worth tracking."""
+        fields = []
+        for f in instance._meta.get_fields():
+            if not hasattr(f, 'attname'):
+                continue
+            name = f.attname
+            if name in self.EXCLUDED_FIELDS or name in self.SENSITIVE_FIELDS:
+                continue
+            fields.append(name)
+        return fields
+
+    def _snapshot(self, instance):
+        """Take a snapshot of trackable field values."""
+        snapshot = {}
+        for name in self._get_trackable_fields(instance):
+            val = getattr(instance, name, None)
+            # Convert non-JSON-serializable types to strings
+            if val is not None and not isinstance(val, (str, int, float, bool, list, dict)):
+                val = str(val)
+            snapshot[name] = val
+        return snapshot
+
+    def _compute_diff(self, old_snapshot, new_snapshot):
+        """Compute field-level differences between two snapshots."""
+        changes = []
+        all_keys = set(old_snapshot) | set(new_snapshot)
+        for key in sorted(all_keys):
+            old_val = old_snapshot.get(key)
+            new_val = new_snapshot.get(key)
+            if old_val != new_val:
+                changes.append({
+                    'field': key,
+                    'old': old_val,
+                    'new': new_val,
+                })
+        return changes
+
+    def _build_field_summary(self, instance, action):
+        """Build field values summary for create/delete actions."""
+        snapshot = self._snapshot(instance)
+        fields = []
+        for key, val in sorted(snapshot.items()):
+            if val is not None and val != '':
+                fields.append({'field': key, 'value': val})
+        return fields
+
+    def _log_action(self, action, instance, changes=None):
         request = getattr(self, 'request', None)
         if not request:
             return
@@ -67,19 +127,28 @@ class AuditLogMixin:
             entity_id=str(instance.pk),
             entity_name=_get_entity_name(instance),
             organization_name=_get_org_name(instance),
+            changes=changes,
             ip_address=_get_client_ip(request),
         )
 
     def perform_create(self, serializer):
         super().perform_create(serializer)
-        self._log_action('create', serializer.instance)
+        instance = serializer.instance
+        fields = self._build_field_summary(instance, 'create')
+        self._log_action('create', instance, changes={'fields': fields})
 
     def perform_update(self, serializer):
+        instance = self.get_object()
+        old_snapshot = self._snapshot(instance)
         super().perform_update(serializer)
-        self._log_action('update', serializer.instance)
+        instance.refresh_from_db()
+        new_snapshot = self._snapshot(instance)
+        diff = self._compute_diff(old_snapshot, new_snapshot)
+        self._log_action('update', instance, changes={'diff': diff} if diff else None)
 
     def perform_destroy(self, instance):
-        self._log_action('delete', instance)
+        fields = self._build_field_summary(instance, 'delete')
+        self._log_action('delete', instance, changes={'fields': fields})
         super().perform_destroy(instance)
 
 

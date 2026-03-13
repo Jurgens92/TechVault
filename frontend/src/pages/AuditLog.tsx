@@ -8,6 +8,8 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   Filter,
   X,
   Plus,
@@ -19,8 +21,10 @@ import {
   Download,
   Upload,
   User,
+  ArrowRight,
+  Info,
 } from 'lucide-react';
-import { auditAPI, AuditLogEntry } from '@/services/audit';
+import { auditAPI, AuditLogEntry, AuditChangeDiff, AuditChangeField } from '@/services/audit';
 
 const ACTION_LABELS: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
   create: { label: 'Created', color: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400', icon: <Plus className="h-3.5 w-3.5" /> },
@@ -48,6 +52,13 @@ const formatEntityType = (type: string): string => {
     .trim();
 };
 
+const formatFieldName = (field: string): string => {
+  return field
+    .replace(/_id$/, '')
+    .replace(/_/g, ' ')
+    .replace(/^./, s => s.toUpperCase());
+};
+
 const formatTimestamp = (ts: string): string => {
   const date = new Date(ts);
   return date.toLocaleString(undefined, {
@@ -60,6 +71,116 @@ const formatTimestamp = (ts: string): string => {
   });
 };
 
+const formatValue = (val: any): string => {
+  if (val === null || val === undefined) return '-';
+  if (val === '') return '(empty)';
+  if (typeof val === 'boolean') return val ? 'Yes' : 'No';
+  return String(val);
+};
+
+const DiffView: React.FC<{ diff: AuditChangeDiff[] }> = ({ diff }) => {
+  if (!diff.length) {
+    return <p className="text-sm text-muted-foreground italic">No field changes recorded.</p>;
+  }
+  return (
+    <div className="space-y-1">
+      {diff.map((change, idx) => (
+        <div key={idx} className="flex items-start gap-2 text-sm py-1.5 border-b border-border/30 last:border-0">
+          <span className="font-medium text-foreground min-w-[140px] shrink-0">
+            {formatFieldName(change.field)}
+          </span>
+          <span className="text-red-600 dark:text-red-400 line-through break-all max-w-[300px]">
+            {formatValue(change.old)}
+          </span>
+          <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+          <span className="text-green-600 dark:text-green-400 break-all max-w-[300px]">
+            {formatValue(change.new)}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const FieldsView: React.FC<{ fields: AuditChangeField[]; action: string }> = ({ fields, action }) => {
+  if (!fields.length) {
+    return <p className="text-sm text-muted-foreground italic">No field data recorded.</p>;
+  }
+  const colorClass = action === 'delete'
+    ? 'text-red-600 dark:text-red-400'
+    : 'text-green-600 dark:text-green-400';
+  return (
+    <div className="space-y-1">
+      {fields.map((f, idx) => (
+        <div key={idx} className="flex items-start gap-2 text-sm py-1.5 border-b border-border/30 last:border-0">
+          <span className="font-medium text-foreground min-w-[140px] shrink-0">
+            {formatFieldName(f.field)}
+          </span>
+          <span className={`${colorClass} break-all max-w-[400px]`}>
+            {formatValue(f.value)}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const ChangeDetails: React.FC<{ log: AuditLogEntry }> = ({ log }) => {
+  const { changes, action, details, ip_address } = log;
+
+  const hasChanges = changes && (
+    (changes.diff && changes.diff.length > 0) ||
+    (changes.fields && changes.fields.length > 0)
+  );
+
+  return (
+    <div className="px-4 py-4 bg-muted/30 border-t border-border/50">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Change details */}
+        <div>
+          <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-1.5">
+            <Info className="h-4 w-4 text-muted-foreground" />
+            {action === 'update' ? 'Changed Fields' : action === 'create' ? 'Created With' : action === 'delete' ? 'Deleted Values' : 'Details'}
+          </h4>
+          {hasChanges ? (
+            <>
+              {changes.diff && <DiffView diff={changes.diff} />}
+              {changes.fields && <FieldsView fields={changes.fields} action={action} />}
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground italic">
+              {action === 'update' ? 'No field changes detected.' : 'No detailed change data available for this entry.'}
+            </p>
+          )}
+        </div>
+
+        {/* Metadata */}
+        <div>
+          <h4 className="text-sm font-semibold text-foreground mb-3">Metadata</h4>
+          <div className="space-y-2 text-sm">
+            <div className="flex gap-2">
+              <span className="text-muted-foreground min-w-[80px]">Entity ID:</span>
+              <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded break-all">
+                {log.entity_id || '-'}
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <span className="text-muted-foreground min-w-[80px]">IP Address:</span>
+              <span className="font-mono text-xs">{ip_address || '-'}</span>
+            </div>
+            {details && (
+              <div className="flex gap-2">
+                <span className="text-muted-foreground min-w-[80px]">Notes:</span>
+                <span>{details}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const AuditLog: React.FC = () => {
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
   const [loading, setLoading] = useState(false);
@@ -70,7 +191,20 @@ const AuditLog: React.FC = () => {
   const [actionFilter, setActionFilter] = useState('');
   const [entityTypeFilter, setEntityTypeFilter] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const pageSize = 50;
+
+  const toggleRow = (id: string) => {
+    setExpandedRows(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
 
   const loadLogs = useCallback(async () => {
     try {
@@ -95,6 +229,10 @@ const AuditLog: React.FC = () => {
   useEffect(() => {
     loadLogs();
   }, [loadLogs]);
+
+  useEffect(() => {
+    setExpandedRows(new Set());
+  }, [currentPage, searchQuery, actionFilter, entityTypeFilter]);
 
   const totalPages = Math.ceil(totalCount / pageSize);
 
@@ -219,6 +357,7 @@ const AuditLog: React.FC = () => {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border text-left">
+                      <th className="pb-3 pr-2 font-medium text-muted-foreground w-8"></th>
                       <th className="pb-3 pr-4 font-medium text-muted-foreground">Timestamp</th>
                       <th className="pb-3 pr-4 font-medium text-muted-foreground">User</th>
                       <th className="pb-3 pr-4 font-medium text-muted-foreground">Action</th>
@@ -234,38 +373,59 @@ const AuditLog: React.FC = () => {
                         color: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300',
                         icon: null,
                       };
+                      const isExpanded = expandedRows.has(log.id);
+                      const hasDetails = log.changes || log.details;
                       return (
-                        <tr key={log.id} className="border-b border-border/50 hover:bg-muted/50 transition-colors">
-                          <td className="py-3 pr-4 text-muted-foreground whitespace-nowrap">
-                            {formatTimestamp(log.timestamp)}
-                          </td>
-                          <td className="py-3 pr-4">
-                            <div className="flex items-center gap-2">
-                              <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center">
-                                <User className="h-3.5 w-3.5 text-primary" />
+                        <React.Fragment key={log.id}>
+                          <tr
+                            className={`border-b border-border/50 transition-colors ${hasDetails ? 'cursor-pointer hover:bg-muted/50' : ''} ${isExpanded ? 'bg-muted/30' : ''}`}
+                            onClick={() => hasDetails && toggleRow(log.id)}
+                          >
+                            <td className="py-3 pr-2 text-muted-foreground">
+                              {hasDetails && (
+                                isExpanded
+                                  ? <ChevronUp className="h-4 w-4" />
+                                  : <ChevronDown className="h-4 w-4" />
+                              )}
+                            </td>
+                            <td className="py-3 pr-4 text-muted-foreground whitespace-nowrap">
+                              {formatTimestamp(log.timestamp)}
+                            </td>
+                            <td className="py-3 pr-4">
+                              <div className="flex items-center gap-2">
+                                <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center">
+                                  <User className="h-3.5 w-3.5 text-primary" />
+                                </div>
+                                <div>
+                                  <div className="font-medium text-sm">{log.user_name || 'System'}</div>
+                                  <div className="text-xs text-muted-foreground">{log.user_email}</div>
+                                </div>
                               </div>
-                              <div>
-                                <div className="font-medium text-sm">{log.user_name || 'System'}</div>
-                                <div className="text-xs text-muted-foreground">{log.user_email}</div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-3 pr-4">
-                            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${actionInfo.color}`}>
-                              {actionInfo.icon}
-                              {actionInfo.label}
-                            </span>
-                          </td>
-                          <td className="py-3 pr-4 text-muted-foreground">
-                            {formatEntityType(log.entity_type)}
-                          </td>
-                          <td className="py-3 pr-4 font-medium max-w-[200px] truncate" title={log.entity_name}>
-                            {log.entity_name || '-'}
-                          </td>
-                          <td className="py-3 pr-4 text-muted-foreground max-w-[150px] truncate" title={log.organization_name}>
-                            {log.organization_name || '-'}
-                          </td>
-                        </tr>
+                            </td>
+                            <td className="py-3 pr-4">
+                              <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${actionInfo.color}`}>
+                                {actionInfo.icon}
+                                {actionInfo.label}
+                              </span>
+                            </td>
+                            <td className="py-3 pr-4 text-muted-foreground">
+                              {formatEntityType(log.entity_type)}
+                            </td>
+                            <td className="py-3 pr-4 font-medium max-w-[200px] truncate" title={log.entity_name}>
+                              {log.entity_name || '-'}
+                            </td>
+                            <td className="py-3 pr-4 text-muted-foreground max-w-[150px] truncate" title={log.organization_name}>
+                              {log.organization_name || '-'}
+                            </td>
+                          </tr>
+                          {isExpanded && (
+                            <tr>
+                              <td colSpan={7} className="p-0">
+                                <ChangeDetails log={log} />
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
                       );
                     })}
                   </tbody>

@@ -55,6 +55,11 @@ class AuditLog(models.Model):
         default='',
         help_text="Additional details about the action",
     )
+    changes = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Structured change data: field-level diffs for updates, field values for creates/deletes",
+    )
     ip_address = models.GenericIPAddressField(null=True, blank=True)
     timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
 
@@ -73,7 +78,7 @@ class AuditLog(models.Model):
 
     @classmethod
     def log(cls, user, action, entity_type, entity_id='', entity_name='',
-            organization_name='', details='', ip_address=None):
+            organization_name='', details='', changes=None, ip_address=None):
         """Create an audit log entry."""
         return cls.objects.create(
             user=user,
@@ -83,5 +88,6 @@ class AuditLog(models.Model):
             entity_name=str(entity_name),
             organization_name=str(organization_name),
             details=details,
+            changes=changes,
             ip_address=ip_address,
         )

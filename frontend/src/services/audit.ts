@@ -1,5 +1,21 @@
 import api from './api';
 
+export interface AuditChangeField {
+  field: string;
+  value: any;
+}
+
+export interface AuditChangeDiff {
+  field: string;
+  old: any;
+  new: any;
+}
+
+export interface AuditChanges {
+  fields?: AuditChangeField[];
+  diff?: AuditChangeDiff[];
+}
+
 export interface AuditLogEntry {
   id: string;
   user: number | null;
@@ -11,6 +27,7 @@ export interface AuditLogEntry {
   entity_name: string;
   organization_name: string;
   details: string;
+  changes: AuditChanges | null;
   ip_address: string | null;
   timestamp: string;
 }
