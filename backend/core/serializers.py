@@ -2,7 +2,8 @@ from rest_framework import serializers
 from .models import (
     Organization, Location, Contact, Documentation,
     PasswordEntry, Configuration, NetworkDevice, InternetConnection, EndpointUser, Server, Peripheral, Software, SoftwareAssignment, Backup, VoIP, VoIPAssignment,
-    DocumentationVersion, PasswordEntryVersion, ConfigurationVersion
+    DocumentationVersion, PasswordEntryVersion, ConfigurationVersion,
+    AuditLog
 )
 from users.serializers import UserSerializer
 from .encryption import encrypt_password, decrypt_password, is_encrypted
@@ -477,3 +478,17 @@ class EntityVersionSerializer(serializers.ModelSerializer):
     def get_content_type_name(self, obj):
         """Get human-readable name of the versioned entity type."""
         return obj.content_type.model.replace('_', ' ').title()
+
+
+class AuditLogSerializer(serializers.ModelSerializer):
+    user_email = serializers.EmailField(source='user.email', read_only=True, default='')
+    user_name = serializers.CharField(source='user.full_name', read_only=True, default='System')
+
+    class Meta:
+        model = AuditLog
+        fields = [
+            'id', 'user', 'user_email', 'user_name', 'action',
+            'entity_type', 'entity_id', 'entity_name',
+            'organization_name', 'details', 'changes', 'ip_address', 'timestamp',
+        ]
+        read_only_fields = fields

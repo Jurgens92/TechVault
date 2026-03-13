@@ -24,6 +24,7 @@ import {
   KeyRound,
   BarChart3,
   Stethoscope,
+  ClipboardList,
   Sun,
   Moon,
 } from 'lucide-react';
@@ -69,6 +70,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
     { id: 'deleted-items', label: 'Deleted Items', icon: Trash2, path: '/deleted-items' },
     { id: '2fa', label: '2FA Security', icon: KeyRound, path: '/2fa' },
     { id: 'reports', label: 'Reports', icon: BarChart3, path: '/reports' },
+    { id: 'audit-log', label: 'Audit Log', icon: ClipboardList, path: '/audit-log', adminOnly: true },
     { id: 'doctor', label: 'Doctor', icon: Stethoscope, path: '/doctor', adminOnly: true },
     { id: 'settings', label: 'Settings', icon: SettingsIcon, path: '/settings' },
   ].filter(item => !item.adminOnly || isAdmin);

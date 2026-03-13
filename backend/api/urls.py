@@ -13,7 +13,8 @@ from users.twofa_views import (
 from core.views import (
     OrganizationViewSet, LocationViewSet, ContactViewSet,
     DocumentationViewSet, PasswordEntryViewSet, ConfigurationViewSet,
-    NetworkDeviceViewSet, EndpointUserViewSet, ServerViewSet, PeripheralViewSet, SoftwareViewSet, BackupViewSet, VoIPViewSet
+    NetworkDeviceViewSet, EndpointUserViewSet, ServerViewSet, PeripheralViewSet, SoftwareViewSet, BackupViewSet, VoIPViewSet,
+    AuditLogViewSet
 )
 from .views import dashboard_stats, diagram_data, system_health, get_choices, endpoint_counts
 
@@ -34,6 +35,7 @@ router.register(r'software', SoftwareViewSet, basename='software')
 router.register(r'backups', BackupViewSet, basename='backup')
 router.register(r'voip', VoIPViewSet, basename='voip')
 router.register(r'users', UserManagementViewSet, basename='user')
+router.register(r'audit-logs', AuditLogViewSet, basename='audit-log')
 
 urlpatterns = [
     # Router URLs
