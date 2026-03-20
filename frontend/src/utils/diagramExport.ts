@@ -180,7 +180,7 @@ export async function exportAsPDF(
   const checkPageBreak = (requiredSpace: number): void => {
     if (yPosition + requiredSpace > pageHeight - margin - 10) {
       pdf.addPage();
-      yPosition = margin;
+      addHeader();
     }
   };
 
@@ -276,7 +276,14 @@ export async function exportAsPDF(
     const switches = data.network_devices.filter(d => d.device_type === 'switch');
     const wifiDevices = data.network_devices.filter(d => d.device_type === 'wifi');
 
-    const centerX = pageWidth / 2;
+    const centerX = margin + contentWidth / 2;
+
+    // Helper to calculate how many items fit per row within content width
+    const calcItemsPerRow = (itemCount: number, cardWidth: number, gap: number): number => {
+      if (itemCount === 0) return 0;
+      const maxFit = Math.floor((contentWidth + gap) / (cardWidth + gap));
+      return Math.max(1, Math.min(itemCount, maxFit));
+    };
 
     // Internet globe icon (high-quality PNG)
     const internetIconSize = 14;
@@ -305,57 +312,66 @@ export async function exportAsPDF(
       const fwCardWidth = 55;
       const fwCardHeight = 32;
       const fwGap = 8;
-      const totalFwWidth = firewalls.length * fwCardWidth + (firewalls.length - 1) * fwGap;
-      let fwStartX = centerX - totalFwWidth / 2;
+      const fwPerRow = calcItemsPerRow(firewalls.length, fwCardWidth, fwGap);
+      const totalRows = Math.ceil(firewalls.length / fwPerRow);
 
-      firewalls.forEach((fw, idx) => {
-        const x = fwStartX + idx * (fwCardWidth + fwGap);
-        
-        // Card
-        pdf.setFillColor(255, 255, 255);
-        pdf.setDrawColor(200, 200, 200);
-        pdf.setLineWidth(0.3);
-        pdf.roundedRect(x, yPosition, fwCardWidth, fwCardHeight, 2, 2, 'FD');
-        
-        // Firewall/Shield icon (high-quality PNG)
-        const fwIconSize = 11;
-        pdf.addImage(
-          icons.firewall,
-          'PNG',
-          x + fwCardWidth / 2 - fwIconSize / 2,
-          yPosition + 2,
-          fwIconSize,
-          fwIconSize
-        );
-        
-        // Name
-        pdf.setTextColor(...darkColor);
-        pdf.setFontSize(7);
-        pdf.setFont('helvetica', 'bold');
-        const fwName = truncateText(fw.name, fwCardWidth - 6);
-        pdf.text(fwName, x + fwCardWidth/2, yPosition + 17, { align: 'center' });
-        
-        // Details
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(6);
-        pdf.setTextColor(...grayColor);
-        if (fw.manufacturer) {
-          pdf.text(truncateText(fw.manufacturer, fwCardWidth - 6), x + fwCardWidth/2, yPosition + 21, { align: 'center' });
-        }
-        if (fw.internet_speed) {
-          pdf.setTextColor(...blueColor);
-          pdf.text(truncateText(fw.internet_speed, fwCardWidth - 6), x + fwCardWidth/2, yPosition + 25, { align: 'center' });
-        }
-        if (fw.ip_address) {
+      for (let row = 0; row < totalRows; row++) {
+        const rowStart = row * fwPerRow;
+        const rowItems = firewalls.slice(rowStart, rowStart + fwPerRow);
+        const totalFwWidth = rowItems.length * fwCardWidth + (rowItems.length - 1) * fwGap;
+        const fwStartX = centerX - totalFwWidth / 2;
+
+        checkPageBreak(fwCardHeight + 12);
+
+        rowItems.forEach((fw, idx) => {
+          const x = fwStartX + idx * (fwCardWidth + fwGap);
+
+          // Card
+          pdf.setFillColor(255, 255, 255);
+          pdf.setDrawColor(200, 200, 200);
+          pdf.setLineWidth(0.3);
+          pdf.roundedRect(x, yPosition, fwCardWidth, fwCardHeight, 2, 2, 'FD');
+
+          // Firewall/Shield icon (high-quality PNG)
+          const fwIconSize = 11;
+          pdf.addImage(
+            icons.firewall,
+            'PNG',
+            x + fwCardWidth / 2 - fwIconSize / 2,
+            yPosition + 2,
+            fwIconSize,
+            fwIconSize
+          );
+
+          // Name
+          pdf.setTextColor(...darkColor);
+          pdf.setFontSize(7);
+          pdf.setFont('helvetica', 'bold');
+          const fwName = truncateText(fw.name, fwCardWidth - 6);
+          pdf.text(fwName, x + fwCardWidth/2, yPosition + 17, { align: 'center' });
+
+          // Details
+          pdf.setFont('helvetica', 'normal');
+          pdf.setFontSize(6);
           pdf.setTextColor(...grayColor);
-          pdf.setFont('courier', 'normal');
-          pdf.setFontSize(5);
-          pdf.text(fw.ip_address, x + fwCardWidth/2, yPosition + 29, { align: 'center' });
-        }
-      });
-      
-      yPosition += fwCardHeight + 4;
-      
+          if (fw.manufacturer) {
+            pdf.text(truncateText(fw.manufacturer, fwCardWidth - 6), x + fwCardWidth/2, yPosition + 21, { align: 'center' });
+          }
+          if (fw.internet_speed) {
+            pdf.setTextColor(...blueColor);
+            pdf.text(truncateText(fw.internet_speed, fwCardWidth - 6), x + fwCardWidth/2, yPosition + 25, { align: 'center' });
+          }
+          if (fw.ip_address) {
+            pdf.setTextColor(...grayColor);
+            pdf.setFont('courier', 'normal');
+            pdf.setFontSize(5);
+            pdf.text(fw.ip_address, x + fwCardWidth/2, yPosition + 29, { align: 'center' });
+          }
+        });
+
+        yPosition += fwCardHeight + 4;
+      }
+
       // Connection line
       pdf.setDrawColor(...grayColor);
       pdf.setLineWidth(0.5);
@@ -368,49 +384,58 @@ export async function exportAsPDF(
       const swCardWidth = 50;
       const swCardHeight = 26;
       const swGap = 8;
-      const totalSwWidth = switches.length * swCardWidth + (switches.length - 1) * swGap;
-      let swStartX = centerX - totalSwWidth / 2;
+      const swPerRow = calcItemsPerRow(switches.length, swCardWidth, swGap);
+      const totalRows = Math.ceil(switches.length / swPerRow);
 
-      switches.forEach((sw, idx) => {
-        const x = swStartX + idx * (swCardWidth + swGap);
-        
-        // Card
-        pdf.setFillColor(255, 255, 255);
-        pdf.setDrawColor(200, 200, 200);
-        pdf.setLineWidth(0.3);
-        pdf.roundedRect(x, yPosition, swCardWidth, swCardHeight, 2, 2, 'FD');
-        
-        // Switch icon (high-quality PNG)
-        const swIconSize = 10;
-        pdf.addImage(
-          icons.switch,
-          'PNG',
-          x + swCardWidth / 2 - swIconSize / 2,
-          yPosition + 2,
-          swIconSize,
-          swIconSize
-        );
-        
-        // Name
-        pdf.setTextColor(...darkColor);
-        pdf.setFontSize(7);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text(truncateText(sw.name, swCardWidth - 4), x + swCardWidth/2, yPosition + 15, { align: 'center' });
-        
-        // Details
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(5);
-        pdf.setTextColor(...grayColor);
-        if (sw.manufacturer) {
-          pdf.text(truncateText(sw.manufacturer, swCardWidth - 4), x + swCardWidth/2, yPosition + 19, { align: 'center' });
-        }
-        if (sw.ip_address) {
-          pdf.setFont('courier', 'normal');
-          pdf.text(sw.ip_address, x + swCardWidth/2, yPosition + 23, { align: 'center' });
-        }
-      });
-      
-      yPosition += swCardHeight + 6;
+      for (let row = 0; row < totalRows; row++) {
+        const rowStart = row * swPerRow;
+        const rowItems = switches.slice(rowStart, rowStart + swPerRow);
+        const totalSwWidth = rowItems.length * swCardWidth + (rowItems.length - 1) * swGap;
+        const swStartX = centerX - totalSwWidth / 2;
+
+        checkPageBreak(swCardHeight + 8);
+
+        rowItems.forEach((sw, idx) => {
+          const x = swStartX + idx * (swCardWidth + swGap);
+
+          // Card
+          pdf.setFillColor(255, 255, 255);
+          pdf.setDrawColor(200, 200, 200);
+          pdf.setLineWidth(0.3);
+          pdf.roundedRect(x, yPosition, swCardWidth, swCardHeight, 2, 2, 'FD');
+
+          // Switch icon (high-quality PNG)
+          const swIconSize = 10;
+          pdf.addImage(
+            icons.switch,
+            'PNG',
+            x + swCardWidth / 2 - swIconSize / 2,
+            yPosition + 2,
+            swIconSize,
+            swIconSize
+          );
+
+          // Name
+          pdf.setTextColor(...darkColor);
+          pdf.setFontSize(7);
+          pdf.setFont('helvetica', 'bold');
+          pdf.text(truncateText(sw.name, swCardWidth - 4), x + swCardWidth/2, yPosition + 15, { align: 'center' });
+
+          // Details
+          pdf.setFont('helvetica', 'normal');
+          pdf.setFontSize(5);
+          pdf.setTextColor(...grayColor);
+          if (sw.manufacturer) {
+            pdf.text(truncateText(sw.manufacturer, swCardWidth - 4), x + swCardWidth/2, yPosition + 19, { align: 'center' });
+          }
+          if (sw.ip_address) {
+            pdf.setFont('courier', 'normal');
+            pdf.text(sw.ip_address, x + swCardWidth/2, yPosition + 23, { align: 'center' });
+          }
+        });
+
+        yPosition += swCardHeight + 6;
+      }
     }
 
     // WiFi Devices
@@ -418,48 +443,57 @@ export async function exportAsPDF(
       const wifiCardWidth = 60;
       const wifiCardHeight = 20;
       const wifiGap = 6;
-      const totalWifiWidth = wifiDevices.length * wifiCardWidth + (wifiDevices.length - 1) * wifiGap;
-      let wifiStartX = centerX - totalWifiWidth / 2;
+      const wifiPerRow = calcItemsPerRow(wifiDevices.length, wifiCardWidth, wifiGap);
+      const totalRows = Math.ceil(wifiDevices.length / wifiPerRow);
 
-      wifiDevices.forEach((wifi, idx) => {
-        const x = wifiStartX + idx * (wifiCardWidth + wifiGap);
-        
-        // Card - horizontal layout
-        pdf.setFillColor(255, 255, 255);
-        pdf.setDrawColor(200, 200, 200);
-        pdf.setLineWidth(0.3);
-        pdf.roundedRect(x, yPosition, wifiCardWidth, wifiCardHeight, 2, 2, 'FD');
-        
-        // WiFi icon (high-quality PNG)
-        const wifiIconSize = 12;
-        pdf.addImage(
-          icons.wifi,
-          'PNG',
-          x + 3,
-          yPosition + 4,
-          wifiIconSize,
-          wifiIconSize
-        );
-        
-        // Name and details
-        pdf.setTextColor(...darkColor);
-        pdf.setFontSize(6);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text(truncateText(wifi.name, wifiCardWidth - 20), x + 18, yPosition + 6);
-        
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(5);
-        pdf.setTextColor(...grayColor);
-        if (wifi.manufacturer) {
-          pdf.text(truncateText(`${wifi.manufacturer} ${wifi.model || ''}`, wifiCardWidth - 20), x + 18, yPosition + 10);
-        }
-        if (wifi.ip_address) {
-          pdf.setFont('courier', 'normal');
-          pdf.text(wifi.ip_address, x + 18, yPosition + 14);
-        }
-      });
-      
-      yPosition += wifiCardHeight + 6;
+      for (let row = 0; row < totalRows; row++) {
+        const rowStart = row * wifiPerRow;
+        const rowItems = wifiDevices.slice(rowStart, rowStart + wifiPerRow);
+        const totalWifiWidth = rowItems.length * wifiCardWidth + (rowItems.length - 1) * wifiGap;
+        const wifiStartX = centerX - totalWifiWidth / 2;
+
+        checkPageBreak(wifiCardHeight + 8);
+
+        rowItems.forEach((wifi, idx) => {
+          const x = wifiStartX + idx * (wifiCardWidth + wifiGap);
+
+          // Card - horizontal layout
+          pdf.setFillColor(255, 255, 255);
+          pdf.setDrawColor(200, 200, 200);
+          pdf.setLineWidth(0.3);
+          pdf.roundedRect(x, yPosition, wifiCardWidth, wifiCardHeight, 2, 2, 'FD');
+
+          // WiFi icon (high-quality PNG)
+          const wifiIconSize = 12;
+          pdf.addImage(
+            icons.wifi,
+            'PNG',
+            x + 3,
+            yPosition + 4,
+            wifiIconSize,
+            wifiIconSize
+          );
+
+          // Name and details
+          pdf.setTextColor(...darkColor);
+          pdf.setFontSize(6);
+          pdf.setFont('helvetica', 'bold');
+          pdf.text(truncateText(wifi.name, wifiCardWidth - 20), x + 18, yPosition + 6);
+
+          pdf.setFont('helvetica', 'normal');
+          pdf.setFontSize(5);
+          pdf.setTextColor(...grayColor);
+          if (wifi.manufacturer) {
+            pdf.text(truncateText(`${wifi.manufacturer} ${wifi.model || ''}`, wifiCardWidth - 20), x + 18, yPosition + 10);
+          }
+          if (wifi.ip_address) {
+            pdf.setFont('courier', 'normal');
+            pdf.text(wifi.ip_address, x + 18, yPosition + 14);
+          }
+        });
+
+        yPosition += wifiCardHeight + 6;
+      }
     }
 
     yPosition += 8;
@@ -577,8 +611,10 @@ export async function exportAsPDF(
     data.servers.forEach((server, index) => {
       const col = index % cardsPerRow;
 
-      if (col === 0 && index > 0) {
-        yPosition += cardHeight + cardGap;
+      if (col === 0) {
+        if (index > 0) {
+          yPosition += cardHeight + cardGap;
+        }
         checkPageBreak(cardHeight + cardGap);
       }
 
@@ -661,8 +697,10 @@ export async function exportAsPDF(
     data.peripherals.forEach((peripheral, index) => {
       const col = index % cardsPerRow;
 
-      if (col === 0 && index > 0) {
-        yPosition += cardHeight + cardGap;
+      if (col === 0) {
+        if (index > 0) {
+          yPosition += cardHeight + cardGap;
+        }
         checkPageBreak(cardHeight + cardGap);
       }
 
@@ -722,8 +760,10 @@ export async function exportAsPDF(
     data.backups.forEach((backup, index) => {
       const col = index % cardsPerRow;
 
-      if (col === 0 && index > 0) {
-        yPosition += cardHeight + cardGap;
+      if (col === 0) {
+        if (index > 0) {
+          yPosition += cardHeight + cardGap;
+        }
         checkPageBreak(cardHeight + cardGap);
       }
 
@@ -799,8 +839,10 @@ export async function exportAsPDF(
     data.software.forEach((software, index) => {
       const col = index % cardsPerRow;
 
-      if (col === 0 && index > 0) {
-        yPosition += cardHeight + cardGap;
+      if (col === 0) {
+        if (index > 0) {
+          yPosition += cardHeight + cardGap;
+        }
         checkPageBreak(cardHeight + cardGap);
       }
 
@@ -867,8 +909,10 @@ export async function exportAsPDF(
     data.voip.forEach((voip, index) => {
       const col = index % cardsPerRow;
 
-      if (col === 0 && index > 0) {
-        yPosition += cardHeight + cardGap;
+      if (col === 0) {
+        if (index > 0) {
+          yPosition += cardHeight + cardGap;
+        }
         checkPageBreak(cardHeight + cardGap);
       }
 
