@@ -1,3 +1,4 @@
+import { notify } from '@/components/Feedback';
 import { useEffect, useState, useRef } from 'react';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { diagramAPI, locationAPI } from '@/services/core';
@@ -223,7 +224,7 @@ export function Diagram() {
       }
     } catch (error) {
       console.error('Export failed:', error);
-      alert('Failed to export diagram. Please try again.');
+      notify.error('Failed to export diagram. Please try again.');
     } finally {
       setExporting(false);
     }

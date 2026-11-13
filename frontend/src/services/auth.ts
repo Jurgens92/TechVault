@@ -1,4 +1,4 @@
-import api, { setTokens, clearTokens } from './api';
+import api from './api';
 import { LoginCredentials, RegisterData, User, LoginResponse } from '@/types/auth';
 
 export const authService = {
@@ -14,21 +14,10 @@ export const authService = {
       };
     }
 
-    // dj-rest-auth with JWT returns 'access' and 'refresh' (or 'access_token'/'refresh_token' with custom serializer)
-    const { access, refresh, access_token, refresh_token, user } = response.data;
-
-    // Handle both response formats
-    const accessToken = access_token || access;
-    const refreshToken = refresh_token || refresh;
-
-    setTokens({ access: accessToken, refresh: refreshToken });
-
+    // The server sets the session as HttpOnly cookies; tokens in the response body
+    // are intentionally ignored so they are never held by JavaScript.
     return {
-      user,
-      tokens: {
-        access: accessToken,
-        refresh: refreshToken,
-      },
+      user: response.data.user,
       backup_code_used: response.data.backup_code_used,
       remaining_backup_codes: response.data.remaining_backup_codes,
       warning: response.data.warning,
@@ -36,24 +25,9 @@ export const authService = {
     };
   },
 
-  async register(data: RegisterData): Promise<{ user: User; tokens: { access: string; refresh: string } }> {
+  async register(data: RegisterData): Promise<{ user: User }> {
     const response = await api.post('/api/auth/registration/', data);
-    // dj-rest-auth with JWT returns 'access' and 'refresh' (or 'access_token'/'refresh_token' with custom serializer)
-    const { access, refresh, access_token, refresh_token, user } = response.data;
-
-    // Handle both response formats
-    const accessToken = access_token || access;
-    const refreshToken = refresh_token || refresh;
-
-    setTokens({ access: accessToken, refresh: refreshToken });
-
-    return {
-      user,
-      tokens: {
-        access: accessToken,
-        refresh: refreshToken,
-      },
-    };
+    return { user: response.data.user };
   },
 
   async logout(): Promise<void> {
@@ -61,14 +35,24 @@ export const authService = {
       await api.post('/api/auth/logout/');
     } catch (error) {
       console.error('Logout error:', error);
-    } finally {
-      clearTokens();
     }
   },
 
-  async getCurrentUser(): Promise<User> {
-    const response = await api.get('/api/user/profile/');
+  async getCurrentUser(options: { silent?: boolean } = {}): Promise<User> {
+    // silent: used on app start, where "not signed in" is an expected answer and
+    // must not bounce the user to the login page.
+    const response = await api.get('/api/user/profile/', {
+      skipAuthRedirect: options.silent,
+    } as any);
     return response.data;
+  },
+
+  async changePassword(oldPassword: string, newPassword: string): Promise<void> {
+    await api.post('/api/auth/password/change/', {
+      old_password: oldPassword,
+      new_password1: newPassword,
+      new_password2: newPassword,
+    });
   },
 
   async updateProfile(data: Partial<User>): Promise<User> {

@@ -1,3 +1,4 @@
+from django.db import transaction
 from rest_framework import serializers
 from .models import (
     Organization, Location, Contact, Documentation,
@@ -12,13 +13,70 @@ from .encryption import encrypt_password, decrypt_password, is_encrypted
 # Base serializer classes to reduce duplication
 
 class BaseAuditedSerializer(serializers.ModelSerializer):
-    """Base serializer with common audit fields (created_by, deleted_by)."""
+    """
+    Base serializer with common audit fields (created_by, deleted_by) and shared
+    integrity validation:
+
+    - unique_active_fields: field combinations that must be unique among live
+      (non soft-deleted) records. Returns a 400 instead of a database error.
+    - same_organization_fields: related objects that must belong to the same
+      organization as the record itself.
+    """
     created_by = UserSerializer(read_only=True)
     deleted_by = UserSerializer(read_only=True)
+
+    unique_active_fields = ()        # e.g. (('organization', 'name'),)
+    unique_active_message = 'An item with this {field} already exists.'
+    same_organization_fields = ()    # e.g. ('location', 'assigned_to')
 
     class Meta:
         abstract = True
         read_only_fields = ['id', 'created_by', 'created_at', 'updated_at', 'deleted_at', 'deleted_by']
+
+    def get_unique_together_validators(self):
+        """
+        Uniqueness is enforced by validate() below (see unique_active_fields), which
+        understands soft-deleted rows. DRF's auto-generated validators for the
+        conditional database constraints are therefore not used: they would need
+        the read-only deleted_at field, which is never part of the submitted data.
+        """
+        return []
+
+    def _current(self, attrs, name):
+        """Value of a field after this request: submitted value, else the stored one."""
+        if name in attrs:
+            return attrs[name]
+        return getattr(self.instance, name, None) if self.instance is not None else None
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        model = self.Meta.model
+
+        for combo in self.unique_active_fields:
+            if self.instance is not None and not any(f in attrs for f in combo):
+                continue  # none of these fields are changing
+            lookup = {}
+            for f in combo:
+                value = self._current(attrs, f)
+                lookup[f'{f}__iexact' if isinstance(value, str) else f] = value
+            queryset = model.objects.filter(**lookup)
+            if self.instance is not None:
+                queryset = queryset.exclude(pk=self.instance.pk)
+            if queryset.exists():
+                field = combo[-1]
+                raise serializers.ValidationError({
+                    field: self.unique_active_message.format(field=field.replace('_', ' '))
+                })
+
+        organization = self._current(attrs, 'organization')
+        if organization is not None:
+            for f in self.same_organization_fields:
+                related = self._current(attrs, f)
+                if related is not None and related.organization_id != organization.pk:
+                    raise serializers.ValidationError({
+                        f: 'Must belong to the same organization.'
+                    })
+        return attrs
 
 
 class OrganizationOwnedSerializer(BaseAuditedSerializer):
@@ -33,11 +91,16 @@ class LocationOwnedSerializer(OrganizationOwnedSerializer):
     """Base serializer for models that have both organization and location."""
     location_name = serializers.CharField(source='location.name', read_only=True, allow_null=True)
 
+    same_organization_fields = ('location',)
+
     class Meta(OrganizationOwnedSerializer.Meta):
         abstract = True
 
 
 class OrganizationSerializer(BaseAuditedSerializer):
+    unique_active_fields = (('name',),)
+    unique_active_message = 'An organization with this name already exists.'
+
     class Meta(BaseAuditedSerializer.Meta):
         model = Organization
         fields = [
@@ -49,6 +112,9 @@ class OrganizationSerializer(BaseAuditedSerializer):
 
 
 class LocationSerializer(OrganizationOwnedSerializer):
+    unique_active_fields = (('organization', 'name'),)
+    unique_active_message = 'A location with this name already exists in this organization.'
+
     class Meta(OrganizationOwnedSerializer.Meta):
         model = Location
         fields = [
@@ -61,6 +127,9 @@ class LocationSerializer(OrganizationOwnedSerializer):
 
 class ContactSerializer(LocationOwnedSerializer):
     full_name = serializers.CharField(read_only=True)
+
+    unique_active_fields = (('organization', 'email'),)
+    unique_active_message = 'A contact with this email already exists in this organization.'
 
     class Meta(LocationOwnedSerializer.Meta):
         model = Contact
@@ -107,6 +176,7 @@ class PasswordEntrySerializer(OrganizationOwnedSerializer):
             'password', 'has_password', 'url', 'notes', 'category', 'is_encrypted',
             'created_by', 'created_at', 'updated_at', 'deleted_at', 'deleted_by'
         ]
+        read_only_fields = OrganizationOwnedSerializer.Meta.read_only_fields + ['is_encrypted']
         extra_kwargs = {
             'password': {'write_only': True}
         }
@@ -125,7 +195,8 @@ class PasswordEntrySerializer(OrganizationOwnedSerializer):
     def create(self, validated_data):
         """Encrypt password before saving."""
         if 'password' in validated_data and validated_data['password']:
-            validated_data['password'] = encrypt_password(validated_data['password'])
+            # force=True: user input is always plaintext, whatever it looks like
+            validated_data['password'] = encrypt_password(validated_data['password'], force=True)
             validated_data['is_encrypted'] = True
         return super().create(validated_data)
 
@@ -136,12 +207,15 @@ class PasswordEntrySerializer(OrganizationOwnedSerializer):
             validated_data.pop('password', None)  # Remove from validated_data to keep existing
         else:
             # New password provided - encrypt it
-            validated_data['password'] = encrypt_password(validated_data['password'])
+            validated_data['password'] = encrypt_password(validated_data['password'], force=True)
             validated_data['is_encrypted'] = True
         return super().update(instance, validated_data)
 
 
 class ConfigurationSerializer(OrganizationOwnedSerializer):
+    unique_active_fields = (('organization', 'name'),)
+    unique_active_message = 'A configuration with this name already exists in this organization.'
+
     class Meta(OrganizationOwnedSerializer.Meta):
         model = Configuration
         fields = [
@@ -178,6 +252,7 @@ class NetworkDeviceSerializer(LocationOwnedSerializer):
             'created_by', 'created_at', 'updated_at', 'deleted_at', 'deleted_by'
         ]
 
+    @transaction.atomic
     def create(self, validated_data):
         connections_data = validated_data.pop('internet_connections', [])
         device = super().create(validated_data)
@@ -189,6 +264,7 @@ class NetworkDeviceSerializer(LocationOwnedSerializer):
             )
         return device
 
+    @transaction.atomic
     def update(self, instance, validated_data):
         connections_data = validated_data.pop('internet_connections', None)
         device = super().update(instance, validated_data)
@@ -208,6 +284,8 @@ class NetworkDeviceSerializer(LocationOwnedSerializer):
 class EndpointUserSerializer(LocationOwnedSerializer):
     assigned_to_name = serializers.CharField(source='assigned_to.full_name', read_only=True, allow_null=True)
 
+    same_organization_fields = ('location', 'assigned_to')
+
     class Meta(LocationOwnedSerializer.Meta):
         model = EndpointUser
         fields = [
@@ -223,6 +301,24 @@ class EndpointUserSerializer(LocationOwnedSerializer):
 
 class ServerSerializer(LocationOwnedSerializer):
     host_server_name = serializers.CharField(source='host_server.name', read_only=True, allow_null=True)
+
+    same_organization_fields = ('location', 'host_server')
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        host = attrs.get('host_server')
+        if host is not None and self.instance is not None:
+            # Walk up the host chain: a server cannot host itself, directly or indirectly
+            seen = set()
+            current = host
+            while current is not None and current.pk not in seen:
+                if current.pk == self.instance.pk:
+                    raise serializers.ValidationError({
+                        'host_server': 'A server cannot be its own host.'
+                    })
+                seen.add(current.pk)
+                current = current.host_server
+        return attrs
 
     class Meta(LocationOwnedSerializer.Meta):
         model = Server
@@ -285,59 +381,94 @@ class AssignableSerializer(OrganizationOwnedSerializer):
         request = self.context.get('request')
         return request.user if request else None
 
+    def get_assigned_contacts(self, obj):
+        """Assignments, excluding contacts that have been soft-deleted."""
+        return self.assignment_serializer(obj.active_assignments, many=True).data
+
     def validate(self, data):
-        """Ensure the number of assigned contacts does not exceed the license quantity."""
+        """Check license quantity and that assigned contacts belong to the organization."""
         data = super().validate(data)
-        contact_ids = data.get('assigned_contact_ids')
-        if contact_ids is not None:
-            quantity = data.get('quantity')
-            if quantity is None and self.instance:
-                quantity = self.instance.quantity
-            if quantity is None:
-                quantity = 1
-            if len(contact_ids) > quantity:
+        contacts = data.get('assigned_contact_ids')
+
+        quantity = data.get('quantity')
+        if quantity is None and self.instance:
+            quantity = self.instance.quantity
+        if quantity is None:
+            quantity = 1
+
+        if contacts is not None:
+            if len(set(c.pk for c in contacts)) != len(contacts):
                 raise serializers.ValidationError({
-                    'assigned_contact_ids': (
-                        f'Cannot assign {len(contact_ids)} users. '
-                        f'Only {quantity} license(s) available.'
-                    )
+                    'assigned_contact_ids': 'The same user cannot be assigned more than once.'
                 })
+            organization = self._current(data, 'organization')
+            if organization is not None and any(c.organization_id != organization.pk for c in contacts):
+                raise serializers.ValidationError({
+                    'assigned_contact_ids': 'Assigned users must belong to the same organization.'
+                })
+            assigned = len(contacts)
+        else:
+            assigned = self.instance.assigned_count if self.instance else 0
+
+        if assigned > quantity:
+            raise serializers.ValidationError({
+                'assigned_contact_ids' if contacts is not None else 'quantity': (
+                    f'Cannot assign {assigned} users. '
+                    f'Only {quantity} license(s) available.'
+                )
+            })
         return data
 
-    def create(self, validated_data):
-        contact_ids = validated_data.pop('assigned_contact_ids', [])
-        instance = self.Meta.model.objects.create(**validated_data)
+    def _sync_assignments(self, instance, contacts):
+        """
+        Bring assignments in line with the given contacts without recreating the
+        ones that are unchanged (so per-assignment details such as a VoIP
+        extension or phone number are preserved).
+        """
+        existing = {
+            a.contact_id: a
+            for a in self.assignment_model.all_objects.filter(**{self.assignment_field_name: instance})
+        }
+        wanted = {c.pk: c for c in contacts}
         user = self._get_user()
 
-        for contact in contact_ids:
-            self.assignment_model.objects.create(
-                **{self.assignment_field_name: instance},
-                contact=contact,
-                created_by=user
-            )
-        return instance
-
-    def update(self, instance, validated_data):
-        contact_ids = validated_data.pop('assigned_contact_ids', None)
-
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        instance.save()
-
-        if contact_ids is not None:
-            user = self._get_user()
-            getattr(instance, self.assignments_related_name).all().delete()
-            for contact in contact_ids:
+        for contact_id, assignment in existing.items():
+            if contact_id not in wanted:
+                assignment.hard_delete()
+        for contact_id, contact in wanted.items():
+            if contact_id not in existing:
                 self.assignment_model.objects.create(
                     **{self.assignment_field_name: instance},
                     contact=contact,
                     created_by=user
                 )
+        # Drop any stale prefetch so the response reflects the new assignments
+        if hasattr(instance, '_prefetched_objects_cache'):
+            instance._prefetched_objects_cache.pop(self.assignments_related_name, None)
+
+    @transaction.atomic
+    def create(self, validated_data):
+        contacts = validated_data.pop('assigned_contact_ids', [])
+        instance = self.Meta.model.objects.create(**validated_data)
+        self._sync_assignments(instance, contacts)
+        return instance
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        contacts = validated_data.pop('assigned_contact_ids', None)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        if contacts is not None:
+            self._sync_assignments(instance, contacts)
         return instance
 
 
 class SoftwareSerializer(AssignableSerializer):
-    assigned_contacts = SoftwareAssignmentSerializer(source='software_assignments', many=True, read_only=True)
+    assigned_contacts = serializers.SerializerMethodField()
+    assignment_serializer = SoftwareAssignmentSerializer
 
     assignment_model = SoftwareAssignment
     assignment_field_name = 'software'
@@ -380,7 +511,8 @@ class VoIPAssignmentSerializer(BaseAuditedSerializer):
 
 
 class VoIPSerializer(AssignableSerializer):
-    assigned_contacts = VoIPAssignmentSerializer(source='voip_assignments', many=True, read_only=True)
+    assigned_contacts = serializers.SerializerMethodField()
+    assignment_serializer = VoIPAssignmentSerializer
 
     assignment_model = VoIPAssignment
     assignment_field_name = 'voip'

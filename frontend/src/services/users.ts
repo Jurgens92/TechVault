@@ -11,6 +11,7 @@ export interface User {
   date_joined: string;
   twofa_enabled: boolean;
   last_login: string | null;
+  is_locked?: boolean;
 }
 
 export interface CreateUserData {
@@ -35,7 +36,7 @@ export const userManagementService = {
    * Get all users (admin only)
    */
   async getAllUsers(): Promise<User[]> {
-    const response = await api.get('/api/users/');
+    const response = await api.get('/api/users/', { params: { page_size: 1000 } });
     // Handle paginated response if present
     if (response.data && typeof response.data === 'object' && 'results' in response.data) {
       return response.data.results;
@@ -72,6 +73,27 @@ export const userManagementService = {
    */
   async deleteUser(id: number): Promise<void> {
     await api.delete(`/api/users/${id}/`);
+  },
+
+  /**
+   * Set a new password for a user (admin account recovery)
+   */
+  async resetPassword(id: number, password: string): Promise<void> {
+    await api.post(`/api/users/${id}/reset-password/`, { password });
+  },
+
+  /**
+   * Clear a user's 2FA enrolment so they can set it up again at next login
+   */
+  async resetTwoFactor(id: number): Promise<void> {
+    await api.post(`/api/users/${id}/reset-2fa/`);
+  },
+
+  /**
+   * Clear a lockout caused by failed login attempts
+   */
+  async unlock(id: number): Promise<void> {
+    await api.post(`/api/users/${id}/unlock/`);
   },
 };
 

@@ -3,7 +3,6 @@ Two-Factor Authentication (2FA) views for TechVault.
 Implements TOTP-based 2FA with QR code setup and backup codes.
 """
 import base64
-import hashlib
 import io
 import pyotp
 import qrcode
@@ -13,6 +12,8 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.contrib.auth import get_user_model
+
+from users.utils import hash_backup_code, consume_backup_code  # noqa: F401
 
 User = get_user_model()
 
@@ -26,11 +27,6 @@ def generate_backup_codes(count=10):
     return codes
 
 
-def hash_backup_code(code):
-    """Hash a backup code for secure storage."""
-    return hashlib.sha256(code.encode()).hexdigest()
-
-
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def setup_2fa(request):
@@ -39,6 +35,15 @@ def setup_2fa(request):
     Does not enable 2FA - user must verify with enable_2fa endpoint.
     """
     user = request.user
+
+    # Security: never replace the secret of an account that already has 2FA enabled.
+    # Doing so would silently invalidate the user's authenticator (locking them out)
+    # and would let a stolen session re-enrol a new device without any verification.
+    if user.twofa_enabled:
+        return Response(
+            {'error': '2FA is already enabled. Disable it first if you need to set it up again.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
     # Generate a new TOTP secret
     secret = pyotp.random_base32()
@@ -64,7 +69,7 @@ def setup_2fa(request):
 
     # Store secret temporarily (not enabled yet)
     user.twofa_secret = secret
-    user.save()
+    user.save(update_fields=['twofa_secret'])
 
     return Response({
         'secret': secret,
@@ -81,7 +86,7 @@ def enable_2fa(request):
     Also generates backup codes.
     """
     user = request.user
-    token = request.data.get('token')
+    token = str(request.data.get('token') or '').strip().replace(' ', '')
 
     if not token:
         return Response(
@@ -166,7 +171,8 @@ def verify_2fa_token(request):
     Used during login or for verification purposes.
     """
     user = request.user
-    token = request.data.get('token', '').strip().replace('-', '').replace(' ', '')
+    raw_token = str(request.data.get('token') or '')
+    token = raw_token.strip().replace('-', '').replace(' ', '')
 
     if not token:
         return Response(
@@ -189,11 +195,9 @@ def verify_2fa_token(request):
         })
 
     # Check if it's a backup code (remove dashes for comparison)
-    token_hash = hash_backup_code(token.upper())
-    if token_hash in user.twofa_backup_codes:
-        # Remove used backup code
-        user.twofa_backup_codes.remove(token_hash)
-        user.save()
+    if consume_backup_code(user, raw_token):
+        # Used backup code has been removed
+        user.save(update_fields=['twofa_backup_codes'])
 
         remaining = len(user.twofa_backup_codes)
         return Response({

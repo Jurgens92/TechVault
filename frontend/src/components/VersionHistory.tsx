@@ -1,3 +1,4 @@
+import { notify, confirmDialog } from '@/components/Feedback';
 import React, { useState, useEffect } from 'react';
 import {
   DocumentationVersion,
@@ -46,20 +47,20 @@ export function VersionHistory<T extends Version>({
   };
 
   const handleRestore = async (versionNumber: number) => {
-    if (!confirm(`Are you sure you want to restore to version ${versionNumber}?`)) {
+    if (!await confirmDialog(`Are you sure you want to restore to version ${versionNumber}?`)) {
       return;
     }
 
     try {
       setRestoring(true);
       await restoreVersion(entryId, versionNumber);
-      alert(`Successfully restored to version ${versionNumber}`);
+      notify.success(`Successfully restored to version ${versionNumber}`);
       if (onRestore) {
         onRestore();
       }
       loadVersions();
     } catch (err: any) {
-      alert(err.response?.data?.detail || 'Failed to restore version');
+      notify.error(err.response?.data?.detail || 'Failed to restore version');
     } finally {
       setRestoring(false);
     }

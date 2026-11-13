@@ -1,3 +1,5 @@
+import { getErrorMessage } from '@/utils/errors';
+import { notify } from '@/components/Feedback';
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
@@ -14,7 +16,7 @@ export const ConfigurationDetail: React.FC = () => {
 
   useEffect(() => {
     if (id) {
-      configurationAPI.getById(id).then(r => setConfig(r.data)).finally(() => setLoading(false)).catch(() => {});
+      configurationAPI.getById(id).then(r => setConfig(r.data)).finally(() => setLoading(false)).catch((err) => notify.error(getErrorMessage(err, 'Could not load this item.')));
     }
   }, [id]);
 
@@ -25,7 +27,7 @@ export const ConfigurationDetail: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4 mb-8">
         <div className="flex items-center gap-4">
-          <Button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-700"><ArrowLeft className="w-5 h-5" /></Button>
+          <Button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-700" aria-label="Back" title="Back"><ArrowLeft className="w-5 h-5" /></Button>
           <h1 className="text-3xl font-bold text-foreground">{config.name}</h1>
         </div>
         <Button onClick={() => navigate(`/configurations/${id}/edit`)} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"><Edit className="w-4 h-4" /> Edit</Button>

@@ -24,8 +24,9 @@ export const OrganizationProvider: React.FC<{ children: ReactNode }> = ({ childr
   const [error, setError] = useState<string | null>(null);
 
   const loadOrganizations = async (silent: boolean = false) => {
-    // Only load organizations if user is authenticated
-    if (!isAuthenticated) {
+    // Only load organizations once the user is signed in and has completed 2FA
+    // setup (the API refuses business data before that)
+    if (!isAuthenticated || !user?.twofa_enabled) {
       setOrganizations([]);
       setSelectedOrgState(null);
       setLoading(false);
@@ -39,7 +40,8 @@ export const OrganizationProvider: React.FC<{ children: ReactNode }> = ({ childr
         setLoading(true);
       }
       setError(null);
-      const response = await organizationAPI.getAll();
+      // Ask for everything: the default page is 50, which would hide organizations
+      const response = await organizationAPI.getAll({ page_size: 1000 });
       const orgs = response.data?.results || [];
       setOrganizations(orgs);
 
@@ -67,7 +69,7 @@ export const OrganizationProvider: React.FC<{ children: ReactNode }> = ({ childr
   useEffect(() => {
     loadOrganizations();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated]);
+  }, [isAuthenticated, user?.twofa_enabled]);
 
   const setSelectedOrg = (org: Organization | null) => {
     setSelectedOrgState(org);

@@ -1,3 +1,4 @@
+import { notify } from '@/components/Feedback';
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -101,7 +102,7 @@ const Reports: React.FC = () => {
       switch (reportType) {
         case 'organization':
           if (!selectedOrganization) {
-            alert('Please select an organization');
+            notify.error('Please select an organization');
             return;
           }
           request.organization_id = selectedOrganization;
@@ -111,7 +112,7 @@ const Reports: React.FC = () => {
 
         case 'location':
           if (!selectedLocation) {
-            alert('Please select a location');
+            notify.error('Please select a location');
             return;
           }
           request.location_id = selectedLocation;
@@ -144,7 +145,7 @@ const Reports: React.FC = () => {
       }
     } catch (error: any) {
       console.error('Error generating report:', error);
-      alert(`Error generating report: ${error.response?.data?.error || error.message}`);
+      notify.error(`Error generating report: ${error.response?.data?.error || error.message}`);
     } finally {
       setLoading(false);
     }

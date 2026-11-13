@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, LoginCredentials, RegisterData } from '@/types/auth';
 import { authService } from '@/services/auth';
-import { getAccessToken } from '@/services/api';
 
 interface AuthContextType {
   user: User | null;
@@ -34,15 +33,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     // Check if user is already logged in
     const initAuth = async () => {
-      const token = getAccessToken();
-      if (token) {
-        try {
-          const currentUser = await authService.getCurrentUser();
-          setUser(currentUser);
-        } catch (error) {
-          console.error('Failed to fetch user:', error);
-          setUser(null);
-        }
+      // The session lives in HttpOnly cookies, so ask the server who we are.
+      try {
+        const currentUser = await authService.getCurrentUser({ silent: true });
+        setUser(currentUser);
+      } catch {
+        setUser(null);
       }
       setLoading(false);
     };
@@ -85,10 +81,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const logout = async () => {
     try {
       await authService.logout();
+    } finally {
+      // Always clear local state, even if the server could not be reached
       setUser(null);
-    } catch (error) {
-      console.error('Logout failed:', error);
-      throw error;
     }
   };
 

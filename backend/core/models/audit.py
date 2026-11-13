@@ -17,6 +17,7 @@ class AuditLog(models.Model):
         ('import', 'Import'),
         ('login', 'Login'),
         ('logout', 'Logout'),
+        ('view', 'View'),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -74,7 +75,7 @@ class AuditLog(models.Model):
 
     def __str__(self):
         user_display = self.user.full_name if self.user else 'System'
-        return f"{user_display} {self.action}d {self.entity_type} '{self.entity_name}'"
+        return f"{user_display} {self.action} {self.entity_type} '{self.entity_name}'"
 
     @classmethod
     def log(cls, user, action, entity_type, entity_id='', entity_name='',
@@ -85,8 +86,8 @@ class AuditLog(models.Model):
             action=action,
             entity_type=entity_type,
             entity_id=str(entity_id),
-            entity_name=str(entity_name),
-            organization_name=str(organization_name),
+            entity_name=str(entity_name)[:255],
+            organization_name=str(organization_name)[:255],
             details=details,
             changes=changes,
             ip_address=ip_address,

@@ -1,3 +1,4 @@
+import { confirmDialog } from '@/components/Feedback';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
@@ -65,7 +66,7 @@ export const Documentations: React.FC = () => {
   const filteredDocs = getFilteredDocs();
 
   const handleDelete = async (id: string) => {
-    if (window.confirm('Delete this documentation?')) {
+    if (await confirmDialog('Delete this documentation?')) {
       try {
         await documentationAPI.delete(id);
         setDocs(docs.filter(d => d.id !== id));
@@ -114,8 +115,8 @@ export const Documentations: React.FC = () => {
                   <p className="text-gray-500 text-sm mt-2 line-clamp-2">{doc.content}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button onClick={(e) => { e.stopPropagation(); navigate(`/documentations/${doc.id}/edit`); }} className="p-2 hover:bg-gray-700"><Edit className="w-4 h-4" /></Button>
-                  <Button onClick={(e) => { e.stopPropagation(); handleDelete(doc.id); }} className="p-2 hover:bg-red-900/20 text-red-400"><Trash2 className="w-4 h-4" /></Button>
+                  <Button onClick={(e) => { e.stopPropagation(); navigate(`/documentations/${doc.id}/edit`); }} className="p-2 hover:bg-gray-700" aria-label="Edit" title="Edit"><Edit className="w-4 h-4" /></Button>
+                  <Button onClick={(e) => { e.stopPropagation(); handleDelete(doc.id); }} className="p-2 hover:bg-red-900/20 text-red-400" aria-label="Delete" title="Delete"><Trash2 className="w-4 h-4" /></Button>
                   <ChevronRight className="w-5 h-5 text-gray-500 group-hover:text-blue-400" />
                 </div>
               </div>

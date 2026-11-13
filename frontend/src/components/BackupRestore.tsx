@@ -1,3 +1,4 @@
+import { notify, confirmDialog } from '@/components/Feedback';
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -41,15 +42,15 @@ const BackupRestore: React.FC<BackupRestoreProps> = ({ isAdmin }) => {
 
   const handleBackup = async () => {
     if (!backupPassword) {
-      alert('Please enter a backup password to protect your encryption keys.');
+      notify.error('Please enter a backup password to protect your encryption keys.');
       return;
     }
     if (backupPassword !== confirmBackupPassword) {
-      alert('Backup passwords do not match.');
+      notify.error('Backup passwords do not match.');
       return;
     }
     if (backupPassword.length < 8) {
-      alert('Backup password must be at least 8 characters.');
+      notify.error('Backup password must be at least 8 characters.');
       return;
     }
     try {
@@ -69,7 +70,7 @@ const BackupRestore: React.FC<BackupRestoreProps> = ({ isAdmin }) => {
       setBackupPassword('');
       setConfirmBackupPassword('');
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to create backup');
+      notify.error(err.response?.data?.error || 'Failed to create backup');
     } finally {
       setLoading(false);
     }
@@ -77,12 +78,12 @@ const BackupRestore: React.FC<BackupRestoreProps> = ({ isAdmin }) => {
 
   const handleRestore = async () => {
     if (!restoreFile) {
-      alert('Please select a backup file to restore');
+      notify.error('Please select a backup file to restore');
       return;
     }
 
     if (!restoreUsers && !restoreOrganizations) {
-      alert('Please select at least one data type to restore');
+      notify.error('Please select at least one data type to restore');
       return;
     }
 
@@ -91,7 +92,7 @@ const BackupRestore: React.FC<BackupRestoreProps> = ({ isAdmin }) => {
       ? 'WARNING: This will overwrite existing data. Are you sure you want to proceed with the restore?'
       : 'Are you sure you want to restore from this backup?';
 
-    if (!confirm(confirmMessage)) {
+    if (!await confirmDialog(confirmMessage)) {
       return;
     }
 
@@ -110,7 +111,7 @@ const BackupRestore: React.FC<BackupRestoreProps> = ({ isAdmin }) => {
       setRestoreFile(null);
       setRestorePassword('');
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to restore backup');
+      notify.error(err.response?.data?.error || 'Failed to restore backup');
     } finally {
       setLoading(false);
     }
@@ -120,7 +121,7 @@ const BackupRestore: React.FC<BackupRestoreProps> = ({ isAdmin }) => {
     const file = e.target.files?.[0];
     if (file) {
       if (file.type !== 'application/json' && !file.name.endsWith('.json')) {
-        alert('Please select a JSON backup file');
+        notify.error('Please select a JSON backup file');
         return;
       }
       setRestoreFile(file);

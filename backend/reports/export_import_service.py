@@ -13,7 +13,14 @@ from core.models import (
     Documentation, Configuration, PasswordEntry,
     SoftwareAssignment, VoIPAssignment
 )
-from core.encryption import encrypt_password, is_encrypted
+from django.utils.dateparse import parse_datetime
+from core.models import (
+    InternetConnection, DocumentationVersion, PasswordEntryVersion, ConfigurationVersion
+)
+from core.encryption import (
+    encrypt_password, is_encrypted, can_decrypt,
+    protect_encryption_key, recover_encryption_key, re_encrypt_value
+)
 
 User = get_user_model()
 
@@ -28,7 +35,8 @@ class OrganizationExportImportService:
     def export_organizations(
         self,
         organization_ids: Optional[List[str]] = None,
-        include_deleted: bool = False
+        include_deleted: bool = False,
+        export_password: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Export complete organization data for backup purposes.
@@ -36,6 +44,9 @@ class OrganizationExportImportService:
         Args:
             organization_ids: List of organization UUIDs to export (None = all)
             include_deleted: Whether to include soft-deleted records
+            export_password: If given, the server's encryption key is included in the
+                export (protected by this password) so that vault passwords can be
+                read after importing on a different server.
 
         Returns:
             Dictionary containing complete organization data
@@ -60,11 +71,24 @@ class OrganizationExportImportService:
             'organizations': []
         }
 
+        if export_password:
+            export_data['encryption_key_data'] = protect_encryption_key(export_password)
+
         for org in organizations:
             org_data = self._export_organization(org, include_deleted)
             export_data['organizations'].append(org_data)
 
         return export_data
+
+    @staticmethod
+    def _version_meta(version) -> Dict[str, Any]:
+        """Fields common to all version-history rows."""
+        return {
+            'version_number': version.version_number,
+            'change_note': version.change_note,
+            'created_at': version.created_at.isoformat(),
+            'created_by_email': version.created_by.email if version.created_by else None,
+        }
 
     def _export_organization(self, org: Organization, include_deleted: bool) -> Dict[str, Any]:
         """Export a single organization with all related data."""
@@ -165,6 +189,17 @@ class OrganizationExportImportService:
                 'tags': doc.tags,
                 'is_published': doc.is_published,
                 'version': doc.version,
+                'versions': [
+                    {
+                        **self._version_meta(v),
+                        'title': v.title,
+                        'content': v.content,
+                        'category': v.category,
+                        'tags': v.tags,
+                        'is_published': v.is_published,
+                    }
+                    for v in doc.versions.select_related('created_by').order_by('version_number')
+                ],
                 'created_at': doc.created_at.isoformat(),
                 'updated_at': doc.updated_at.isoformat(),
                 'deleted_at': doc.deleted_at.isoformat() if doc.deleted_at else None,
@@ -199,6 +234,23 @@ class OrganizationExportImportService:
                 'notes': pwd.notes,
                 'category': pwd.category,
                 'is_encrypted': password_encrypted,
+                'versions': [
+                    {
+                        **self._version_meta(v),
+                        'name': v.name,
+                        'username': v.username,
+                        # Same rule as the live entry: never export plaintext
+                        'password': (
+                            encrypt_password(v.password)
+                            if v.password and not is_encrypted(v.password) else v.password
+                        ),
+                        'url': v.url,
+                        'notes': v.notes,
+                        'category': v.category,
+                        'is_encrypted': True if v.password else v.is_encrypted,
+                    }
+                    for v in pwd.versions.select_related('created_by').order_by('version_number')
+                ],
                 'created_at': pwd.created_at.isoformat(),
                 'updated_at': pwd.updated_at.isoformat(),
                 'deleted_at': pwd.deleted_at.isoformat() if pwd.deleted_at else None,
@@ -218,6 +270,18 @@ class OrganizationExportImportService:
                 'description': config.description,
                 'version': config.version,
                 'is_active': config.is_active,
+                'versions': [
+                    {
+                        **self._version_meta(v),
+                        'name': v.name,
+                        'config_type': v.config_type,
+                        'content': v.content,
+                        'description': v.description,
+                        'version': v.version,
+                        'is_active': v.is_active,
+                    }
+                    for v in config.versions.select_related('created_by').order_by('version_number')
+                ],
                 'created_at': config.created_at.isoformat(),
                 'updated_at': config.updated_at.isoformat(),
                 'deleted_at': config.deleted_at.isoformat() if config.deleted_at else None,
@@ -237,6 +301,19 @@ class OrganizationExportImportService:
                 'device_type': device.device_type,
                 'internet_provider': device.internet_provider,
                 'internet_speed': device.internet_speed,
+                'internet_connections': [
+                    {
+                        'provider_name': c.provider_name,
+                        'connection_type': c.connection_type,
+                        'download_speed': c.download_speed,
+                        'upload_speed': c.upload_speed,
+                        'is_primary': c.is_primary,
+                        'account_number': c.account_number,
+                        'notes': c.notes,
+                        'is_active': c.is_active,
+                    }
+                    for c in device.internet_connections.all()
+                ],
                 'manufacturer': device.manufacturer,
                 'model': device.model,
                 'ip_address': device.ip_address,
@@ -302,6 +379,9 @@ class OrganizationExportImportService:
                 'cpu': server.cpu,
                 'ram': server.ram,
                 'storage': server.storage,
+                'storage_drives': server.storage_drives,
+                'raid_configuration': server.raid_configuration,
+                'host_server_id': str(server.host_server_id) if server.host_server_id else None,
                 'operating_system': server.operating_system,
                 'software_installed': server.software_installed,
                 'ip_address': server.ip_address,
@@ -453,7 +533,9 @@ class OrganizationExportImportService:
         self,
         import_data: Dict[str, Any],
         overwrite_existing: bool = False,
-        preserve_ids: bool = False
+        preserve_ids: bool = False,
+        source_encryption_key: Optional[str] = None,
+        export_password: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Import organization data from an export file.
@@ -462,6 +544,10 @@ class OrganizationExportImportService:
             import_data: Dictionary containing exported organization data
             overwrite_existing: If True, update existing organizations with same name
             preserve_ids: If True, preserve original UUIDs (may cause conflicts)
+            source_encryption_key: Encryption key of the server that produced the
+                export. Vault passwords are re-encrypted with this server's key.
+            export_password: Password protecting the encryption key embedded in the
+                export file (alternative to source_encryption_key).
 
         Returns:
             Dictionary with import results (success count, errors, etc.)
@@ -473,10 +559,23 @@ class OrganizationExportImportService:
             'errors': []
         }
 
-        if not import_data.get('organizations'):
+        if not isinstance(import_data, dict) or not import_data.get('organizations'):
             results['success'] = False
             results['errors'].append('No organizations found in import data')
             return results
+
+        if not source_encryption_key and export_password and import_data.get('encryption_key_data'):
+            try:
+                source_encryption_key = recover_encryption_key(
+                    export_password, import_data['encryption_key_data']
+                )
+            except Exception:
+                results['success'] = False
+                results['errors'].append('Incorrect export password')
+                return results
+
+        self._source_encryption_key = source_encryption_key
+        self._undecryptable_passwords = 0
 
         for org_data in import_data['organizations']:
             try:
@@ -499,7 +598,76 @@ class OrganizationExportImportService:
                     'error': str(e)
                 })
 
+        if self._undecryptable_passwords:
+            results['undecryptable_passwords'] = self._undecryptable_passwords
+            results['warning'] = (
+                f'{self._undecryptable_passwords} password(s) were encrypted with a different '
+                'server key and cannot be read here. Re-import using an export that was created '
+                'with an export password, and supply that password.'
+            )
+
         return results
+
+    # ------------------------------------------------------------------
+    # Import helpers
+    # ------------------------------------------------------------------
+
+    def _import_secret(self, value: str, count_failures: bool = True) -> str:
+        """
+        Bring an exported (encrypted) password under this server's key.
+        Counts values that cannot be decrypted here so the caller can warn.
+        """
+        if not value or not is_encrypted(value):
+            return value
+        key = getattr(self, '_source_encryption_key', None)
+        if key:
+            try:
+                return re_encrypt_value(value, key)
+            except Exception:
+                pass  # fall through: maybe it is already under the current key
+        if not can_decrypt(value) and count_failures:
+            self._undecryptable_passwords = getattr(self, '_undecryptable_passwords', 0) + 1
+        return value
+
+    @staticmethod
+    def _deleted_at(data: Dict[str, Any], org_deleted_at) -> Any:
+        """
+        Soft-delete timestamp to apply to an imported record. Records that were only
+        deleted as part of deleting their organization come back live, because an
+        imported organization is always restored as active.
+        """
+        raw = data.get('deleted_at')
+        if not raw:
+            return None
+        if org_deleted_at and raw == org_deleted_at:
+            return None
+        return parse_datetime(raw)
+
+    def _version_user(self, email):
+        """Resolve the author of a history row by email, falling back to the importer."""
+        if not hasattr(self, '_user_cache'):
+            self._user_cache = {}
+        if email not in self._user_cache:
+            self._user_cache[email] = User.objects.filter(email=email).first() if email else None
+        return self._user_cache[email] or self.user
+
+    def _import_versions(self, model, parent_field, parent, versions, fields, secret_fields=()):
+        """Recreate version-history rows for an imported entry, keeping their dates."""
+        for v in versions or []:
+            values = {f: v.get(f, '') for f in fields if f in v}
+            for f in secret_fields:
+                if values.get(f):
+                    values[f] = self._import_secret(values[f], count_failures=False)
+            row = model.objects.create(
+                **{parent_field: parent},
+                version_number=v['version_number'],
+                change_note=v.get('change_note', ''),
+                created_by=self._version_user(v.get('created_by_email')),
+                **values
+            )
+            created_at = parse_datetime(v['created_at']) if v.get('created_at') else None
+            if created_at:
+                model.objects.filter(pk=row.pk).update(created_at=created_at)
 
     @transaction.atomic
     def _import_organization(
@@ -511,10 +679,14 @@ class OrganizationExportImportService:
         """Import a single organization with all related data."""
         org_info = org_data['organization']
         org_name = org_info['name']
+        org_deleted_at = org_info.get('deleted_at')
 
-        # Check if organization already exists (check ALL records, including soft-deleted)
-        # Use all_objects to bypass the soft delete filter
-        existing_org = Organization.all_objects.filter(name=org_name).first()
+        # Check if organization already exists. Prefer a live one; fall back to a
+        # soft-deleted one (which is then restored by the import).
+        existing_org = (
+            Organization.objects.filter(name=org_name).first()
+            or Organization.all_objects.filter(name=org_name).first()
+        )
 
         if existing_org and not overwrite_existing:
             return {
@@ -599,6 +771,7 @@ class OrganizationExportImportService:
                 country=loc_data['country'],
                 phone=loc_data.get('phone', ''),
                 is_active=loc_data.get('is_active', True),
+                deleted_at=self._deleted_at(loc_data, org_deleted_at),
                 created_by=self.user
             )
             location.save()
@@ -612,7 +785,7 @@ class OrganizationExportImportService:
             location_id = contact_data.get('location_id')
             location = None
             if location_id and location_id in location_id_map:
-                location = Location.objects.get(id=location_id_map[location_id])
+                location = Location.all_objects.get(id=location_id_map[location_id])
 
             contact = Contact(
                 id=new_id,
@@ -626,6 +799,7 @@ class OrganizationExportImportService:
                 mobile=contact_data.get('mobile', ''),
                 notes=contact_data.get('notes', ''),
                 is_active=contact_data.get('is_active', True),
+                deleted_at=self._deleted_at(contact_data, org_deleted_at),
                 created_by=self.user
             )
             contact.save()
@@ -644,9 +818,14 @@ class OrganizationExportImportService:
                 tags=doc_data.get('tags', ''),
                 is_published=doc_data.get('is_published', False),
                 version=doc_data.get('version', 1),
+                deleted_at=self._deleted_at(doc_data, org_deleted_at),
                 created_by=self.user
             )
             doc.save()
+            self._import_versions(
+                DocumentationVersion, 'documentation', doc, doc_data.get('versions'),
+                ['title', 'content', 'category', 'tags', 'is_published']
+            )
 
         # Import password entries
         for pwd_data in org_data.get('password_entries', []):
@@ -657,14 +836,20 @@ class OrganizationExportImportService:
                 organization=org,
                 name=pwd_data['name'],
                 username=pwd_data.get('username', ''),
-                password=pwd_data['password'],
+                password=self._import_secret(pwd_data['password']),
                 url=pwd_data.get('url', ''),
                 notes=pwd_data.get('notes', ''),
                 category=pwd_data.get('category', 'other'),
                 is_encrypted=pwd_data.get('is_encrypted', False),
+                deleted_at=self._deleted_at(pwd_data, org_deleted_at),
                 created_by=self.user
             )
             pwd.save()
+            self._import_versions(
+                PasswordEntryVersion, 'password_entry', pwd, pwd_data.get('versions'),
+                ['name', 'username', 'password', 'url', 'notes', 'category', 'is_encrypted'],
+                secret_fields=('password',)
+            )
 
         # Import configurations
         for config_data in org_data.get('configurations', []):
@@ -679,9 +864,14 @@ class OrganizationExportImportService:
                 description=config_data.get('description', ''),
                 version=config_data.get('version', ''),
                 is_active=config_data.get('is_active', True),
+                deleted_at=self._deleted_at(config_data, org_deleted_at),
                 created_by=self.user
             )
             config.save()
+            self._import_versions(
+                ConfigurationVersion, 'configuration', config, config_data.get('versions'),
+                ['name', 'config_type', 'content', 'description', 'version', 'is_active']
+            )
 
         # Import network devices
         for device_data in org_data.get('network_devices', []):
@@ -690,7 +880,7 @@ class OrganizationExportImportService:
             location_id = device_data.get('location_id')
             location = None
             if location_id and location_id in location_id_map:
-                location = Location.objects.get(id=location_id_map[location_id])
+                location = Location.all_objects.get(id=location_id_map[location_id])
 
             device = NetworkDevice(
                 id=new_id,
@@ -708,9 +898,23 @@ class OrganizationExportImportService:
                 firmware_version=device_data.get('firmware_version', ''),
                 notes=device_data.get('notes', ''),
                 is_active=device_data.get('is_active', True),
+                deleted_at=self._deleted_at(device_data, org_deleted_at),
                 created_by=self.user
             )
             device.save()
+            for conn_data in device_data.get('internet_connections', []):
+                InternetConnection.objects.create(
+                    network_device=device,
+                    provider_name=conn_data.get('provider_name', ''),
+                    connection_type=conn_data.get('connection_type', 'fiber'),
+                    download_speed=conn_data.get('download_speed') or 0,
+                    upload_speed=conn_data.get('upload_speed') or 0,
+                    is_primary=conn_data.get('is_primary', True),
+                    account_number=conn_data.get('account_number', ''),
+                    notes=conn_data.get('notes', ''),
+                    is_active=conn_data.get('is_active', True),
+                    created_by=self.user
+                )
 
         # Import endpoint users
         for endpoint_data in org_data.get('endpoint_users', []):
@@ -719,12 +923,12 @@ class OrganizationExportImportService:
             location_id = endpoint_data.get('location_id')
             location = None
             if location_id and location_id in location_id_map:
-                location = Location.objects.get(id=location_id_map[location_id])
+                location = Location.all_objects.get(id=location_id_map[location_id])
 
             assigned_to_id = endpoint_data.get('assigned_to_id')
             assigned_to = None
             if assigned_to_id and assigned_to_id in contact_id_map:
-                assigned_to = Contact.objects.get(id=contact_id_map[assigned_to_id])
+                assigned_to = Contact.all_objects.get(id=contact_id_map[assigned_to_id])
 
             endpoint = EndpointUser(
                 id=new_id,
@@ -749,18 +953,21 @@ class OrganizationExportImportService:
                 warranty_expiry=endpoint_data.get('warranty_expiry'),
                 notes=endpoint_data.get('notes', ''),
                 is_active=endpoint_data.get('is_active', True),
+                deleted_at=self._deleted_at(endpoint_data, org_deleted_at),
                 created_by=self.user
             )
             endpoint.save()
 
-        # Import servers
+        # Import servers (host links are resolved in a second pass, once all exist)
+        server_id_map = {}
+        server_hosts = {}
         for server_data in org_data.get('servers', []):
             new_id = uuid.UUID(server_data['id']) if preserve_ids else uuid.uuid4()
 
             location_id = server_data.get('location_id')
             location = None
             if location_id and location_id in location_id_map:
-                location = Location.objects.get(id=location_id_map[location_id])
+                location = Location.all_objects.get(id=location_id_map[location_id])
 
             server = Server(
                 id=new_id,
@@ -774,6 +981,8 @@ class OrganizationExportImportService:
                 cpu=server_data.get('cpu', ''),
                 ram=server_data.get('ram', ''),
                 storage=server_data.get('storage', ''),
+                storage_drives=server_data.get('storage_drives', ''),
+                raid_configuration=server_data.get('raid_configuration', ''),
                 operating_system=server_data.get('operating_system', ''),
                 software_installed=server_data.get('software_installed', ''),
                 ip_address=server_data.get('ip_address', ''),
@@ -782,9 +991,17 @@ class OrganizationExportImportService:
                 serial_number=server_data.get('serial_number', ''),
                 notes=server_data.get('notes', ''),
                 is_active=server_data.get('is_active', True),
+                deleted_at=self._deleted_at(server_data, org_deleted_at),
                 created_by=self.user
             )
             server.save()
+            server_id_map[server_data['id']] = new_id
+            if server_data.get('host_server_id'):
+                server_hosts[new_id] = server_data['host_server_id']
+
+        for server_pk, old_host_id in server_hosts.items():
+            if old_host_id in server_id_map:
+                Server.all_objects.filter(pk=server_pk).update(host_server_id=server_id_map[old_host_id])
 
         # Import peripherals
         for peripheral_data in org_data.get('peripherals', []):
@@ -793,7 +1010,7 @@ class OrganizationExportImportService:
             location_id = peripheral_data.get('location_id')
             location = None
             if location_id and location_id in location_id_map:
-                location = Location.objects.get(id=location_id_map[location_id])
+                location = Location.all_objects.get(id=location_id_map[location_id])
 
             peripheral = Peripheral(
                 id=new_id,
@@ -808,6 +1025,7 @@ class OrganizationExportImportService:
                 serial_number=peripheral_data.get('serial_number', ''),
                 notes=peripheral_data.get('notes', ''),
                 is_active=peripheral_data.get('is_active', True),
+                deleted_at=self._deleted_at(peripheral_data, org_deleted_at),
                 created_by=self.user
             )
             peripheral.save()
@@ -830,6 +1048,7 @@ class OrganizationExportImportService:
                 quantity=software_data.get('quantity', 1),
                 notes=software_data.get('notes', ''),
                 is_active=software_data.get('is_active', True),
+                deleted_at=self._deleted_at(software_data, org_deleted_at),
                 created_by=self.user
             )
             software.save()
@@ -838,13 +1057,14 @@ class OrganizationExportImportService:
             for assignment_data in software_data.get('assignments', []):
                 contact_id = assignment_data['contact_id']
                 if contact_id in contact_id_map:
-                    contact = Contact.objects.get(id=contact_id_map[contact_id])
+                    contact = Contact.all_objects.get(id=contact_id_map[contact_id])
                     assignment_id = uuid.UUID(assignment_data['id']) if preserve_ids else uuid.uuid4()
 
                     assignment = SoftwareAssignment(
                         id=assignment_id,
                         software=software,
                         contact=contact,
+                        deleted_at=self._deleted_at(assignment_data, org_deleted_at),
                         created_by=self.user
                     )
                     assignment.save()
@@ -869,6 +1089,7 @@ class OrganizationExportImportService:
                 extensions=voip_data.get('extensions', ''),
                 notes=voip_data.get('notes', ''),
                 is_active=voip_data.get('is_active', True),
+                deleted_at=self._deleted_at(voip_data, org_deleted_at),
                 created_by=self.user
             )
             voip.save()
@@ -877,7 +1098,7 @@ class OrganizationExportImportService:
             for assignment_data in voip_data.get('assignments', []):
                 contact_id = assignment_data['contact_id']
                 if contact_id in contact_id_map:
-                    contact = Contact.objects.get(id=contact_id_map[contact_id])
+                    contact = Contact.all_objects.get(id=contact_id_map[contact_id])
                     assignment_id = uuid.UUID(assignment_data['id']) if preserve_ids else uuid.uuid4()
 
                     assignment = VoIPAssignment(
@@ -886,6 +1107,7 @@ class OrganizationExportImportService:
                         contact=contact,
                         extension=assignment_data.get('extension', ''),
                         phone_number=assignment_data.get('phone_number', ''),
+                        deleted_at=self._deleted_at(assignment_data, org_deleted_at),
                         created_by=self.user
                     )
                     assignment.save()
@@ -897,7 +1119,7 @@ class OrganizationExportImportService:
             location_id = backup_data.get('location_id')
             location = None
             if location_id and location_id in location_id_map:
-                location = Location.objects.get(id=location_id_map[location_id])
+                location = Location.all_objects.get(id=location_id_map[location_id])
 
             backup = Backup(
                 id=new_id,
@@ -916,6 +1138,7 @@ class OrganizationExportImportService:
                 backup_status=backup_data.get('backup_status', 'active'),
                 notes=backup_data.get('notes', ''),
                 is_active=backup_data.get('is_active', True),
+                deleted_at=self._deleted_at(backup_data, org_deleted_at),
                 created_by=self.user
             )
             backup.save()

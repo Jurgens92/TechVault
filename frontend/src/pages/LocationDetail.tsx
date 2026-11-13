@@ -1,3 +1,4 @@
+import { confirmDialog } from '@/components/Feedback';
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
@@ -31,7 +32,7 @@ export const LocationDetail: React.FC = () => {
   };
 
   const handleDelete = async () => {
-    if (window.confirm('Delete this location?')) {
+    if (await confirmDialog('Delete this location?')) {
       try {
         if (!id) return;
         await locationAPI.delete(id);
@@ -50,7 +51,7 @@ export const LocationDetail: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4 mb-8">
         <div className="flex items-center gap-4">
-          <Button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-700"><ArrowLeft className="w-5 h-5" /></Button>
+          <Button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-700" aria-label="Back" title="Back"><ArrowLeft className="w-5 h-5" /></Button>
           <h1 className="text-3xl font-bold text-foreground">{location.name}</h1>
         </div>
         <div className="flex gap-2">

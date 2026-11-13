@@ -3,6 +3,7 @@ System Backup/Restore service for complete system data backup including users an
 Security: Passwords are exported as hashed values and 2FA secrets are included for full restore capability.
 """
 from datetime import datetime
+import json
 from typing import Dict, List, Any, Optional
 import uuid
 from django.db import transaction
@@ -14,9 +15,12 @@ from core.models import (
     Documentation, Configuration, PasswordEntry,
     SoftwareAssignment, VoIPAssignment
 )
+from django.core.serializers.json import DjangoJSONEncoder
+from django.utils.dateparse import parse_datetime
+from core.models import AuditLog
 from core.encryption import (
-    encrypt_password, is_encrypted,
-    protect_encryption_key, recover_encryption_key, re_encrypt_value
+    protect_encryption_key, recover_encryption_key,
+    encrypt_with_password, decrypt_with_password,
 )
 from .export_import_service import OrganizationExportImportService
 
@@ -50,12 +54,24 @@ class SystemBackupService:
             'created_at': datetime.now().isoformat(),
             'created_by': self.user.email,
             'include_deleted': include_deleted,
-            'users': self._export_users(),
             'organizations': self._export_all_organizations(include_deleted),
         }
 
+        users = self._export_users()
+        audit_logs = self._export_audit_logs()
         if backup_password:
             backup_data['encryption_key_data'] = protect_encryption_key(backup_password)
+            # User records contain password hashes and 2FA secrets, and the audit
+            # log contains activity history: never write those to the file in clear.
+            backup_data['users_encrypted'] = encrypt_with_password(
+                json.dumps(users, cls=DjangoJSONEncoder).encode(), backup_password
+            )
+            backup_data['audit_logs_encrypted'] = encrypt_with_password(
+                json.dumps(audit_logs, cls=DjangoJSONEncoder).encode(), backup_password
+            )
+        else:
+            backup_data['users'] = users
+            backup_data['audit_logs'] = audit_logs
 
         return backup_data
 
@@ -91,6 +107,55 @@ class SystemBackupService:
             exported_users.append(user_data)
 
         return exported_users
+
+    def _export_audit_logs(self) -> List[Dict[str, Any]]:
+        """Export the audit trail so a restored system keeps its history."""
+        return [
+            {
+                'id': str(log.id),
+                'user_email': log.user.email if log.user else None,
+                'action': log.action,
+                'entity_type': log.entity_type,
+                'entity_id': log.entity_id,
+                'entity_name': log.entity_name,
+                'organization_name': log.organization_name,
+                'details': log.details,
+                'changes': log.changes,
+                'ip_address': log.ip_address,
+                'timestamp': log.timestamp.isoformat(),
+            }
+            for log in AuditLog.objects.select_related('user').iterator()
+        ]
+
+    def _restore_audit_logs(self, logs: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Restore audit entries that are not already present (matched by id)."""
+        existing = set(str(pk) for pk in AuditLog.objects.values_list('id', flat=True))
+        users = {u.email: u for u in User.objects.all()}
+        restored = 0
+        for entry in logs or []:
+            try:
+                if entry['id'] in existing:
+                    continue
+                log = AuditLog.objects.create(
+                    id=uuid.UUID(entry['id']),
+                    user=users.get(entry.get('user_email')),
+                    action=entry['action'],
+                    entity_type=entry.get('entity_type', ''),
+                    entity_id=entry.get('entity_id', ''),
+                    entity_name=entry.get('entity_name', ''),
+                    organization_name=entry.get('organization_name', ''),
+                    details=entry.get('details', ''),
+                    changes=entry.get('changes'),
+                    ip_address=entry.get('ip_address'),
+                )
+                timestamp = parse_datetime(entry['timestamp']) if entry.get('timestamp') else None
+                if timestamp:
+                    # timestamp is auto_now_add, so set the original value afterwards
+                    AuditLog.objects.filter(pk=log.pk).update(timestamp=timestamp)
+                restored += 1
+            except Exception:
+                continue
+        return {'restored': restored}
 
     def _export_all_organizations(self, include_deleted: bool) -> List[Dict[str, Any]]:
         """Export all organizations with their complete data."""
@@ -158,55 +223,51 @@ class SystemBackupService:
                 results['error'] = f'Failed to unlock backup: {str(e)}'
                 return results
 
+        # Unlock the password-protected sections (newer backups)
+        users_data = backup_data.get('users')
+        audit_logs_data = backup_data.get('audit_logs')
+        try:
+            if backup_data.get('users_encrypted'):
+                if not backup_password:
+                    raise ValueError('This backup is password-protected. Please provide the backup password.')
+                users_data = json.loads(decrypt_with_password(backup_data['users_encrypted'], backup_password))
+            if backup_data.get('audit_logs_encrypted') and backup_password:
+                audit_logs_data = json.loads(
+                    decrypt_with_password(backup_data['audit_logs_encrypted'], backup_password)
+                )
+        except Exception as e:
+            results['success'] = False
+            results['error'] = f'Failed to unlock backup: {str(e)}'
+            return results
+
         # Restore users first (organizations may reference them)
-        if restore_users and 'users' in backup_data:
+        if restore_users and users_data is not None:
             user_results = self._restore_users(
-                backup_data['users'],
+                users_data,
                 overwrite_existing
             )
             results['users'] = user_results
 
-        # Restore organizations
+        # Restore organizations. Vault passwords in the backup are re-encrypted
+        # with this server's key as they are imported (only the imported entries
+        # are touched - existing data is already under the current key).
         if restore_organizations and 'organizations' in backup_data:
             org_results = self._restore_organizations(
                 backup_data['organizations'],
-                overwrite_existing
+                overwrite_existing,
+                old_encryption_key
             )
             results['organizations'] = org_results
 
-        # Re-encrypt passwords with current server's key if old key was recovered
-        if old_encryption_key:
-            reencrypt_results = self._re_encrypt_passwords(old_encryption_key)
-            results['passwords_re_encrypted'] = reencrypt_results
+        # Restore the audit trail (entries already present are left alone)
+        if audit_logs_data:
+            results['audit_logs'] = self._restore_audit_logs(audit_logs_data)
 
         # Determine overall success
         results['success'] = (
             len(results['users'].get('errors', [])) == 0 and
             len(results['organizations'].get('errors', [])) == 0
         )
-
-        return results
-
-    def _re_encrypt_passwords(self, old_key: str) -> Dict[str, Any]:
-        """
-        Re-encrypt all password entries from the old encryption key to the current key.
-        """
-        results = {'re_encrypted': 0, 'skipped': 0, 'errors': []}
-
-        for pwd in PasswordEntry.all_objects.all():
-            if not pwd.password or not is_encrypted(pwd.password):
-                results['skipped'] += 1
-                continue
-            try:
-                pwd.password = re_encrypt_value(pwd.password, old_key)
-                pwd.save(update_fields=['password'])
-                results['re_encrypted'] += 1
-            except Exception as e:
-                results['errors'].append({
-                    'id': str(pwd.id),
-                    'name': pwd.name,
-                    'error': str(e)
-                })
 
         return results
 
@@ -275,7 +336,8 @@ class SystemBackupService:
             password=user_data['password_hash'],  # Already hashed
             is_active=user_data.get('is_active', True),
             is_staff=user_data.get('is_staff', False),
-            is_superuser=user_data.get('is_superuser', False),
+            # Only a superuser may create superusers through a restore
+            is_superuser=bool(user_data.get('is_superuser', False)) and self.user.is_superuser,
             # 2FA Configuration
             twofa_enabled=user_data.get('twofa_enabled', False),
             twofa_secret=user_data.get('twofa_secret'),
@@ -303,7 +365,12 @@ class SystemBackupService:
         user.password = user_data['password_hash']  # Replace with backup password hash
         user.is_active = user_data.get('is_active', user.is_active)
         user.is_staff = user_data.get('is_staff', user.is_staff)
-        user.is_superuser = user_data.get('is_superuser', user.is_superuser)
+        if self.user.is_superuser:
+            user.is_superuser = user_data.get('is_superuser', user.is_superuser)
+        elif user.is_superuser:
+            # A staff (non-superuser) admin must not be able to take over a
+            # superuser account by restoring a crafted backup.
+            raise PermissionError('Only a superuser can overwrite a superuser account')
 
         # 2FA Configuration
         user.twofa_enabled = user_data.get('twofa_enabled', False)
@@ -332,7 +399,8 @@ class SystemBackupService:
     def _restore_organizations(
         self,
         organizations_data: List[Dict[str, Any]],
-        overwrite_existing: bool
+        overwrite_existing: bool,
+        source_encryption_key: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Restore organizations from backup data.
@@ -352,11 +420,15 @@ class SystemBackupService:
         result = self.org_export_service.import_organizations(
             import_data=import_data,
             overwrite_existing=overwrite_existing,
-            preserve_ids=False
+            preserve_ids=False,
+            source_encryption_key=source_encryption_key
         )
 
-        return {
+        restored = {
             'imported': result.get('imported_organizations', []),
             'skipped': result.get('skipped_organizations', []),
             'errors': result.get('errors', [])
         }
+        if result.get('warning'):
+            restored['warning'] = result['warning']
+        return restored

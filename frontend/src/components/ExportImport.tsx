@@ -1,3 +1,4 @@
+import { notify, confirmDialog } from '@/components/Feedback';
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -19,11 +20,15 @@ const ExportImport: React.FC<ExportImportProps> = ({ isAdmin }) => {
   const [loadingOrgs, setLoadingOrgs] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [overwriteExisting, setOverwriteExisting] = useState(false);
+  // Optional password that lets vault passwords be read after importing on another server
+  const [exportPassword, setExportPassword] = useState('');
+  const [importPassword, setImportPassword] = useState('');
   const [importResult, setImportResult] = useState<{
     success: boolean;
     imported_organizations: string[];
     skipped_organizations: Array<{ name: string; reason: string }>;
-    errors: Array<{ organization: string; error: string }>;
+    errors: Array<{ organization: string; error: string } | string>;
+    warning?: string;
   } | null>(null);
 
   useEffect(() => {
@@ -65,7 +70,7 @@ const ExportImport: React.FC<ExportImportProps> = ({ isAdmin }) => {
       setLoading(true);
       const orgIds = exportAll ? undefined : selectedOrgs;
 
-      const response = await reportsAPI.exportOrganizations(orgIds, includeDeleted);
+      const response = await reportsAPI.exportOrganizations(orgIds, includeDeleted, exportPassword);
 
       // Create a download link for the blob
       const blob = new Blob([response.data], { type: 'application/json' });
@@ -79,7 +84,7 @@ const ExportImport: React.FC<ExportImportProps> = ({ isAdmin }) => {
       window.URL.revokeObjectURL(url);
     } catch (err: unknown) {
       const error = err as { response?: { data?: { error?: string } } };
-      alert(error.response?.data?.error || 'Failed to export organizations');
+      notify.error(error.response?.data?.error || 'Failed to export organizations');
     } finally {
       setLoading(false);
     }
@@ -87,8 +92,20 @@ const ExportImport: React.FC<ExportImportProps> = ({ isAdmin }) => {
 
   const handleImport = async () => {
     if (!importFile) {
-      alert('Please select a file to import');
+      notify.error('Please select a file to import');
       return;
+    }
+
+    if (overwriteExisting) {
+      const confirmed = await confirmDialog({
+        title: 'Overwrite existing organizations',
+        message:
+          'Organizations in this file that already exist will have ALL of their current data ' +
+          'permanently deleted and replaced with the contents of the file. This cannot be undone.',
+        confirmLabel: 'Overwrite',
+        danger: true,
+      });
+      if (!confirmed) return;
     }
 
     try {
@@ -98,7 +115,8 @@ const ExportImport: React.FC<ExportImportProps> = ({ isAdmin }) => {
       const result = await reportsAPI.importOrganizations(
         importFile,
         overwriteExisting,
-        false // preserve_ids - usually false to avoid conflicts
+        false, // preserve_ids - usually false to avoid conflicts
+        importPassword
       );
 
       setImportResult(result.data);
@@ -108,7 +126,7 @@ const ExportImport: React.FC<ExportImportProps> = ({ isAdmin }) => {
       await loadOrganizations();
     } catch (err: unknown) {
       const error = err as { response?: { data?: { error?: string } } };
-      alert(error.response?.data?.error || 'Failed to import organizations');
+      notify.error(error.response?.data?.error || 'Failed to import organizations');
     } finally {
       setLoading(false);
     }
@@ -118,7 +136,7 @@ const ExportImport: React.FC<ExportImportProps> = ({ isAdmin }) => {
     const file = e.target.files?.[0];
     if (file) {
       if (file.type !== 'application/json' && !file.name.endsWith('.json')) {
-        alert('Please select a JSON file');
+        notify.error('Please select a JSON file');
         return;
       }
       setImportFile(file);
@@ -242,6 +260,25 @@ const ExportImport: React.FC<ExportImportProps> = ({ isAdmin }) => {
                   <span className="text-sm">Include soft-deleted records</span>
                 </label>
 
+                {/* Export password (optional) */}
+                <div className="space-y-1">
+                  <label htmlFor="export-password" className="text-sm font-medium block">
+                    Export password <span className="text-muted-foreground font-normal">(optional)</span>
+                  </label>
+                  <input
+                    id="export-password"
+                    type="password"
+                    autoComplete="new-password"
+                    value={exportPassword}
+                    onChange={(e) => setExportPassword(e.target.value)}
+                    className="block w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Set this if the file will be imported on a different TechVault server. Without it, stored
+                    passwords in the export can only be read on this server.
+                  </p>
+                </div>
+
                 {/* Export Button */}
                 <Button
                   onClick={handleExport}
@@ -285,6 +322,20 @@ const ExportImport: React.FC<ExportImportProps> = ({ isAdmin }) => {
                       Selected: {importFile.name}
                     </p>
                   )}
+                </div>
+
+                <div className="space-y-1">
+                  <label htmlFor="import-password" className="text-sm font-medium block">
+                    Export password <span className="text-muted-foreground font-normal">(if one was set)</span>
+                  </label>
+                  <input
+                    id="import-password"
+                    type="password"
+                    autoComplete="off"
+                    value={importPassword}
+                    onChange={(e) => setImportPassword(e.target.value)}
+                    className="block w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                  />
                 </div>
 
                 {/* Import Options */}
@@ -358,6 +409,10 @@ const ExportImport: React.FC<ExportImportProps> = ({ isAdmin }) => {
                           </div>
                         )}
 
+                        {importResult.warning && (
+                          <p className="text-sm mb-2 text-amber-600 dark:text-amber-400">{importResult.warning}</p>
+                        )}
+
                         {importResult.errors.length > 0 && (
                           <div>
                             <p className="text-sm font-medium mb-1">
@@ -365,7 +420,9 @@ const ExportImport: React.FC<ExportImportProps> = ({ isAdmin }) => {
                             </p>
                             <ul className="text-xs list-disc list-inside">
                               {importResult.errors.map((item, idx) => (
-                                <li key={idx}>{item.organization}: {item.error}</li>
+                                <li key={idx}>
+                                  {typeof item === 'string' ? item : `${item.organization}: ${item.error}`}
+                                </li>
                               ))}
                             </ul>
                           </div>

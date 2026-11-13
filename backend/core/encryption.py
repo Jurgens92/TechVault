@@ -47,12 +47,16 @@ class PasswordEncryption:
         key = base64.urlsafe_b64encode(kdf.derive(secret_key))
         return Fernet(key)
 
-    def encrypt(self, plaintext: str) -> str:
+    def encrypt(self, plaintext: str, force: bool = False) -> str:
         """
         Encrypt a plaintext password.
 
         Args:
             plaintext: The password to encrypt
+            force: Encrypt even if the value looks already encrypted. Use this for
+                   user-supplied input, which is always plaintext - otherwise a
+                   password that happens to start with the prefix would be stored
+                   unencrypted and later fail to decrypt.
 
         Returns:
             Encrypted password with prefix
@@ -63,8 +67,8 @@ class PasswordEncryption:
         if not plaintext:
             return plaintext
 
-        # Don't double-encrypt
-        if self.is_encrypted(plaintext):
+        # Don't double-encrypt values that came from storage
+        if not force and self.is_encrypted(plaintext):
             return plaintext
 
         try:
@@ -107,16 +111,16 @@ class PasswordEncryption:
 
     def is_encrypted(self, value: str) -> bool:
         """Check if a value is already encrypted."""
-        return value and value.startswith(self.ENCRYPTED_PREFIX)
+        return bool(value) and value.startswith(self.ENCRYPTED_PREFIX)
 
 
 # Singleton instance for use throughout the application
 password_encryption = PasswordEncryption()
 
 
-def encrypt_password(plaintext: str) -> str:
-    """Convenience function to encrypt a password."""
-    return password_encryption.encrypt(plaintext)
+def encrypt_password(plaintext: str, force: bool = False) -> str:
+    """Convenience function to encrypt a password (force=True for user input)."""
+    return password_encryption.encrypt(plaintext, force=force)
 
 
 def decrypt_password(ciphertext: str) -> str:
@@ -204,3 +208,47 @@ def re_encrypt_value(ciphertext: str, old_key: str) -> str:
 
     # Re-encrypt with current key
     return password_encryption.encrypt(plaintext)
+
+
+def _password_fernet(password: str, salt: bytes) -> Fernet:
+    """Derive a Fernet key from a user-supplied password and a random salt."""
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=200000,
+    )
+    return Fernet(base64.urlsafe_b64encode(kdf.derive(password.encode())))
+
+
+def encrypt_with_password(data: bytes, password: str) -> dict:
+    """
+    Encrypt arbitrary bytes with a password (used to protect sensitive sections
+    of backup files, e.g. user password hashes and 2FA secrets).
+    """
+    salt = os.urandom(16)
+    token = _password_fernet(password, salt).encrypt(data)
+    return {
+        'salt': base64.urlsafe_b64encode(salt).decode(),
+        'data': token.decode(),
+    }
+
+
+def decrypt_with_password(payload: dict, password: str) -> bytes:
+    """Reverse of encrypt_with_password. Raises EncryptionError on a wrong password."""
+    try:
+        salt = base64.urlsafe_b64decode(payload['salt'].encode())
+        return _password_fernet(password, salt).decrypt(payload['data'].encode())
+    except InvalidToken:
+        raise EncryptionError("Incorrect backup password")
+    except (KeyError, ValueError, TypeError, AttributeError):
+        raise EncryptionError("Backup file is corrupted")
+
+
+def can_decrypt(ciphertext: str) -> bool:
+    """True if the value is plaintext or can be decrypted with the current key."""
+    try:
+        password_encryption.decrypt(ciphertext)
+        return True
+    except EncryptionError:
+        return False

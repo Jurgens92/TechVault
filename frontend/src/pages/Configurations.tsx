@@ -1,3 +1,4 @@
+import { confirmDialog } from '@/components/Feedback';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
@@ -65,7 +66,7 @@ export const Configurations: React.FC = () => {
   const filteredConfigs = getFilteredConfigs();
 
   const handleDelete = async (id: string) => {
-    if (window.confirm('Delete this configuration?')) {
+    if (await confirmDialog('Delete this configuration?')) {
       try {
         await configurationAPI.delete(id);
         setConfigs(configs.filter(c => c.id !== id));
@@ -114,8 +115,8 @@ export const Configurations: React.FC = () => {
                   {config.description && <p className="text-gray-500 text-sm mt-1 line-clamp-1">{config.description}</p>}
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button onClick={(e) => { e.stopPropagation(); navigate(`/configurations/${config.id}/edit`); }} className="p-2 hover:bg-gray-700"><Edit className="w-4 h-4" /></Button>
-                  <Button onClick={(e) => { e.stopPropagation(); handleDelete(config.id); }} className="p-2 hover:bg-red-900/20 text-red-400"><Trash2 className="w-4 h-4" /></Button>
+                  <Button onClick={(e) => { e.stopPropagation(); navigate(`/configurations/${config.id}/edit`); }} className="p-2 hover:bg-gray-700" aria-label="Edit" title="Edit"><Edit className="w-4 h-4" /></Button>
+                  <Button onClick={(e) => { e.stopPropagation(); handleDelete(config.id); }} className="p-2 hover:bg-red-900/20 text-red-400" aria-label="Delete" title="Delete"><Trash2 className="w-4 h-4" /></Button>
                   <ChevronRight className="w-5 h-5 text-gray-500 group-hover:text-blue-400" />
                 </div>
               </div>

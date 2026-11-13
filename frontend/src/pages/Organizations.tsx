@@ -1,3 +1,4 @@
+import { confirmDialog } from '@/components/Feedback';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
@@ -20,7 +21,7 @@ export const Organizations: React.FC = () => {
   const fetchOrganizations = async () => {
     try {
       setLoading(true);
-      const response = await organizationAPI.getAll();
+      const response = await organizationAPI.getAll({ page_size: 1000 });
       setOrganizations(response.data.results);
       setError(null);
     } catch (err) {
@@ -45,7 +46,7 @@ export const Organizations: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this organization?')) {
+    if (await confirmDialog('Are you sure you want to delete this organization?')) {
       try {
         await organizationAPI.delete(id);
         setOrganizations(organizations.filter(org => org.id !== id));
@@ -144,6 +145,8 @@ export const Organizations: React.FC = () => {
                       navigate(`/organizations/${org.id}/edit`);
                     }}
                     className="p-2 hover:bg-gray-700 text-gray-300"
+                    aria-label="Edit"
+                    title="Edit"
                   >
                     <Edit className="w-4 h-4" />
                   </Button>
@@ -153,6 +156,8 @@ export const Organizations: React.FC = () => {
                       handleDelete(org.id);
                     }}
                     className="p-2 hover:bg-red-900/20 text-red-400"
+                    aria-label="Delete"
+                    title="Delete"
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>
