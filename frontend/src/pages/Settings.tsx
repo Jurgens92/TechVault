@@ -1,13 +1,16 @@
+import { notify, confirmDialog } from '@/components/Feedback';
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { PageHeader } from '@/components/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Settings as SettingsIcon, User, Mail, Shield, Users, Plus, Edit, Trash2, X, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { Settings as SettingsIcon, User, Mail, Shield, Users, Plus, Edit, Trash2, X, ShieldCheck, ShieldAlert, Lock } from 'lucide-react';
 import { userManagementService, User as UserType, CreateUserData } from '@/services/users';
 import ExportImport from '@/components/ExportImport';
 import BackupRestore from '@/components/BackupRestore';
+import ChangePassword from '@/components/ChangePassword';
+import { getErrorMessage } from '@/utils/errors';
 
 const Settings: React.FC = () => {
   const { user } = useAuth();
@@ -42,8 +45,7 @@ const Settings: React.FC = () => {
       setUsers(Array.isArray(data) ? data : []);
     } catch (err: any) {
       console.error('Failed to load users:', err);
-      const errorMsg = err.response?.data?.detail || 'Failed to load users. Please check console for details.';
-      setError(errorMsg);
+      setError(getErrorMessage(err, 'Failed to load users.'));
       // Reset to empty array on error
       setUsers([]);
     } finally {
@@ -61,7 +63,7 @@ const Settings: React.FC = () => {
       setShowUserModal(false);
       resetForm();
     } catch (err: any) {
-      setError(err.response?.data?.email?.[0] || err.response?.data?.detail || 'Failed to create user');
+      setError(getErrorMessage(err, 'Failed to create user'));
     } finally {
       setLoading(false);
     }
@@ -85,23 +87,76 @@ const Settings: React.FC = () => {
       setEditingUser(null);
       resetForm();
     } catch (err: any) {
-      setError(err.response?.data?.email?.[0] || err.response?.data?.detail || 'Failed to update user');
+      setError(getErrorMessage(err, 'Failed to update user'));
     } finally {
       setLoading(false);
     }
   };
 
   const handleDeleteUser = async (userId: number) => {
-    if (!confirm('Are you sure you want to delete this user?')) return;
+    if (!await confirmDialog('Are you sure you want to delete this user?')) return;
     try {
       setLoading(true);
       await userManagementService.deleteUser(userId);
       await loadUsers();
     } catch (err: any) {
-      alert(err.response?.data?.detail || 'Failed to delete user');
+      notify.error(getErrorMessage(err, 'Failed to delete user'));
     } finally {
       setLoading(false);
     }
+  };
+
+  // --- Account recovery (admin) ---
+  const [recoveryPassword, setRecoveryPassword] = useState('');
+
+  const runRecovery = async (action: () => Promise<void>, successMessage: string) => {
+    setError('');
+    try {
+      setLoading(true);
+      await action();
+      notify.success(successMessage);
+      const refreshed = await userManagementService.getAllUsers();
+      setUsers(Array.isArray(refreshed) ? refreshed : []);
+      if (editingUser) {
+        setEditingUser(refreshed.find((u) => u.id === editingUser.id) || editingUser);
+      }
+    } catch (err: any) {
+      setError(getErrorMessage(err, 'The action could not be completed.'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!editingUser || !recoveryPassword) return;
+    await runRecovery(
+      () => userManagementService.resetPassword(editingUser.id, recoveryPassword),
+      `Password reset for ${editingUser.email}.`
+    );
+    setRecoveryPassword('');
+  };
+
+  const handleResetTwoFactor = async () => {
+    if (!editingUser) return;
+    const confirmed = await confirmDialog({
+      title: 'Reset two-factor authentication',
+      message: `${editingUser.email} will have to set up two-factor authentication again the next time they sign in.`,
+      confirmLabel: 'Reset 2FA',
+      danger: true,
+    });
+    if (!confirmed) return;
+    await runRecovery(
+      () => userManagementService.resetTwoFactor(editingUser.id),
+      `Two-factor authentication reset for ${editingUser.email}.`
+    );
+  };
+
+  const handleUnlock = async () => {
+    if (!editingUser) return;
+    await runRecovery(
+      () => userManagementService.unlock(editingUser.id),
+      `${editingUser.email} has been unlocked.`
+    );
   };
 
   const openCreateModal = () => {
@@ -133,6 +188,7 @@ const Settings: React.FC = () => {
       is_staff: false,
     });
     setError('');
+    setRecoveryPassword('');
   };
 
   const closeModal = () => {
@@ -196,11 +252,7 @@ const Settings: React.FC = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="p-4 bg-muted/50 rounded-lg border border-border">
-            <p className="text-sm text-muted-foreground">
-              Security settings and password management features will be available soon.
-            </p>
-          </div>
+          <ChangePassword />
         </CardContent>
       </Card>
 
@@ -268,6 +320,12 @@ const Settings: React.FC = () => {
                           <span className={`px-2 py-1 rounded text-xs ${u.is_active ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
                             {u.is_active ? 'Active' : 'Inactive'}
                           </span>
+                          {u.is_locked && (
+                            <span className="ml-2 inline-flex items-center gap-1 px-2 py-1 rounded text-xs bg-amber-500/10 text-amber-500">
+                              <Lock className="h-3 w-3" />
+                              Locked
+                            </span>
+                          )}
                         </td>
                         <td className="py-3 px-4 text-sm">
                           <span className={`px-2 py-1 rounded text-xs ${u.is_staff ? 'bg-blue-500/10 text-blue-500' : 'bg-gray-500/10 text-gray-500'}`}>
@@ -302,6 +360,8 @@ const Settings: React.FC = () => {
                               size="sm"
                               onClick={() => openEditModal(u)}
                               disabled={loading}
+                              aria-label={`Edit ${u.email}`}
+                              title="Edit user"
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
@@ -310,6 +370,8 @@ const Settings: React.FC = () => {
                               size="sm"
                               onClick={() => handleDeleteUser(u.id)}
                               disabled={loading || u.id === user?.id}
+                              aria-label={`Delete ${u.email}`}
+                              title={u.id === user?.id ? 'You cannot delete your own account' : 'Delete user'}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -328,7 +390,7 @@ const Settings: React.FC = () => {
       {/* User Modal */}
       {showUserModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-md">
+          <Card className="w-full max-w-md max-h-[90vh] overflow-y-auto">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>{editingUser ? 'Edit User' : 'Create New User'}</CardTitle>
@@ -340,7 +402,7 @@ const Settings: React.FC = () => {
             <CardContent>
               <form onSubmit={editingUser ? handleUpdateUser : handleCreateUser} className="space-y-4">
                 {error && (
-                  <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md border border-destructive/20">
+                  <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md border border-destructive/20 whitespace-pre-line">
                     {error}
                   </div>
                 )}
@@ -419,6 +481,56 @@ const Settings: React.FC = () => {
                     <span className="text-sm">Admin</span>
                   </label>
                 </div>
+
+                {editingUser && (
+                  <div className="space-y-3 pt-4 border-t border-border">
+                    <h3 className="text-sm font-medium">Account recovery</h3>
+                    <div className="flex gap-2">
+                      <Input
+                        type="password"
+                        autoComplete="new-password"
+                        placeholder="New password"
+                        aria-label="New password for this user"
+                        value={recoveryPassword}
+                        onChange={(e) => setRecoveryPassword(e.target.value)}
+                        disabled={loading}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleResetPassword}
+                        disabled={loading || recoveryPassword.length < 8}
+                        className="shrink-0"
+                      >
+                        Set password
+                      </Button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleResetTwoFactor}
+                        disabled={loading || !editingUser.twofa_enabled}
+                      >
+                        Reset 2FA
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleUnlock}
+                        disabled={loading || !editingUser.is_locked}
+                      >
+                        Unlock account
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Use these when someone has lost their password or authenticator, or is locked out
+                      after too many failed sign-in attempts.
+                    </p>
+                  </div>
+                )}
 
                 <div className="flex gap-2 pt-4">
                   <Button type="button" variant="outline" onClick={closeModal} disabled={loading} className="flex-1">

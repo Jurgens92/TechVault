@@ -405,23 +405,28 @@ export const diagramAPI = {
 
 // Reports / Export/Import APIs
 export const reportsAPI = {
-  exportOrganizations: (organizationIds?: string[], includeDeleted: boolean = false) =>
+  exportOrganizations: (organizationIds?: string[], includeDeleted: boolean = false, exportPassword: string = '') =>
     api.post('/api/reports/export-organizations/', {
       organization_ids: organizationIds,
-      include_deleted: includeDeleted
+      include_deleted: includeDeleted,
+      export_password: exportPassword || undefined
     }, {
       responseType: 'blob'
     }),
-  importOrganizations: (file: File, overwriteExisting: boolean = false, preserveIds: boolean = false) => {
+  importOrganizations: (file: File, overwriteExisting: boolean = false, preserveIds: boolean = false, exportPassword: string = '') => {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('overwrite_existing', overwriteExisting.toString());
     formData.append('preserve_ids', preserveIds.toString());
+    if (exportPassword) {
+      formData.append('export_password', exportPassword);
+    }
     return api.post<{
       success: boolean;
       imported_organizations: string[];
       skipped_organizations: Array<{ name: string; reason: string }>;
-      errors: Array<{ organization: string; error: string }>;
+      errors: Array<{ organization: string; error: string } | string>;
+      warning?: string;
     }>('/api/reports/import-organizations/', formData, {
       headers: {
         'Content-Type': 'multipart/form-data'

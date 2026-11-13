@@ -2,7 +2,7 @@ from django.db import models
 from django.contrib.auth import get_user_model
 import uuid
 from .base import BaseModel
-from .organization import Organization
+from .organization import Organization, NOT_DELETED
 from core.constants import ConfigurationType
 
 User = get_user_model()
@@ -25,7 +25,9 @@ class Configuration(BaseModel):
     class Meta:
         ordering = ['organization', 'config_type', 'name']
         db_table = 'configurations'
-        unique_together = ('organization', 'name')
+        constraints = [
+            models.UniqueConstraint(fields=['organization', 'name'], condition=NOT_DELETED, name='uniq_active_configuration_name'),
+        ]
 
     def __str__(self):
         return self.name

@@ -27,6 +27,15 @@ class ReportViewSet(viewsets.ViewSet):
         super().__init__(*args, **kwargs)
         self.report_service = None
 
+    @staticmethod
+    def _audit(request, action_name, entity_type, entity_name='', details=''):
+        from core.models import AuditLog
+        from users.utils import get_client_ip
+        AuditLog.log(
+            user=request.user, action=action_name, entity_type=entity_type,
+            entity_name=entity_name, details=details, ip_address=get_client_ip(request),
+        )
+
     def get_report_service(self):
         """Get or create report service instance."""
         if self.report_service is None:
@@ -286,12 +295,18 @@ class ReportViewSet(viewsets.ViewSet):
         """
         organization_ids = request.data.get('organization_ids')
         include_deleted = request.data.get('include_deleted', False)
+        export_password = request.data.get('export_password') or None
 
         try:
             service = OrganizationExportImportService(request.user)
             export_data = service.export_organizations(
                 organization_ids=organization_ids,
-                include_deleted=include_deleted
+                include_deleted=include_deleted,
+                export_password=export_password
+            )
+            self._audit(
+                request, 'export', 'Organization',
+                details=f'Exported {len(export_data.get("organizations", []))} organization(s)'
             )
 
             # Return as downloadable JSON file
@@ -334,8 +349,17 @@ class ReportViewSet(viewsets.ViewSet):
             "preserve_ids": false  // optional
         }
         """
+        # Importing can replace (and permanently delete) an organization's data,
+        # so it is restricted to administrators.
+        if not request.user.is_staff:
+            return Response(
+                {'error': 'Only administrators can import organizations'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         overwrite_existing = request.data.get('overwrite_existing', 'false')
         preserve_ids = request.data.get('preserve_ids', 'false')
+        export_password = request.data.get('export_password') or None
 
         # Convert string booleans to actual booleans
         if isinstance(overwrite_existing, str):
@@ -368,8 +392,19 @@ class ReportViewSet(viewsets.ViewSet):
             results = service.import_organizations(
                 import_data=import_data,
                 overwrite_existing=overwrite_existing,
-                preserve_ids=preserve_ids
+                preserve_ids=preserve_ids,
+                export_password=export_password
             )
+            imported = results.get('imported_organizations', [])
+            if imported:
+                self._audit(
+                    request, 'import', 'Organization',
+                    entity_name=', '.join(imported),
+                    details=(
+                        f'Imported {len(imported)} organization(s)'
+                        + (' (existing data overwritten)' if overwrite_existing else '')
+                    )
+                )
 
             return Response(results, status=status.HTTP_200_OK)
 
@@ -414,6 +449,8 @@ class ReportViewSet(viewsets.ViewSet):
                 include_deleted=include_deleted,
                 backup_password=backup_password
             )
+
+            self._audit(request, 'export', 'SystemBackup', details='Full system backup created')
 
             # Return as downloadable JSON file
             response = HttpResponse(
@@ -491,7 +528,7 @@ class ReportViewSet(viewsets.ViewSet):
             )
 
         # Validate backup type
-        if backup_data.get('backup_type') != 'full_system':
+        if not isinstance(backup_data, dict) or backup_data.get('backup_type') != 'full_system':
             return Response(
                 {'error': 'Invalid backup file. Expected a full system backup.'},
                 status=status.HTTP_400_BAD_REQUEST
@@ -505,6 +542,14 @@ class ReportViewSet(viewsets.ViewSet):
                 restore_organizations=restore_organizations,
                 overwrite_existing=overwrite_existing,
                 backup_password=backup_password if backup_password else None
+            )
+            self._audit(
+                request, 'import', 'SystemBackup',
+                details=(
+                    'System restore '
+                    + ('completed' if results.get('success') else 'finished with errors')
+                    + (' (existing data overwritten)' if overwrite_existing else '')
+                )
             )
 
             return Response(results, status=status.HTTP_200_OK)

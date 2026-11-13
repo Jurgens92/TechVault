@@ -1,3 +1,4 @@
+import { confirmDialog } from '@/components/Feedback';
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
@@ -39,7 +40,7 @@ export const OrganizationDetail: React.FC = () => {
   };
 
   const handleDelete = async () => {
-    if (window.confirm('Are you sure you want to delete this organization? This action cannot be undone.')) {
+    if (await confirmDialog('Are you sure you want to delete this organization? This action cannot be undone.')) {
       try {
         if (!id) return;
         await organizationAPI.delete(id);
@@ -100,6 +101,8 @@ export const OrganizationDetail: React.FC = () => {
           <Button
             onClick={handleDelete}
             className="p-2 hover:bg-red-900/20 text-red-400"
+            aria-label="Delete"
+            title="Delete"
           >
             <Trash2 className="w-5 h-5" />
           </Button>

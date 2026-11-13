@@ -29,7 +29,7 @@ class VoIP(BaseModel):
 
     # Additional details
     vendor = models.CharField(max_length=255, blank=True, help_text='VoIP vendor or service provider')
-    quantity = models.IntegerField(default=1, help_text='Number of licenses/extensions')
+    quantity = models.PositiveIntegerField(default=1, help_text='Number of licenses/extensions')
 
     # VoIP-specific fields
     phone_numbers = models.TextField(blank=True, help_text='Associated phone numbers (comma-separated)')
@@ -46,9 +46,17 @@ class VoIP(BaseModel):
         return f"{self.name} ({self.get_voip_type_display()})"
 
     @property
+    def active_assignments(self):
+        """
+        Assignments whose contact has not been soft-deleted.
+        Iterates .all() so a prefetch of 'voip_assignments__contact' is reused.
+        """
+        return [a for a in self.voip_assignments.all() if a.contact.deleted_at is None]
+
+    @property
     def assigned_count(self):
-        """Return the number of users this VoIP service is assigned to."""
-        return self.voip_assignments.count()
+        """Return the number of (non-deleted) users this VoIP service is assigned to."""
+        return len(self.active_assignments)
 
     @property
     def available_licenses(self):

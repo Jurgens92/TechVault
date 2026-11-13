@@ -2,24 +2,22 @@
 Custom authentication views for TechVault with 2FA support and account lockout.
 """
 import pyotp
-import hashlib
 import logging
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes, throttle_classes
+from rest_framework.decorators import api_view, authentication_classes, permission_classes, throttle_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate, get_user_model
 from django.utils import timezone
+from django.middleware.csrf import get_token
+from dj_rest_auth.jwt_auth import set_jwt_cookies, unset_jwt_cookies
+from dj_rest_auth.app_settings import api_settings as rest_auth_settings
 from users.throttling import LoginRateThrottle
+from users.utils import hash_backup_code, consume_backup_code, get_client_ip  # noqa: F401 (hash_backup_code re-exported)
 
 User = get_user_model()
 security_logger = logging.getLogger('security')
-
-
-def hash_backup_code(code):
-    """Hash a backup code for comparison."""
-    return hashlib.sha256(code.encode()).hexdigest()
 
 
 def get_tokens_for_user(user):
@@ -37,7 +35,61 @@ def get_tokens_for_user(user):
     }
 
 
+def _login_response(request, user, extra=None):
+    """
+    Build the successful-login response.
+
+    Tokens are set as HttpOnly cookies so browser JavaScript never handles them
+    (the browser client relies on the cookies). They are also returned in the body
+    for non-browser API clients that use the Authorization header.
+    """
+    from core.models import AuditLog
+
+    tokens = get_tokens_for_user(user)
+    if extra:
+        tokens.update(extra)
+    response = Response(tokens, status=status.HTTP_200_OK)
+    set_jwt_cookies(response, tokens['access_token'], tokens['refresh_token'])
+    # Make sure the browser has a CSRF cookie: cookie-authenticated requests need it.
+    get_token(request)
+    AuditLog.log(
+        user=user, action='login', entity_type='User', entity_id=user.pk,
+        entity_name=user.email, ip_address=get_client_ip(request),
+    )
+    return response
+
+
 @api_view(['POST'])
+@authentication_classes([])  # a stale/expired auth cookie must not block logging out
+@permission_classes([AllowAny])
+def logout(request):
+    """
+    Log out: blacklist the refresh token (so it cannot be reused) and clear auth cookies.
+    The refresh token is taken from the request body or, for browsers, the cookie.
+    """
+    from rest_framework_simplejwt.exceptions import TokenError
+
+    raw_refresh = request.data.get('refresh') or request.COOKIES.get(rest_auth_settings.JWT_AUTH_REFRESH_COOKIE)
+    if raw_refresh:
+        try:
+            token = RefreshToken(raw_refresh)
+            token.blacklist()
+            user = User.objects.filter(pk=token.get('user_id')).first()
+            if user:
+                from core.models import AuditLog
+                AuditLog.log(
+                    user=user, action='logout', entity_type='User', entity_id=user.pk,
+                    entity_name=user.email, ip_address=get_client_ip(request),
+                )
+        except TokenError:
+            pass  # already expired/blacklisted - nothing to revoke
+    response = Response({'detail': 'Successfully logged out.'}, status=status.HTTP_200_OK)
+    unset_jwt_cookies(response)
+    return response
+
+
+@api_view(['POST'])
+@authentication_classes([])  # a stale/expired auth cookie must not block logging in
 @permission_classes([AllowAny])
 @throttle_classes([LoginRateThrottle])
 def login_with_2fa(request):
@@ -58,8 +110,9 @@ def login_with_2fa(request):
     """
     email = request.data.get('email')
     password = request.data.get('password')
-    twofa_token = request.data.get('twofa_token', '').strip().replace('-', '').replace(' ', '')
-    client_ip = request.META.get('REMOTE_ADDR', 'unknown')
+    raw_twofa_token = str(request.data.get('twofa_token') or '')
+    twofa_token = raw_twofa_token.strip().replace('-', '').replace(' ', '')
+    client_ip = get_client_ip(request) or 'unknown'
 
     # Validate required fields
     if not email or not password:
@@ -129,11 +182,11 @@ def login_with_2fa(request):
         security_logger.info(
             f"Successful login (2FA not enabled): email={email}, ip={client_ip}"
         )
-        tokens = get_tokens_for_user(user)
-        tokens['requires_2fa_setup'] = True
-        tokens['message'] = 'You must enable Two-Factor Authentication. Please set up 2FA to continue using the application.'
-        tokens['setup_url'] = '/api/auth/2fa/setup/'
-        return Response(tokens, status=status.HTTP_200_OK)
+        return _login_response(request, user, {
+            'requires_2fa_setup': True,
+            'message': 'You must enable Two-Factor Authentication. Please set up 2FA to continue using the application.',
+            'setup_url': '/api/auth/2fa/setup/',
+        })
 
     # If 2FA is enabled but no token provided, ask for it
     if not twofa_token:
@@ -155,14 +208,11 @@ def login_with_2fa(request):
         security_logger.info(
             f"Successful login with 2FA: email={email}, ip={client_ip}"
         )
-        tokens = get_tokens_for_user(user)
-        return Response(tokens, status=status.HTTP_200_OK)
+        return _login_response(request, user)
 
-    # Check if it's a backup code
-    token_hash = hash_backup_code(twofa_token.upper())
-    if token_hash in user.twofa_backup_codes:
-        # Remove used backup code and update last_login
-        user.twofa_backup_codes.remove(token_hash)
+    # Check if it's a backup code (separators and case are ignored)
+    if consume_backup_code(user, raw_twofa_token):
+        # Used backup code has been removed; update last_login
         user.reset_failed_login_attempts()
         user.last_login = timezone.now()
         user.save()
@@ -172,12 +222,11 @@ def login_with_2fa(request):
             f"remaining_codes={len(user.twofa_backup_codes)}"
         )
 
-        tokens = get_tokens_for_user(user)
-        tokens['backup_code_used'] = True
-        tokens['remaining_backup_codes'] = len(user.twofa_backup_codes)
-        tokens['warning'] = f'Backup code used. You have {len(user.twofa_backup_codes)} backup codes remaining.'
-
-        return Response(tokens, status=status.HTTP_200_OK)
+        return _login_response(request, user, {
+            'backup_code_used': True,
+            'remaining_backup_codes': len(user.twofa_backup_codes),
+            'warning': f'Backup code used. You have {len(user.twofa_backup_codes)} backup codes remaining.',
+        })
 
     # Invalid 2FA token - count as failed attempt
     user.record_failed_login()

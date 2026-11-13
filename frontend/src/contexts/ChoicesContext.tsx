@@ -13,6 +13,7 @@
  *   ))}
  */
 
+import { useAuth } from './AuthContext';
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import api from '../services/api';
 import { Choices, Choice } from '../types/choices';
@@ -83,9 +84,20 @@ export const ChoicesProvider: React.FC<ChoicesProviderProps> = ({ children }) =>
     }
   }, []);
 
+  // Choices need a signed-in user who has completed 2FA setup. Loading them
+  // when that becomes true also covers signing in without a page reload
+  // (previously they were only requested once, before login, and failed).
+  const { user } = useAuth();
+  const ready = !!user && !!user.twofa_enabled;
+
   useEffect(() => {
-    fetchChoices();
-  }, [fetchChoices]);
+    if (ready) {
+      fetchChoices();
+    } else {
+      setChoices(defaultChoices);
+      setLoading(false);
+    }
+  }, [ready, fetchChoices]);
 
   const getChoiceLabel = useCallback((category: keyof Choices, value: string): string => {
     if (!choices) return value;

@@ -1,3 +1,4 @@
+import { confirmDialog } from '@/components/Feedback';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
@@ -66,7 +67,7 @@ export const Locations: React.FC = () => {
   const filteredLocations = getFilteredLocations();
 
   const handleDelete = async (id: string) => {
-    if (window.confirm('Delete this location?')) {
+    if (await confirmDialog('Delete this location?')) {
       try {
         await locationAPI.delete(id);
         setLocations(locations.filter(loc => loc.id !== id));
@@ -141,6 +142,8 @@ export const Locations: React.FC = () => {
                       navigate(`/locations/${loc.id}/edit`);
                     }}
                     className="p-2 hover:bg-gray-700 text-gray-300"
+                    aria-label="Edit"
+                    title="Edit"
                   >
                     <Edit className="w-4 h-4" />
                   </Button>
@@ -150,6 +153,8 @@ export const Locations: React.FC = () => {
                       handleDelete(loc.id);
                     }}
                     className="p-2 hover:bg-red-900/20 text-red-400"
+                    aria-label="Delete"
+                    title="Delete"
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>

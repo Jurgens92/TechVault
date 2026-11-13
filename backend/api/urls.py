@@ -3,7 +3,8 @@ API URL Configuration for TechVault.
 """
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from rest_framework_simplejwt.views import TokenRefreshView, TokenVerifyView
+from rest_framework_simplejwt.views import TokenVerifyView
+from dj_rest_auth.jwt_auth import get_refresh_view
 from users.views import UserProfileView, UserManagementViewSet
 from users.auth_views import login_with_2fa
 from users.twofa_views import (
@@ -71,6 +72,6 @@ urlpatterns = [
     path('auth/2fa/backup-codes/regenerate/', regenerate_backup_codes, name='2fa-regenerate-backup-codes'),
 
     # JWT token endpoints
-    path('token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
+    path('token/refresh/', get_refresh_view().as_view(), name='token-refresh'),
     path('token/verify/', TokenVerifyView.as_view(), name='token-verify'),
 ]

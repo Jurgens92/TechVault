@@ -1,3 +1,4 @@
+import { confirmDialog } from '@/components/Feedback';
 import React, { useState, useEffect } from 'react';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -7,7 +8,7 @@ import { RotateCcw, Trash2, RefreshCw, Filter, X } from 'lucide-react';
 import {
   organizationAPI, locationAPI, contactAPI, documentationAPI,
   passwordAPI, configurationAPI, networkDeviceAPI, endpointUserAPI,
-  serverAPI, peripheralAPI
+  serverAPI, peripheralAPI, softwareAPI, backupAPI, voipAPI
 } from '../services/core';
 import { Organization } from '../types/core';
 import { useAuth } from '../contexts/AuthContext';
@@ -22,7 +23,10 @@ type EntityType =
   | 'network-devices'
   | 'endpoints'
   | 'servers'
-  | 'peripherals';
+  | 'peripherals'
+  | 'software'
+  | 'backups'
+  | 'voip';
 
 const DeletedItems: React.FC = () => {
   const { user } = useAuth();
@@ -49,6 +53,9 @@ const DeletedItems: React.FC = () => {
     endpoints: [],
     servers: [],
     peripherals: [],
+    software: [],
+    backups: [],
+    voip: [],
   });
 
   const entityConfig = {
@@ -62,6 +69,9 @@ const DeletedItems: React.FC = () => {
     endpoints: { api: endpointUserAPI, label: 'Endpoints', nameField: 'name' },
     servers: { api: serverAPI, label: 'Servers', nameField: 'name' },
     peripherals: { api: peripheralAPI, label: 'Peripherals', nameField: 'name' },
+    software: { api: softwareAPI, label: 'Software', nameField: 'name' },
+    backups: { api: backupAPI, label: 'Backups', nameField: 'name' },
+    voip: { api: voipAPI, label: 'VoIP', nameField: 'name' },
   };
 
   useEffect(() => {
@@ -71,7 +81,7 @@ const DeletedItems: React.FC = () => {
 
   const loadOrganizations = async () => {
     try {
-      const response = await organizationAPI.getAll();
+      const response = await organizationAPI.getAll({ page_size: 1000 });
       setOrganizations(response.data?.results || []);
     } catch (err) {
       console.error('Failed to load organizations:', err);
@@ -82,31 +92,16 @@ const DeletedItems: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const results = await Promise.all([
-        organizationAPI.getDeleted(),
-        locationAPI.getDeleted(),
-        contactAPI.getDeleted(),
-        documentationAPI.getDeleted(),
-        passwordAPI.getDeleted(),
-        configurationAPI.getDeleted(),
-        networkDeviceAPI.getDeleted(),
-        endpointUserAPI.getDeleted(),
-        serverAPI.getDeleted(),
-        peripheralAPI.getDeleted(),
-      ]);
-
-      setDeletedItems({
-        organizations: results[0].data.results || [],
-        locations: results[1].data.results || [],
-        contacts: results[2].data.results || [],
-        documentations: results[3].data.results || [],
-        passwords: results[4].data.results || [],
-        configurations: results[5].data.results || [],
-        'network-devices': results[6].data.results || [],
-        endpoints: results[7].data.results || [],
-        servers: results[8].data.results || [],
-        peripherals: results[9].data.results || [],
+      // Load every entity type; page_size keeps long lists from being cut off at 50
+      const types = Object.keys(entityConfig) as EntityType[];
+      const results = await Promise.all(
+        types.map((type) => entityConfig[type].api.getDeleted({ page_size: 1000 }))
+      );
+      const next = {} as Record<EntityType, any[]>;
+      types.forEach((type, index) => {
+        next[type] = results[index].data.results || [];
       });
+      setDeletedItems(next);
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to load deleted items');
     } finally {
@@ -129,7 +124,7 @@ const DeletedItems: React.FC = () => {
 
   const handleHardDelete = async (id: string, entityType: EntityType) => {
     const config = entityConfig[entityType];
-    if (!window.confirm(`Are you sure you want to PERMANENTLY delete this ${config.label} item? This action cannot be undone!`)) {
+    if (!await confirmDialog(`Are you sure you want to PERMANENTLY delete this ${config.label} item? This action cannot be undone!`)) {
       return;
     }
     try {

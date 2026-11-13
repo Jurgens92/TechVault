@@ -55,7 +55,10 @@ if not DEBUG:
 # Always apply these security settings
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
-CSRF_COOKIE_HTTPONLY = True
+# The CSRF cookie must be readable by the frontend so it can echo it back in the
+# X-CSRFToken header (double-submit). It is not a secret; the auth tokens themselves
+# live in HttpOnly cookies.
+CSRF_COOKIE_HTTPONLY = False
 CSRF_COOKIE_SAMESITE = 'Lax'
 X_FRAME_OPTIONS = 'DENY'
 SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
@@ -74,6 +77,8 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'rest_framework_simplejwt',
+    # Required for BLACKLIST_AFTER_ROTATION and logout to actually revoke refresh tokens
+    'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
     'django_filters',
     'drf_spectacular',  # OpenAPI Schema - Single Source of Truth for API
@@ -222,11 +227,36 @@ if not DEBUG and CORS_ALLOW_ALL_ORIGINS:
 _csrf_trusted = config('CSRF_TRUSTED_ORIGINS', default='', cast=str)
 if isinstance(_csrf_trusted, str) and _csrf_trusted:
     CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in _csrf_trusted.split(',') if origin.strip()]
+elif not CORS_ALLOW_ALL_ORIGINS:
+    # Cookie-authenticated requests are CSRF-checked, so a frontend served from a
+    # different origin (e.g. the Vite dev server) must be trusted explicitly.
+    CSRF_TRUSTED_ORIGINS = list(CORS_ALLOWED_ORIGINS)
+
+# Client IP handling. When True, X-Forwarded-For is honoured only for requests that
+# arrive from a private/loopback address (i.e. via the local reverse proxy).
+TRUST_PROXY_HEADERS = config('TRUST_PROXY_HEADERS', default=True, cast=bool)
+
+# Django admin (/admin/) authenticates with password only - it does not go through
+# the 2FA or account-lockout flow. It is therefore disabled in production unless
+# explicitly enabled.
+ENABLE_DJANGO_ADMIN = config('ENABLE_DJANGO_ADMIN', default=DEBUG, cast=bool)
+
+# Cache (used for rate limiting). The default in-memory cache is per-process, which
+# means each gunicorn worker would keep its own throttle counters. Use a shared
+# file-based cache in production so limits apply across workers.
+if not DEBUG:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+            'LOCATION': config('CACHE_DIR', default=str(BASE_DIR / '.cache')),
+        }
+    }
 
 # REST Framework Settings
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        # Authorization header first, then the HttpOnly auth cookie (CSRF-checked)
+        'dj_rest_auth.jwt_auth.JWTCookieAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
@@ -239,7 +269,7 @@ REST_FRAMEWORK = {
         'rest_framework.filters.SearchFilter',
         'rest_framework.filters.OrderingFilter',
     ],
-    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'DEFAULT_PAGINATION_CLASS': 'core.pagination.StandardPagination',
     'PAGE_SIZE': 50,
     'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.AnonRateThrottle',
@@ -251,6 +281,10 @@ REST_FRAMEWORK = {
         'login': '5/minute',  # Login endpoint: 5 attempts per minute
         '2fa_verification': '10/minute',  # 2FA verification: 10 attempts per minute
     },
+    # Number of trusted reverse proxies in front of the app (nginx). Used by DRF
+    # throttling to pick the client address from X-Forwarded-For; without it the
+    # whole header (client-controlled) is used as the throttle key.
+    'NUM_PROXIES': config('NUM_PROXIES', default=1, cast=int),
     # OpenAPI Schema - Single Source of Truth for API documentation
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
@@ -325,6 +359,10 @@ REST_AUTH = {
     'JWT_AUTH_HTTPONLY': True,
     'JWT_AUTH_SECURE': not DEBUG and config('SECURE_SSL_REDIRECT', default=False, cast=bool),  # Secure cookies only when HTTPS is configured
     'JWT_AUTH_SAMESITE': 'Lax',  # Prevent CSRF while allowing same-site requests
+    # Requests authenticated by cookie must pass Django's CSRF check
+    'JWT_AUTH_COOKIE_USE_CSRF': True,
+    # Changing your password requires the current one
+    'OLD_PASSWORD_FIELD_ENABLED': True,
     'USER_DETAILS_SERIALIZER': 'users.serializers.UserSerializer',
     'LOGIN_SERIALIZER': 'users.serializers.LoginSerializer',
     'REGISTER_SERIALIZER': 'users.serializers.RegisterSerializer',
@@ -336,6 +374,7 @@ REST_AUTH = {
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 # Logging Configuration
+(BASE_DIR / 'logs').mkdir(exist_ok=True)
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,

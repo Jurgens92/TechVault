@@ -354,6 +354,13 @@ class BackupRestoreDataMixin:
         }
 
 
+def decrypt_backup_users(backup, backup_password):
+    """User records are stored encrypted with the backup password."""
+    import json
+    from core.encryption import decrypt_with_password
+    return json.loads(decrypt_with_password(backup['users_encrypted'], backup_password))
+
+
 class TestBackupCreation(BackupRestoreDataMixin, TestCase):
     """Test that backup captures all data correctly."""
 
@@ -361,10 +368,21 @@ class TestBackupCreation(BackupRestoreDataMixin, TestCase):
         self.create_test_data()
         self.service = SystemBackupService(self.admin_user)
 
+    def test_backup_does_not_expose_user_secrets(self):
+        """Password hashes and 2FA secrets must not appear in clear in the file."""
+        import json
+        backup = self.service.create_backup(backup_password='test-backup-pw')
+        self.assertNotIn('users', backup)
+        raw = json.dumps(backup)
+        self.assertNotIn(self.twofa_secret, raw)
+        self.assertNotIn('pbkdf2_sha256$', raw)
+        with self.assertRaises(Exception):
+            decrypt_backup_users(backup, 'wrong-password')
+
     def test_backup_contains_all_users(self):
         """Backup should include all users with their data."""
         backup = self.service.create_backup(backup_password='test-backup-pw')
-        users_data = backup['users']
+        users_data = decrypt_backup_users(backup, 'test-backup-pw')
         emails = {u['email'] for u in users_data}
 
         self.assertIn('admin@test.com', emails)
@@ -375,7 +393,7 @@ class TestBackupCreation(BackupRestoreDataMixin, TestCase):
     def test_backup_preserves_password_hashes(self):
         """Backup should include Django password hashes (not plaintext)."""
         backup = self.service.create_backup(backup_password='test-backup-pw')
-        admin_data = next(u for u in backup['users'] if u['email'] == 'admin@test.com')
+        admin_data = next(u for u in decrypt_backup_users(backup, 'test-backup-pw') if u['email'] == 'admin@test.com')
 
         # Password hash should be a Django-formatted hash, not plaintext
         self.assertTrue(admin_data['password_hash'].startswith('pbkdf2_sha256$'))
@@ -385,7 +403,7 @@ class TestBackupCreation(BackupRestoreDataMixin, TestCase):
     def test_backup_preserves_2fa_config(self):
         """Backup should include 2FA secrets and backup codes."""
         backup = self.service.create_backup(backup_password='test-backup-pw')
-        twofa_data = next(u for u in backup['users'] if u['email'] == 'twofa@test.com')
+        twofa_data = next(u for u in decrypt_backup_users(backup, 'test-backup-pw') if u['email'] == 'twofa@test.com')
 
         self.assertTrue(twofa_data['twofa_enabled'])
         self.assertEqual(twofa_data['twofa_secret'], self.twofa_secret)
@@ -875,8 +893,9 @@ class TestPasswordReEncryption(BackupRestoreDataMixin, TestCase):
             decrypted = decrypt_password(entry.password)
             self.assertIn(decrypted, self.plain_passwords.values())
 
-    def test_re_encryption_count_reported(self):
-        """Restore results should report how many passwords were re-encrypted."""
+    def test_restore_leaves_existing_passwords_readable(self):
+        """A restore must not disturb vault passwords that are already on this server."""
+        from core.encryption import decrypt_password
         backup_password = 're-encrypt-count!'
         backup_data = self.service.create_backup(backup_password=backup_password)
 
@@ -889,12 +908,8 @@ class TestPasswordReEncryption(BackupRestoreDataMixin, TestCase):
         )
 
         self.assertTrue(results['success'])
-        # passwords_re_encrypted should be in results
-        re_enc = results.get('passwords_re_encrypted', {})
-        # With the same key, re-encrypt should process existing passwords
-        total = re_enc.get('re_encrypted', 0) + re_enc.get('skipped', 0)
-        self.assertGreaterEqual(total, 3)
-        self.assertEqual(len(re_enc.get('errors', [])), 0)
+        for entry in PasswordEntry.objects.all():
+            decrypt_password(entry.password)  # raises if unreadable
 
 
 class TestSelectiveRestore(BackupRestoreDataMixin, TestCase):

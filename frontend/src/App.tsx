@@ -4,6 +4,7 @@ import { OrganizationProvider } from '@/contexts/OrganizationContext';
 import { ChoicesProvider } from '@/contexts/ChoicesContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import FeedbackHost from '@/components/Feedback';
 import DashboardLayout from '@/components/DashboardLayout';
 import Login from '@/pages/Login';
 import Dashboard from '@/pages/Dashboard';
@@ -45,6 +46,7 @@ import AuditLog from '@/pages/AuditLog';
 function App() {
   return (
     <ThemeProvider>
+      <FeedbackHost />
       <Router>
         <AuthProvider>
         <OrganizationProvider>

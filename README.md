@@ -323,9 +323,22 @@ TechVault follows a **premium, enterprise-grade design language**:
 - `POST /api/reports/system_restore/` - Restore from system backup
 
 ### Admin
-- `/admin/` - Django admin interface
+- `/admin/` - Django admin interface. Disabled in production by default because it signs in with a password only (no 2FA, no lockout). Set `ENABLE_DJANGO_ADMIN=True` in `.env` to turn it on.
 
 All resource endpoints support standard REST operations: `GET` (list/retrieve), `POST` (create), `PUT`/`PATCH` (update), `DELETE` (soft delete)
+
+## 🔄 Upgrade Notes
+
+After pulling this version, run the usual update (`./update.sh`, or `pip install -r requirements.txt`, `python manage.py migrate`, and rebuild the frontend). Things that behave differently:
+
+- **Sign-in sessions use HttpOnly cookies** instead of tokens in browser storage. Everyone is asked to sign in once after the upgrade. Logging out now revokes the session on the server.
+- **Dependencies** moved to Django 5.2 LTS and Django REST framework 3.16.
+- **Django admin (`/admin/`) is off in production** unless `ENABLE_DJANGO_ADMIN=True` is set. Administrators can reset a user's password, reset their 2FA and unlock their account from Settings → User Management instead.
+- **Importing organizations is administrator-only.**
+- **Deleting an organization also removes its locations, contacts, devices, passwords, etc.** from view; restoring the organization brings them back.
+- **System backups encrypt user records and the audit log** with the backup password. Backups made by older versions can still be restored.
+- **Organization exports** accept an optional export password. Use it when the file will be imported on a different server, so stored passwords remain readable there.
+- **2FA backup codes** work at login exactly as displayed (dashes and case are ignored). Codes issued before this version keep working.
 
 ## 🧪 Testing
 

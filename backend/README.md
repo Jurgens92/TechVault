@@ -135,7 +135,7 @@ The API will be available at `http://localhost:8000`
 
 ### Admin
 
-- `/admin/` - Django admin interface
+- `/admin/` - Django admin interface. Disabled in production by default because it signs in with a password only (no 2FA, no lockout). Set `ENABLE_DJANGO_ADMIN=True` in `.env` to turn it on.
 
 ## Project Structure
 

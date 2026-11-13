@@ -24,6 +24,14 @@ from core.constants import get_all_choices
 from users.models import User
 
 
+def _is_uuid(value):
+    try:
+        uuid.UUID(str(value))
+        return True
+    except (ValueError, TypeError, AttributeError):
+        return False
+
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def health_check(request):
@@ -81,9 +89,9 @@ def endpoint_counts(request):
     """
     org_id = request.query_params.get('organization_id')
 
-    if not org_id:
+    if not org_id or not _is_uuid(org_id):
         return Response(
-            {'error': 'organization_id is required'},
+            {'error': 'A valid organization_id is required'},
             status=400
         )
 
@@ -114,13 +122,16 @@ def diagram_data(request):
     org_id = request.query_params.get('organization_id')
     location_id_str = request.query_params.get('location_id')
 
+    if org_id and not _is_uuid(org_id):
+        return Response({'error': 'Invalid organization_id'}, status=400)
+
     # Convert location_id to UUID if provided
     location_id = None
     if location_id_str:
         try:
             location_id = uuid.UUID(location_id_str)
         except (ValueError, TypeError):
-            location_id = None
+            return Response({'error': 'Invalid location_id'}, status=400)
 
     # Base filters
     base_filter = {'is_active': True}
@@ -191,6 +202,20 @@ def diagram_data(request):
         # No location filter - show all
         software = Software.objects.filter(**base_filter)
         voip = VoIP.objects.filter(**base_filter)
+
+    # Load related rows up front - the serializers read these for every item
+    device_related = ('organization', 'location', 'created_by', 'deleted_by')
+    network_devices = network_devices.select_related(*device_related).prefetch_related('internet_connections')
+    endpoint_users = endpoint_users.select_related(*device_related, 'assigned_to')
+    servers = servers.select_related(*device_related, 'host_server')
+    peripherals = peripherals.select_related(*device_related)
+    backups = backups.select_related(*device_related)
+    software = software.select_related('organization', 'created_by', 'deleted_by').prefetch_related(
+        'software_assignments__contact', 'software_assignments__created_by'
+    )
+    voip = voip.select_related('organization', 'created_by', 'deleted_by').prefetch_related(
+        'voip_assignments__contact', 'voip_assignments__created_by'
+    )
 
     return Response({
         'network_devices': NetworkDeviceSerializer(network_devices, many=True).data,

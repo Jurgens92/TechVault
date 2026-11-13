@@ -9,6 +9,25 @@ from django.http import JsonResponse
 from django.utils.deprecation import MiddlewareMixin
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.exceptions import AuthenticationFailed
+from dj_rest_auth.app_settings import api_settings as rest_auth_settings
+
+
+def authenticate_jwt_request(request):
+    """
+    Resolve the user for a request from the Authorization header or, failing that,
+    the HttpOnly auth cookie. Returns (user, token) or None. CSRF is not checked
+    here - that is done by the DRF authentication class on the view itself.
+    """
+    authenticator = JWTAuthentication()
+    header = authenticator.get_header(request)
+    if header is not None:
+        raw_token = authenticator.get_raw_token(header)
+    else:
+        raw_token = request.COOKIES.get(rest_auth_settings.JWT_AUTH_COOKIE)
+    if raw_token is None:
+        return None
+    validated_token = authenticator.get_validated_token(raw_token)
+    return authenticator.get_user(validated_token), validated_token
 
 
 class Enforce2FAMiddleware(MiddlewareMixin):
@@ -46,11 +65,10 @@ class Enforce2FAMiddleware(MiddlewareMixin):
         if path.startswith('/static/') or path.startswith('/media/'):
             return None
 
-        # Try to authenticate using JWT
-        jwt_authenticator = JWTAuthentication()
+        # Try to authenticate using JWT (Authorization header or auth cookie)
         try:
             # Attempt to authenticate the request
-            auth_result = jwt_authenticator.authenticate(request)
+            auth_result = authenticate_jwt_request(request)
 
             # If authentication successful, check 2FA status
             if auth_result is not None:

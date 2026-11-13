@@ -1,10 +1,13 @@
 import csv
 import io
+import uuid
+from django.db import IntegrityError, transaction
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from django.db.models import Q
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.http import HttpResponse
 from .models import (
     Organization, Location, Contact, Documentation,
@@ -20,14 +23,16 @@ from .serializers import (
     EntityVersionSerializer, AuditLogSerializer
 )
 from .permissions import IsOrganizationMember, IsOrganizationAdmin
+from users.utils import get_client_ip as _get_client_ip
 
 
-def _get_client_ip(request):
-    """Extract client IP from request."""
-    x_forwarded = request.META.get('HTTP_X_FORWARDED_FOR')
-    if x_forwarded:
-        return x_forwarded.split(',')[0].strip()
-    return request.META.get('REMOTE_ADDR')
+def _is_uuid(value):
+    """True if value is a valid UUID string."""
+    try:
+        uuid.UUID(str(value))
+        return True
+    except (ValueError, TypeError, AttributeError):
+        return False
 
 
 def _get_entity_name(instance):
@@ -115,7 +120,7 @@ class AuditLogMixin:
                 fields.append({'field': key, 'value': val})
         return fields
 
-    def _log_action(self, action, instance, changes=None):
+    def _log_action(self, action, instance, changes=None, details=''):
         request = getattr(self, 'request', None)
         if not request:
             return
@@ -127,18 +132,31 @@ class AuditLogMixin:
             entity_id=str(instance.pk),
             entity_name=_get_entity_name(instance),
             organization_name=_get_org_name(instance),
+            details=details,
             changes=changes,
             ip_address=_get_client_ip(request),
         )
 
+    def after_create(self, instance):
+        """Hook for viewsets that need extra work after an object is created."""
+
+    @transaction.atomic
     def perform_create(self, serializer):
-        super().perform_create(serializer)
-        instance = serializer.instance
+        """
+        Save the new object (recording who created it), run the viewset's
+        after_create hook, and write the audit entry.
+
+        Viewsets must NOT override perform_create - doing so would bypass the
+        audit log. Override after_create instead.
+        """
+        instance = serializer.save(created_by=self.request.user)
+        self.after_create(instance)
         fields = self._build_field_summary(instance, 'create')
         self._log_action('create', instance, changes={'fields': fields})
 
+    @transaction.atomic
     def perform_update(self, serializer):
-        instance = self.get_object()
+        instance = serializer.instance
         old_snapshot = self._snapshot(instance)
         super().perform_update(serializer)
         instance.refresh_from_db()
@@ -205,7 +223,7 @@ class VersionHistoryMixin:
 
     def perform_update(self, serializer):
         """Override update to create a version before saving changes."""
-        instance = self.get_object()
+        instance = serializer.instance
 
         # Create version before updating
         change_note = self.request.data.get('change_note', '')
@@ -256,17 +274,24 @@ class VersionHistoryMixin:
                 **{self.parent_field: instance, 'version_number': version_number}
             )
 
-            # Create a new version of the current state before restoring
-            self._create_version(instance, f'Before restoring to version {version_number}')
+            with transaction.atomic():
+                # Create a new version of the current state before restoring
+                self._create_version(instance, f'Before restoring to version {version_number}')
 
-            # Restore fields from version
-            for field in self.version_fields:
-                setattr(instance, field, getattr(version, field))
+                # Restore fields from version
+                for field in self.version_fields:
+                    setattr(instance, field, getattr(version, field))
 
-            instance.save()
+                instance.save()
 
-            # Create a new version after restoring
-            self._create_version(instance, f'Restored from version {version_number}')
+                # Create a new version after restoring
+                self._create_version(instance, f'Restored from version {version_number}')
+
+                if hasattr(self, '_log_action'):
+                    self._log_action(
+                        'restore', instance,
+                        details=f'Restored to version {version_number}'
+                    )
 
             serializer = self.get_serializer(instance)
             return Response({
@@ -281,141 +306,28 @@ class VersionHistoryMixin:
             )
 
 
-class UnifiedVersionHistoryMixin:
-    """
-    Mixin to add version history using the unified EntityVersion model.
-
-    This is the Single Source of Truth for version history, replacing the
-    per-entity version tables (DocumentationVersion, PasswordEntryVersion, etc.).
-
-    Usage:
-        class MyViewSet(UnifiedVersionHistoryMixin, viewsets.ModelViewSet):
-            use_unified_versioning = True  # Enable unified versioning
-    """
-    use_unified_versioning = True
-
-    def _create_unified_version(self, instance, change_note=''):
-        """Create a version snapshot using the unified EntityVersion model."""
-        user = self.request.user if hasattr(self, 'request') else None
-        EntityVersion.create_version(
-            instance,
-            user=user,
-            change_note=change_note,
-            serializer_class=self.get_serializer_class()
-        )
-
-    def perform_create(self, serializer):
-        """Create initial version on entity creation."""
-        instance = serializer.save(created_by=self.request.user)
-        if self.use_unified_versioning:
-            self._create_unified_version(instance, 'Initial version')
-
-    def perform_update(self, serializer):
-        """Create version before updating entity."""
-        instance = self.get_object()
-
-        # Create version of current state before updating
-        if self.use_unified_versioning:
-            change_note = self.request.data.get('change_note', '')
-            self._create_unified_version(instance, change_note)
-
-        # Save the update
-        updated_instance = serializer.save()
-
-        # Increment version field if it exists
-        if hasattr(updated_instance, 'version') and isinstance(getattr(updated_instance, 'version'), int):
-            updated_instance.version += 1
-            updated_instance.save(update_fields=['version'])
-
-    @action(detail=True, methods=['get'])
-    def versions(self, request, pk=None):
-        """Get version history for this entry using unified versioning."""
-        instance = self.get_object()
-        versions = EntityVersion.get_versions(instance)
-        serializer = EntityVersionSerializer(versions, many=True)
-        return Response(serializer.data)
-
-    @action(detail=True, methods=['get'], url_path='versions/(?P<version_number>[0-9]+)')
-    def get_version(self, request, pk=None, version_number=None):
-        """Get a specific version."""
-        instance = self.get_object()
-        version = EntityVersion.get_version(instance, int(version_number))
-        if not version:
-            return Response(
-                {'detail': 'Version not found.'},
-                status=status.HTTP_404_NOT_FOUND
-            )
-        serializer = EntityVersionSerializer(version)
-        return Response(serializer.data)
-
-    @action(detail=True, methods=['post'], url_path='restore-version/(?P<version_number>[0-9]+)')
-    def restore_version(self, request, pk=None, version_number=None):
-        """Restore an entry to a specific version."""
-        instance = self.get_object()
-        version = EntityVersion.get_version(instance, int(version_number))
-
-        if not version:
-            return Response(
-                {'detail': 'Version not found.'},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        try:
-            # Create a new version of current state before restoring
-            self._create_unified_version(instance, f'Before restoring to version {version_number}')
-
-            # Restore fields from snapshot
-            snapshot = version.snapshot
-            for field_name, value in snapshot.items():
-                if hasattr(instance, field_name) and field_name not in ['id', 'pk', 'created_at', 'created_by', 'organization', 'organization_name']:
-                    try:
-                        setattr(instance, field_name, value)
-                    except (AttributeError, TypeError):
-                        pass
-
-            instance.save()
-
-            # Create a version for the restored state
-            self._create_unified_version(instance, f'Restored from version {version_number}')
-
-            serializer = self.get_serializer(instance)
-            return Response({
-                'detail': f'Successfully restored to version {version_number}',
-                'data': serializer.data
-            })
-        except Exception:
-            return Response(
-                {'detail': 'Error restoring version. Please try again.'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-
 class SoftDeleteViewSetMixin:
     """Mixin to add soft delete functionality to ViewSets."""
 
-    def _check_organization_access(self, instance):
-        """Check if user has access to the instance's organization."""
-        user = self.request.user
-        if user.is_superuser:
-            return True
-
-        # Get organization from instance
+    @staticmethod
+    def _parent_organization_deleted(instance):
+        """True if the instance belongs to an organization that is itself soft-deleted."""
         if isinstance(instance, Organization):
-            org = instance
-        elif hasattr(instance, 'organization'):
-            org = instance.organization
-        else:
-            return True  # No organization relationship
-
-        return OrganizationMember.user_has_access(user, org)
+            return False
+        org_id = getattr(instance, 'organization_id', None)
+        if not org_id:
+            return False
+        return Organization.all_objects.filter(pk=org_id, deleted_at__isnull=False).exists()
 
     def destroy(self, request, *args, **kwargs):
         """Override destroy to perform soft delete instead of hard delete."""
         instance = self.get_object()
-        # Audit log the delete action
-        if hasattr(self, '_log_action'):
-            self._log_action('delete', instance)
-        instance.delete(user=request.user)
+        with transaction.atomic():
+            # Audit log the delete action (with a snapshot of what was deleted)
+            if hasattr(self, '_log_action'):
+                fields = self._build_field_summary(instance, 'delete')
+                self._log_action('delete', instance, changes={'fields': fields})
+            instance.delete(user=request.user)
         return Response(
             {'detail': 'Item moved to deleted items. You can restore it from the Deleted Items section.'},
             status=status.HTTP_200_OK
@@ -428,33 +340,36 @@ class SoftDeleteViewSetMixin:
         model_class = self.get_queryset().model
         try:
             instance = model_class.all_objects.get(pk=pk)
+        except (model_class.DoesNotExist, ValueError, DjangoValidationError):
+            return Response({'detail': 'Item not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-            # Security: Check organization access
-            if not self._check_organization_access(instance):
-                return Response(
-                    {'detail': 'You do not have access to this item.'},
-                    status=status.HTTP_403_FORBIDDEN
-                )
-
-            if not instance.is_deleted:
-                return Response(
-                    {'detail': 'Item is not deleted.'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            instance.restore()
-            # Audit log the restore action
-            if hasattr(self, '_log_action'):
-                self._log_action('restore', instance)
-            serializer = self.get_serializer(instance)
+        if not instance.is_deleted:
             return Response(
-                {'detail': 'Item restored successfully.', 'data': serializer.data},
-                status=status.HTTP_200_OK
+                {'detail': 'Item is not deleted.'},
+                status=status.HTTP_400_BAD_REQUEST
             )
-        except model_class.DoesNotExist:
+        if self._parent_organization_deleted(instance):
             return Response(
-                {'detail': 'Item not found.'},
-                status=status.HTTP_404_NOT_FOUND
+                {'detail': 'This item belongs to a deleted organization. Restore the organization first.'},
+                status=status.HTTP_400_BAD_REQUEST
             )
+        try:
+            with transaction.atomic():
+                instance.restore()
+                # Audit log the restore action
+                if hasattr(self, '_log_action'):
+                    self._log_action('restore', instance)
+        except IntegrityError:
+            return Response(
+                {'detail': 'Cannot restore: an active item with the same name already exists. '
+                           'Rename or delete that item first.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        serializer = self.get_serializer(instance)
+        return Response(
+            {'detail': 'Item restored successfully.', 'data': serializer.data},
+            status=status.HTTP_200_OK
+        )
 
     @action(detail=False, methods=['get'])
     def deleted(self, request):
@@ -462,14 +377,24 @@ class SoftDeleteViewSetMixin:
         model_class = self.get_queryset().model
         deleted_items = model_class.objects.deleted()
 
-        # Security: Filter by user's accessible organizations
-        if hasattr(self, 'filter_by_organization_access'):
-            deleted_items = self.filter_by_organization_access(deleted_items)
+        related = [
+            f for f in ('organization', 'location', 'created_by', 'deleted_by')
+            if f in {field.name for field in model_class._meta.fields}
+        ]
+        if related:
+            deleted_items = deleted_items.select_related(*related)
 
-        # Apply additional organization filter if provided
-        org_id = request.query_params.get('organization_id')
-        if org_id and hasattr(model_class, 'organization'):
-            deleted_items = deleted_items.filter(organization_id=org_id)
+        if hasattr(model_class, 'organization'):
+            # Items that were removed as part of deleting their organization are
+            # restored together with it, so they are not listed individually.
+            deleted_items = deleted_items.filter(organization__deleted_at__isnull=True)
+
+            # Apply additional organization filter if provided
+            org_id = request.query_params.get('organization_id')
+            if org_id:
+                if not _is_uuid(org_id):
+                    return Response({'detail': 'Invalid organization_id.'}, status=status.HTTP_400_BAD_REQUEST)
+                deleted_items = deleted_items.filter(organization_id=org_id)
 
         page = self.paginate_queryset(deleted_items)
         if page is not None:
@@ -491,24 +416,14 @@ class SoftDeleteViewSetMixin:
         model_class = self.get_queryset().model
         try:
             instance = model_class.all_objects.get(pk=pk)
+        except (model_class.DoesNotExist, ValueError, DjangoValidationError):
+            return Response({'detail': 'Item not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-            # Security: Check organization access
-            if not self._check_organization_access(instance):
-                return Response(
-                    {'detail': 'You do not have access to this item.'},
-                    status=status.HTTP_403_FORBIDDEN
-                )
-
+        with transaction.atomic():
+            if hasattr(self, '_log_action'):
+                self._log_action('delete', instance, details='Permanently deleted')
             instance.hard_delete()
-            return Response(
-                {'detail': 'Item permanently deleted.'},
-                status=status.HTTP_204_NO_CONTENT
-            )
-        except model_class.DoesNotExist:
-            return Response(
-                {'detail': 'Item not found.'},
-                status=status.HTTP_404_NOT_FOUND
-            )
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class OrganizationFilterMixin:
@@ -518,11 +433,14 @@ class OrganizationFilterMixin:
     def by_organization(self, request):
         """Filter items by organization."""
         org_id = request.query_params.get('organization_id')
-        if org_id:
+        if org_id and _is_uuid(org_id):
             queryset = self.get_queryset().filter(organization_id=org_id)
             serializer = self.get_serializer(queryset, many=True)
             return Response(serializer.data)
-        return Response([], status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {'detail': 'A valid organization_id is required.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
 
 class LocationFilterMixin(OrganizationFilterMixin):
@@ -532,11 +450,108 @@ class LocationFilterMixin(OrganizationFilterMixin):
     def by_location(self, request):
         """Filter items by location."""
         location_id = request.query_params.get('location_id')
-        if location_id:
+        if location_id and _is_uuid(location_id):
             queryset = self.get_queryset().filter(location_id=location_id)
             serializer = self.get_serializer(queryset, many=True)
             return Response(serializer.data)
-        return Response([], status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {'detail': 'A valid location_id is required.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+class CSVImportMixin:
+    """
+    Shared CSV import logic. Each row is validated through the viewset's
+    serializer, so imported data obeys the same rules as data entered in the UI.
+    """
+    CSV_MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
+    CSV_MAX_ROWS = 10000
+
+    def _csv_row_to_data(self, row, organization):
+        """Convert a CSV row (dict) to serializer input. Implemented by the viewset."""
+        raise NotImplementedError
+
+    def _run_csv_import(self, request, label):
+        if 'file' not in request.FILES:
+            return Response({'error': 'No file provided'}, status=status.HTTP_400_BAD_REQUEST)
+
+        csv_file = request.FILES['file']
+        if csv_file.size > self.CSV_MAX_FILE_SIZE:
+            return Response({'error': 'File size exceeds 5MB limit'}, status=status.HTTP_400_BAD_REQUEST)
+        if not csv_file.name.lower().endswith('.csv'):
+            return Response({'error': 'File must be a CSV'}, status=status.HTTP_400_BAD_REQUEST)
+
+        org_id = request.data.get('organization_id')
+        if not org_id:
+            return Response({'error': 'organization_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+        organization = Organization.objects.filter(id=org_id).first() if _is_uuid(org_id) else None
+        if organization is None:
+            return Response({'error': 'Organization not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            # utf-8-sig handles the BOM that Excel adds to exported CSV files
+            decoded_file = csv_file.read().decode('utf-8-sig')
+            reader = csv.DictReader(io.StringIO(decoded_file))
+            rows = list(reader)
+        except (UnicodeDecodeError, csv.Error):
+            return Response(
+                {'error': 'Could not read the file. Make sure it is a UTF-8 encoded CSV.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        created_count = 0
+        errors = []
+        for row_num, row in enumerate(rows, start=2):  # row 1 is the header
+            if row_num > self.CSV_MAX_ROWS + 1:
+                errors.append({'row': row_num, 'error': f'Exceeded maximum row limit of {self.CSV_MAX_ROWS}'})
+                break
+            # Skip completely empty lines
+            if not any((v or '').strip() for v in row.values() if isinstance(v, str)):
+                continue
+            try:
+                data = self._csv_row_to_data(row, organization)
+                serializer = self.get_serializer(data=data)
+                if not serializer.is_valid():
+                    messages = []
+                    for field, field_errors in serializer.errors.items():
+                        if not isinstance(field_errors, (list, tuple)):
+                            field_errors = [field_errors]
+                        text = ' '.join(str(e) for e in field_errors)
+                        messages.append(text if field == 'non_field_errors' else f'{field}: {text}')
+                    errors.append({'row': row_num, 'error': '; '.join(messages)})
+                    continue
+                with transaction.atomic():
+                    serializer.save(created_by=request.user)
+                created_count += 1
+            except IntegrityError:
+                errors.append({'row': row_num, 'error': 'Duplicate of an existing record'})
+            except Exception:
+                errors.append({'row': row_num, 'error': 'Could not import this row'})
+
+        if created_count:
+            AuditLog.log(
+                user=request.user,
+                action='import',
+                entity_type=self.get_queryset().model.__name__,
+                entity_name=csv_file.name,
+                organization_name=organization.name,
+                details=f'CSV import: {created_count} created, {len(errors)} row(s) with errors',
+                ip_address=_get_client_ip(request),
+            )
+
+        response_data = {'created': created_count, 'errors': errors}
+        if errors:
+            response_data['message'] = f'Imported {created_count} {label} with {len(errors)} errors'
+        else:
+            response_data['message'] = f'Successfully imported {created_count} {label}'
+        return Response(response_data, status=status.HTTP_201_CREATED)
+
+
+def _csv_value(row, key, max_length):
+    """Read a CSV cell as a trimmed, length-limited string."""
+    return (row.get(key) or '').strip()[:max_length]
+
 
 
 class OrganizationViewSet(AuditLogMixin, SecureQuerySetMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
@@ -550,12 +565,11 @@ class OrganizationViewSet(AuditLogMixin, SecureQuerySetMixin, SoftDeleteViewSetM
 
     def get_queryset(self):
         """Return only organizations the user has access to."""
-        queryset = Organization.objects.all()
+        queryset = Organization.objects.select_related('created_by', 'deleted_by')
         return self.filter_by_organization_access(queryset)
 
-    def perform_create(self, serializer):
-        """Create organization and add creator as owner."""
-        org = serializer.save(created_by=self.request.user)
+    def after_create(self, org):
+        """Add the creator as owner and create the default location."""
         # Automatically add creator as organization owner
         OrganizationMember.objects.create(
             organization=org,
@@ -616,14 +630,12 @@ class LocationViewSet(AuditLogMixin, SecureQuerySetMixin, OrganizationFilterMixi
 
     def get_queryset(self):
         """Return only locations from organizations the user has access to."""
-        queryset = Location.objects.select_related('organization')
+        queryset = Location.objects.select_related('organization', 'created_by', 'deleted_by')
         return self.filter_by_organization_access(queryset)
 
-    def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
 
 
-class ContactViewSet(AuditLogMixin, SecureQuerySetMixin, LocationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+class ContactViewSet(AuditLogMixin, SecureQuerySetMixin, CSVImportMixin, LocationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for Contact CRUD operations."""
     serializer_class = ContactSerializer
     permission_classes = [IsAuthenticated, IsOrganizationMember]
@@ -634,11 +646,9 @@ class ContactViewSet(AuditLogMixin, SecureQuerySetMixin, LocationFilterMixin, So
 
     def get_queryset(self):
         """Return only contacts from organizations the user has access to."""
-        queryset = Contact.objects.select_related('organization', 'location')
+        queryset = Contact.objects.select_related('organization', 'location', 'created_by', 'deleted_by')
         return self.filter_by_organization_access(queryset)
 
-    def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
 
     @action(detail=False, methods=['get'])
     def download_example_csv(self, request):
@@ -656,128 +666,29 @@ class ContactViewSet(AuditLogMixin, SecureQuerySetMixin, LocationFilterMixin, So
 
         return response
 
+    def _csv_row_to_data(self, row, organization):
+        # Imported contacts go to the organization's first (oldest) location, if any
+        default_location = getattr(self, '_csv_default_location', None)
+        return {
+            'organization': str(organization.id),
+            'location': str(default_location.id) if default_location else None,
+            'first_name': _csv_value(row, 'first_name', 100),
+            'last_name': _csv_value(row, 'last_name', 100),
+            'title': _csv_value(row, 'title', 100),
+            'email': _csv_value(row, 'email', 254),
+            'phone': _csv_value(row, 'phone', 20),
+            'is_active': True,
+        }
+
     @action(detail=False, methods=['post'])
     def import_csv(self, request):
         """Import contacts from a CSV file."""
-        # Security: File size limit (5MB max)
-        MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
-        MAX_ROWS = 10000
-
-        if 'file' not in request.FILES:
-            return Response(
-                {'error': 'No file provided'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        csv_file = request.FILES['file']
-
-        # Security: Check file size
-        if csv_file.size > MAX_FILE_SIZE:
-            return Response(
-                {'error': 'File size exceeds 5MB limit'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # Check file extension
-        if not csv_file.name.endswith('.csv'):
-            return Response(
-                {'error': 'File must be a CSV'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # Get organization_id from request
         org_id = request.data.get('organization_id')
-        if not org_id:
-            return Response(
-                {'error': 'organization_id is required'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # Verify organization exists and user has access
-        try:
-            organization = Organization.objects.get(id=org_id)
-            # Security: Check user has access to this organization
-            if not OrganizationMember.user_has_access(request.user, organization) and not request.user.is_superuser:
-                return Response(
-                    {'error': 'You do not have access to this organization'},
-                    status=status.HTTP_403_FORBIDDEN
-                )
-        except Organization.DoesNotExist:
-            return Response(
-                {'error': 'Organization not found'},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        # Get the default location for this organization (oldest/first created)
-        default_location = Location.objects.filter(
-            organization=organization,
-            deleted_at__isnull=True
-        ).order_by('created_at').first()
-
-        # Read and decode CSV file
-        try:
-            # Use utf-8-sig to handle BOM (Byte Order Mark) from Excel-exported CSV files
-            decoded_file = csv_file.read().decode('utf-8-sig')
-            io_string = io.StringIO(decoded_file)
-            reader = csv.DictReader(io_string)
-
-            created_count = 0
-            errors = []
-
-            for row_num, row in enumerate(reader, start=2):  # start=2 because row 1 is header
-                # Security: Limit number of rows
-                if row_num > MAX_ROWS + 1:
-                    errors.append({
-                        'row': row_num,
-                        'error': f'Exceeded maximum row limit of {MAX_ROWS}'
-                    })
-                    break
-
-                try:
-                    # Security: Sanitize inputs - strip and limit length
-                    first_name = row.get('first_name', '').strip()[:100]
-                    last_name = row.get('last_name', '').strip()[:100]
-                    title = row.get('title', '').strip()[:100]
-                    email = row.get('email', '').strip()[:254]
-                    phone = row.get('phone', '').strip()[:20]
-
-                    # Create contact with default location if available
-                    Contact.objects.create(
-                        organization=organization,
-                        location=default_location,  # Use default location if exists, else None
-                        first_name=first_name,
-                        last_name=last_name,
-                        title=title,
-                        email=email,
-                        phone=phone,
-                        is_active=True,
-                        created_by=request.user
-                    )
-                    created_count += 1
-
-                except Exception as e:
-                    errors.append({
-                        'row': row_num,
-                        'error': str(e)
-                    })
-
-            response_data = {
-                'created': created_count,
-                'errors': errors
-            }
-
-            if errors:
-                response_data['message'] = f'Imported {created_count} contacts with {len(errors)} errors'
-            else:
-                response_data['message'] = f'Successfully imported {created_count} contacts'
-
-            return Response(response_data, status=status.HTTP_201_CREATED)
-
-        except Exception as e:
-            return Response(
-                {'error': 'Error processing CSV file'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        self._csv_default_location = (
+            Location.objects.filter(organization_id=org_id).order_by('created_at').first()
+            if _is_uuid(org_id) else None
+        )
+        return self._run_csv_import(request, 'contacts')
 
 
 class DocumentationViewSet(AuditLogMixin, SecureQuerySetMixin, OrganizationFilterMixin, VersionHistoryMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
@@ -797,11 +708,10 @@ class DocumentationViewSet(AuditLogMixin, SecureQuerySetMixin, OrganizationFilte
 
     def get_queryset(self):
         """Return only documentation from organizations the user has access to."""
-        queryset = Documentation.objects.select_related('organization')
+        queryset = Documentation.objects.select_related('organization', 'created_by', 'deleted_by')
         return self.filter_by_organization_access(queryset)
 
-    def perform_create(self, serializer):
-        instance = serializer.save(created_by=self.request.user)
+    def after_create(self, instance):
         # Create initial version on create
         self._create_version(instance, 'Initial version')
 
@@ -809,14 +719,20 @@ class DocumentationViewSet(AuditLogMixin, SecureQuerySetMixin, OrganizationFilte
     def publish(self, request, pk=None):
         documentation = self.get_object()
         documentation.is_published = True
-        documentation.save()
+        documentation.save(update_fields=['is_published', 'updated_at'])
+        self._log_action('update', documentation, changes={'diff': [
+            {'field': 'is_published', 'old': False, 'new': True}
+        ]})
         return Response({'status': 'documentation published'})
 
     @action(detail=True, methods=['post'])
     def unpublish(self, request, pk=None):
         documentation = self.get_object()
         documentation.is_published = False
-        documentation.save()
+        documentation.save(update_fields=['is_published', 'updated_at'])
+        self._log_action('update', documentation, changes={'diff': [
+            {'field': 'is_published', 'old': True, 'new': False}
+        ]})
         return Response({'status': 'documentation unpublished'})
 
 
@@ -837,11 +753,10 @@ class PasswordEntryViewSet(AuditLogMixin, SecureQuerySetMixin, OrganizationFilte
 
     def get_queryset(self):
         """Return only password entries from organizations the user has access to."""
-        queryset = PasswordEntry.objects.select_related('organization')
+        queryset = PasswordEntry.objects.select_related('organization', 'created_by', 'deleted_by')
         return self.filter_by_organization_access(queryset)
 
-    def perform_create(self, serializer):
-        instance = serializer.save(created_by=self.request.user)
+    def after_create(self, instance):
         # Create initial version on create
         self._create_version(instance, 'Initial version')
 
@@ -864,8 +779,10 @@ class PasswordEntryViewSet(AuditLogMixin, SecureQuerySetMixin, OrganizationFilte
             f"password_entry={password_entry.id}, "
             f"name={password_entry.name}, "
             f"organization={password_entry.organization.name}, "
-            f"ip={request.META.get('REMOTE_ADDR', 'unknown')}"
+            f"ip={_get_client_ip(request) or 'unknown'}"
         )
+        # Also record it in the in-app audit log so admins can see who viewed what
+        self._log_action('view', password_entry, details='Password revealed')
 
         try:
             decrypted_password = decrypt_password(password_entry.password)
@@ -901,11 +818,10 @@ class ConfigurationViewSet(AuditLogMixin, SecureQuerySetMixin, OrganizationFilte
 
     def get_queryset(self):
         """Return only configurations from organizations the user has access to."""
-        queryset = Configuration.objects.select_related('organization')
+        queryset = Configuration.objects.select_related('organization', 'created_by', 'deleted_by')
         return self.filter_by_organization_access(queryset)
 
-    def perform_create(self, serializer):
-        instance = serializer.save(created_by=self.request.user)
+    def after_create(self, instance):
         # Create initial version on create
         self._create_version(instance, 'Initial version')
 
@@ -921,14 +837,12 @@ class NetworkDeviceViewSet(AuditLogMixin, SecureQuerySetMixin, OrganizationFilte
 
     def get_queryset(self):
         """Return only network devices from organizations the user has access to."""
-        queryset = NetworkDevice.objects.select_related('organization', 'location')
+        queryset = NetworkDevice.objects.select_related('organization', 'location', 'created_by', 'deleted_by').prefetch_related('internet_connections')
         return self.filter_by_organization_access(queryset)
 
-    def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
 
 
-class EndpointUserViewSet(AuditLogMixin, SecureQuerySetMixin, OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
+class EndpointUserViewSet(AuditLogMixin, SecureQuerySetMixin, CSVImportMixin, OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
     """ViewSet for EndpointUser CRUD operations."""
     serializer_class = EndpointUserSerializer
     permission_classes = [IsAuthenticated, IsOrganizationMember]
@@ -939,11 +853,9 @@ class EndpointUserViewSet(AuditLogMixin, SecureQuerySetMixin, OrganizationFilter
 
     def get_queryset(self):
         """Return only endpoint users from organizations the user has access to."""
-        queryset = EndpointUser.objects.select_related('organization', 'location', 'assigned_to')
+        queryset = EndpointUser.objects.select_related('organization', 'location', 'assigned_to', 'created_by', 'deleted_by')
         return self.filter_by_organization_access(queryset)
 
-    def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
 
     @action(detail=False, methods=['get'])
     def download_example_csv(self, request):
@@ -961,122 +873,32 @@ class EndpointUserViewSet(AuditLogMixin, SecureQuerySetMixin, OrganizationFilter
 
         return response
 
+    def _csv_row_to_data(self, row, organization):
+        device_type = _csv_value(row, 'device_type', 50).lower() or 'desktop'
+        if device_type not in ('desktop', 'laptop', 'workstation', 'other'):
+            device_type = 'other'
+        return {
+            'organization': str(organization.id),
+            'name': _csv_value(row, 'name', 255),
+            'device_type': device_type,
+            'manufacturer': _csv_value(row, 'manufacturer', 255),
+            'model': _csv_value(row, 'model', 255),
+            'cpu': _csv_value(row, 'cpu', 255),
+            'ram': _csv_value(row, 'ram', 100),
+            'storage': _csv_value(row, 'storage', 255),
+            'gpu': _csv_value(row, 'gpu', 255),
+            'operating_system': _csv_value(row, 'operating_system', 255),
+            'ip_address': _csv_value(row, 'ip_address', 50),
+            'mac_address': _csv_value(row, 'mac_address', 50),
+            'hostname': _csv_value(row, 'hostname', 255),
+            'serial_number': _csv_value(row, 'serial_number', 255),
+            'is_active': True,
+        }
+
     @action(detail=False, methods=['post'])
     def import_csv(self, request):
         """Import endpoint users from a CSV file."""
-        # Security: File size limit (5MB max)
-        MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
-        MAX_ROWS = 10000
-
-        if 'file' not in request.FILES:
-            return Response({'error': 'No file provided'}, status=status.HTTP_400_BAD_REQUEST)
-
-        csv_file = request.FILES['file']
-
-        # Security: Check file size
-        if csv_file.size > MAX_FILE_SIZE:
-            return Response({'error': 'File size exceeds 5MB limit'}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Check file extension
-        if not csv_file.name.endswith('.csv'):
-            return Response({'error': 'File must be a CSV'}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Get organization_id from request
-        org_id = request.data.get('organization_id')
-        if not org_id:
-            return Response({'error': 'organization_id is required'}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Verify organization exists and user has access
-        try:
-            organization = Organization.objects.get(id=org_id)
-            # Security: Check user has access to this organization
-            if not OrganizationMember.user_has_access(request.user, organization) and not request.user.is_superuser:
-                return Response({'error': 'You do not have access to this organization'}, status=status.HTTP_403_FORBIDDEN)
-        except Organization.DoesNotExist:
-            return Response({'error': 'Organization not found'}, status=status.HTTP_404_NOT_FOUND)
-
-        # Valid device types
-        valid_device_types = ['desktop', 'laptop', 'workstation', 'other']
-
-        # Read and decode CSV file
-        try:
-            # Use utf-8-sig to handle BOM (Byte Order Mark) from Excel-exported CSV files
-            decoded_file = csv_file.read().decode('utf-8-sig')
-            io_string = io.StringIO(decoded_file)
-            reader = csv.DictReader(io_string)
-
-            created_count = 0
-            errors = []
-
-            for row_num, row in enumerate(reader, start=2):  # start=2 because row 1 is header
-                # Security: Limit number of rows
-                if row_num > MAX_ROWS + 1:
-                    errors.append({'row': row_num, 'error': f'Exceeded maximum row limit of {MAX_ROWS}'})
-                    break
-
-                try:
-                    # Security: Sanitize inputs - strip and limit length
-                    name = row.get('name', '').strip()[:255]
-                    device_type = row.get('device_type', 'desktop').strip().lower()[:50]
-                    manufacturer = row.get('manufacturer', '').strip()[:255]
-                    model = row.get('model', '').strip()[:255]
-                    cpu = row.get('cpu', '').strip()[:255]
-                    ram = row.get('ram', '').strip()[:100]
-                    storage = row.get('storage', '').strip()[:255]
-                    gpu = row.get('gpu', '').strip()[:255]
-                    operating_system = row.get('operating_system', '').strip()[:255]
-                    ip_address = row.get('ip_address', '').strip()[:50]
-                    mac_address = row.get('mac_address', '').strip()[:50]
-                    hostname = row.get('hostname', '').strip()[:255]
-                    serial_number = row.get('serial_number', '').strip()[:255]
-
-                    # Validate required field
-                    if not name:
-                        errors.append({'row': row_num, 'error': 'Name is required'})
-                        continue
-
-                    # Validate device_type
-                    if device_type not in valid_device_types:
-                        device_type = 'other'
-
-                    # Create endpoint user
-                    EndpointUser.objects.create(
-                        organization=organization,
-                        name=name,
-                        device_type=device_type,
-                        manufacturer=manufacturer,
-                        model=model,
-                        cpu=cpu,
-                        ram=ram,
-                        storage=storage,
-                        gpu=gpu,
-                        operating_system=operating_system,
-                        ip_address=ip_address,
-                        mac_address=mac_address,
-                        hostname=hostname,
-                        serial_number=serial_number,
-                        is_active=True,
-                        created_by=request.user
-                    )
-                    created_count += 1
-
-                except Exception as e:
-                    errors.append({'row': row_num, 'error': str(e)})
-
-            response_data = {
-                'created': created_count,
-                'errors': errors
-            }
-
-            if errors:
-                response_data['message'] = f'Imported {created_count} endpoint users with {len(errors)} errors'
-            else:
-                response_data['message'] = f'Successfully imported {created_count} endpoint users'
-
-            return Response(response_data, status=status.HTTP_201_CREATED)
-
-        except Exception as e:
-            return Response({'error': 'Error processing CSV file'}, status=status.HTTP_400_BAD_REQUEST)
+        return self._run_csv_import(request, 'endpoint users')
 
 
 class ServerViewSet(AuditLogMixin, SecureQuerySetMixin, OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
@@ -1090,11 +912,9 @@ class ServerViewSet(AuditLogMixin, SecureQuerySetMixin, OrganizationFilterMixin,
 
     def get_queryset(self):
         """Return only servers from organizations the user has access to."""
-        queryset = Server.objects.select_related('organization', 'location')
+        queryset = Server.objects.select_related('organization', 'location', 'host_server', 'created_by', 'deleted_by')
         return self.filter_by_organization_access(queryset)
 
-    def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
 
 
 class PeripheralViewSet(AuditLogMixin, SecureQuerySetMixin, OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
@@ -1108,11 +928,9 @@ class PeripheralViewSet(AuditLogMixin, SecureQuerySetMixin, OrganizationFilterMi
 
     def get_queryset(self):
         """Return only peripherals from organizations the user has access to."""
-        queryset = Peripheral.objects.select_related('organization', 'location')
+        queryset = Peripheral.objects.select_related('organization', 'location', 'created_by', 'deleted_by')
         return self.filter_by_organization_access(queryset)
 
-    def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
 
 
 class SoftwareViewSet(AuditLogMixin, SecureQuerySetMixin, OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
@@ -1126,14 +944,12 @@ class SoftwareViewSet(AuditLogMixin, SecureQuerySetMixin, OrganizationFilterMixi
 
     def get_queryset(self):
         """Return only software from organizations the user has access to."""
-        queryset = Software.objects.select_related('organization').prefetch_related(
+        queryset = Software.objects.select_related('organization', 'created_by', 'deleted_by').prefetch_related(
             'software_assignments__contact',
             'software_assignments__created_by'
         )
         return self.filter_by_organization_access(queryset)
 
-    def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
 
 
 class BackupViewSet(AuditLogMixin, SecureQuerySetMixin, OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
@@ -1147,11 +963,9 @@ class BackupViewSet(AuditLogMixin, SecureQuerySetMixin, OrganizationFilterMixin,
 
     def get_queryset(self):
         """Return only backups from organizations the user has access to."""
-        queryset = Backup.objects.select_related('organization', 'location')
+        queryset = Backup.objects.select_related('organization', 'location', 'created_by', 'deleted_by')
         return self.filter_by_organization_access(queryset)
 
-    def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
 
 
 class VoIPViewSet(AuditLogMixin, SecureQuerySetMixin, OrganizationFilterMixin, SoftDeleteViewSetMixin, viewsets.ModelViewSet):
@@ -1165,14 +979,12 @@ class VoIPViewSet(AuditLogMixin, SecureQuerySetMixin, OrganizationFilterMixin, S
 
     def get_queryset(self):
         """Return only VoIP from organizations the user has access to."""
-        queryset = VoIP.objects.select_related('organization').prefetch_related(
+        queryset = VoIP.objects.select_related('organization', 'created_by', 'deleted_by').prefetch_related(
             'voip_assignments__contact',
             'voip_assignments__created_by'
         )
         return self.filter_by_organization_access(queryset)
 
-    def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
 
 
 class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):

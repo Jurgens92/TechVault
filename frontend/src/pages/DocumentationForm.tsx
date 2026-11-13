@@ -1,3 +1,5 @@
+import { getErrorMessage } from '@/utils/errors';
+import { notify } from '@/components/Feedback';
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
@@ -29,7 +31,7 @@ export const DocumentationForm: React.FC = () => {
 
   useEffect(() => {
     if (isEditMode && id) {
-      documentationAPI.getById(id).then(r => setFormData(r.data)).finally(() => setLoading(false)).catch(() => {});
+      documentationAPI.getById(id).then(r => setFormData(r.data)).finally(() => setLoading(false)).catch((err) => notify.error(getErrorMessage(err, 'Could not load this item.')));
     } else {
       // Set organization from context when creating new entry
       if (selectedOrg) {
@@ -67,7 +69,7 @@ export const DocumentationForm: React.FC = () => {
   return (
     <div className="space-y-6 max-w-4xl">
       <div className="flex items-center gap-4 mb-8">
-        <Button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-700"><ArrowLeft className="w-5 h-5" /></Button>
+        <Button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-700" aria-label="Back" title="Back"><ArrowLeft className="w-5 h-5" /></Button>
         <h1 className="text-3xl font-bold text-foreground">{isEditMode ? 'Edit Documentation' : 'Create Documentation'}</h1>
       </div>
 

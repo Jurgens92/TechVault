@@ -29,7 +29,7 @@ class Software(BaseModel):
 
     # Additional details
     vendor = models.CharField(max_length=255, blank=True, help_text='Software vendor or publisher')
-    quantity = models.IntegerField(default=1, help_text='Number of licenses')
+    quantity = models.PositiveIntegerField(default=1, help_text='Number of licenses')
 
     notes = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
@@ -42,9 +42,17 @@ class Software(BaseModel):
         return f"{self.name} ({self.get_software_type_display()})"
 
     @property
+    def active_assignments(self):
+        """
+        Assignments whose contact has not been soft-deleted.
+        Iterates .all() so a prefetch of 'software_assignments__contact' is reused.
+        """
+        return [a for a in self.software_assignments.all() if a.contact.deleted_at is None]
+
+    @property
     def assigned_count(self):
-        """Return the number of users this software is assigned to."""
-        return self.software_assignments.count()
+        """Return the number of (non-deleted) users this software is assigned to."""
+        return len(self.active_assignments)
 
     @property
     def available_licenses(self):

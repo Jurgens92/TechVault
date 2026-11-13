@@ -1,3 +1,4 @@
+import { confirmDialog } from '@/components/Feedback';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
@@ -66,7 +67,7 @@ export const Passwords: React.FC = () => {
   const filteredPasswords = getFilteredPasswords();
 
   const handleDelete = async (id: string) => {
-    if (window.confirm('Delete this password entry?')) {
+    if (await confirmDialog('Delete this password entry?')) {
       try {
         await passwordAPI.delete(id);
         setPasswords(passwords.filter(p => p.id !== id));
@@ -123,8 +124,8 @@ export const Passwords: React.FC = () => {
                   )}
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button onClick={(e) => { e.stopPropagation(); navigate(`/passwords/${pwd.id}/edit`); }} className="p-2 hover:bg-gray-700"><Edit className="w-4 h-4" /></Button>
-                  <Button onClick={(e) => { e.stopPropagation(); handleDelete(pwd.id); }} className="p-2 hover:bg-red-900/20 text-red-400"><Trash2 className="w-4 h-4" /></Button>
+                  <Button onClick={(e) => { e.stopPropagation(); navigate(`/passwords/${pwd.id}/edit`); }} className="p-2 hover:bg-gray-700" aria-label="Edit" title="Edit"><Edit className="w-4 h-4" /></Button>
+                  <Button onClick={(e) => { e.stopPropagation(); handleDelete(pwd.id); }} className="p-2 hover:bg-red-900/20 text-red-400" aria-label="Delete" title="Delete"><Trash2 className="w-4 h-4" /></Button>
                   <ChevronRight className="w-5 h-5 text-gray-500 group-hover:text-blue-400" />
                 </div>
               </div>
